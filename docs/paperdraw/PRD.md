@@ -1,6 +1,6 @@
 # Drawnix PaperDraw 功能 — PRD 与技术方案 v2.1
 
-> **版本**: v2.1 | **日期**: 2026-03-11 | **状态**: 讨论中
+> **版本**: v2.2 | **日期**: 2026-03-11 | **状态**: 已确认
 > **目标**: 基于 PaperDraw 论文，为 Drawnix 实现"自然语言 → 论文级 Pipeline 流程图"
 
 ---
@@ -300,14 +300,15 @@ export function basicLayout(
 
 实现策略：ELK 层次化布局 --> 多目标迭代微调（尊重用户已固定的节点位置）
 
-#### 3.2.3 连接路由 - MultiRect-CenterLine 算法（论文 Section 4.3.2）
+#### 3.2.3 连接路由 - ELK 正交路由（MVP）
 
-比 A* 快 34 倍的高效路由算法：
-1. 空白区域分割为最大面积矩形集合
-2. 计算矩形间邻接图
-3. 搜索连接两元素的最短空白矩形路径
-4. 沿路径中心线生成折线坐标
-5. 基于能量值选择最优路由（共享起终点加分，交叉扣分）
+MVP 阶段使用 ELK 内置的成熟正交路由算法（`elk.edgeRouting: ORTHOGONAL`），后续迭代可考虑实现论文的 MultiRect-CenterLine 算法。
+
+ELK 正交路由优势：
+- 成熟稳定，社区广泛使用
+- 与 ELK 布局引擎天然集成
+- 自动处理连线不穿越节点的硬约束
+- 支持最小化弯折和交叉
 
 #### 3.2.4 关键数据结构
 
@@ -370,9 +371,82 @@ interface LayoutResult {
 - **前景/背景**：模块背景浅色填充，实体白底深边框
 - **高亮**：高权重实体用更饱和色调强调
 
-#### 3.3.3 MVP 模板库
+#### 3.3.3 风格模板定义（含完整样式属性）
 
-3 套预定义模板：`academic-default`（学术默认）、`minimal-bw`（极简黑白）、`tech-blue`（科技蓝）
+3 套预定义模板，每套包含以下完整样式属性：
+
+```typescript
+// paperdraw/visual/templates.ts
+
+interface StyleTemplate {
+  id: string;
+  name: string;
+
+  // 矩形节点样式
+  node: {
+    fill: string;              // 矩形填充颜色
+    stroke: string;            // 矩形边框颜色
+    strokeWidth: number;       // 矩形边框粗细
+    borderRadius: number;      // 圆角半径
+    shadow?: {                 // 阴影
+      color: string;
+      offsetX: number;
+      offsetY: number;
+      blur: number;
+    };
+  };
+
+  // 文本样式
+  text: {
+    color: string;             // 文本颜色
+    fontSize: number;          // 文本大小
+    fontWeight: number | string; // 文本粗细 (400/500/600/700)
+    fontFamily: string;        // 字体族
+    lineHeight: number;        // 行高
+  };
+
+  // 连接线样式
+  edge: {
+    stroke: string;            // 线条颜色
+    strokeWidth: number;       // 线条粗细
+    arrowType: 'stealth' | 'open' | 'filled';
+  };
+
+  // 注释线样式
+  annotativeEdge: {
+    stroke: string;
+    strokeWidth: number;
+    strokeDash: number[];      // 虚线模式 [4, 3]
+  };
+
+  // 模块分组样式
+  group: {
+    fill: string;              // 模块背景填充
+    stroke: string;            // 模块边框颜色
+    strokeWidth: number;
+    labelColor: string;        // 模块标签颜色
+    labelFontSize: number;
+    labelFontWeight: number | string;
+  };
+
+  // 模块配色序列（按模块顺序分配）
+  modulePalette: string[];
+
+  // 高权重实体强调
+  highlight: {
+    strokeWidthMultiplier: number;  // 边框加粗倍数
+    fillOpacity: number;            // 填充浅色模块色的透明度
+  };
+}
+```
+
+**3 套默认模板：**
+
+| 模板 | 特点 |
+|------|------|
+| `academic-default` | 白底深边框，Inter 字体，学术配色板，轻阴影 |
+| `minimal-bw` | 纯黑白，无阴影，细边框，高对比 |
+| `tech-blue` | 蓝色系渐变，深色边框，现代感阴影 |
 
 后续迭代引入论文的风格向量库（tree kernel 结构相似性检索）。
 
@@ -419,16 +493,20 @@ input -> analyzing -> qa -> draft_flowchart <-> optimizing <-> editing -> stylin
 ```
 packages/drawnix/src/paperdraw/
 +-- types/              # 类型定义
-+-- analyzer/           # 文本分析器（LLM + CRS）
++-- analyzer/
+|   +-- llm-client.ts   # OpenAI 兼容接口调用（前端直连）
+|   +-- crs-agent.ts    # CRS 对话代理（2-3轮，可跳过）
+|   +-- validator.ts    # 结果校验
 +-- layout/
 |   +-- basic-layout.ts # 基础布局（初版流程图用）
-|   +-- elk-layout.ts   # ELK 优化布局
+|   +-- elk-layout.ts   # ELK 优化布局 + 正交路由
 |   +-- optimizer.ts    # 多目标优化
-|   +-- routing.ts      # MultiRect-CenterLine
 |   +-- worker.ts       # Web Worker 封装
-+-- visual/             # 视觉优化器（模板 + 颜色引擎）
-+-- builder/            # PlaitElement 构建
-+-- components/         # UI 组件（弹窗/QA面板/语义视图/风格面板）
++-- visual/
+|   +-- templates.ts    # 3 套风格模板（含完整样式属性）
+|   +-- color-engine.ts # 模块配色引擎
++-- builder/            # PlaitElement 构建（严格矩形）
++-- components/         # UI 组件
 +-- pipeline.ts         # 编排层
 ```
 
@@ -449,17 +527,17 @@ packages/drawnix/src/paperdraw/
 
 ## 6. 已确认事项
 
+**流程与交互：**
 - Text Analyzer 完成后立即生成**初版流程图**（基础布局），无需等待布局优化器
 - 初版流程图使用**可编辑 Board**（非只读），用户可直接拖拽/编辑
 - 语义文本视图（实体列表/权重/模块）作为**可选 toggle**，用户按需查看
 - 布局优化器由**用户手动触发**（点击"优化布局"按钮）
 - 优化器需**尊重用户已做的编辑**（已固定节点位置不被覆盖）
 
-## 7. 待确认事项
-
-1. **LLM 选型**: 使用哪个 LLM API？（OpenAI / DeepSeek / Qwen / 自部署）
-2. **LLM 调用方式**: 纯前端直接调用 API？还是需后端代理？
-3. **CRS 轮次**: QA 交互默认几轮？用户可跳过吗？
-4. **风格模板数量**: MVP 需要几套模板？
-5. **节点形状**: 是否严格全部矩形？论文统计显示矩形最常见但也有椭圆/菱形等
-6. **MultiRect-CenterLine**: 完整实现还是先用 ELK 正交路由替代？
+**技术选型：**
+- **LLM 接口**：使用 OpenAI 兼容接口（统一 API 格式，可对接 OpenAI/DeepSeek/Qwen 等）
+- **调用方式**：前端直连 API（用户自行配置 API Key + Base URL）
+- **CRS QA**：默认 2-3 轮（模块分组 + 重要性排序），用户可选择**跳过**直接生成
+- **风格模板**：MVP 3 套（academic-default / minimal-bw / tech-blue），含完整样式属性（填充色、线条色/粗细、文本色/大小/粗细、阴影等）
+- **节点形状**：严格全部使用**矩形**
+- **布局算法**：使用 ELK 成熟算法（含正交路由），不自研 MultiRect-CenterLine
