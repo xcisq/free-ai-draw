@@ -13,6 +13,14 @@
   line-height: 1.5;
 }
 
+.paperdraw-env-hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  color: #69758a;
+}
+
 .paperdraw-error {
   color: #e53e3e;
   background: #fff5f5;
@@ -22,47 +30,29 @@
   font-size: 13px;
 }
 
-/* LLM 配置 */
-.paperdraw-config-toggle {
-  display: flex;
-  justify-content: flex-end;
+.paperdraw-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: 16px;
+  min-height: 560px;
 }
 
-.paperdraw-config {
-  background: var(--island-bg-color, #f7f7f7);
+.paperdraw-left-panel,
+.paperdraw-right-panel {
+  min-height: 0;
+}
+
+.paperdraw-left-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.paperdraw-right-panel {
   border: 1px solid var(--default-border-color, #e0e0e0);
-  border-radius: 8px;
+  border-radius: 10px;
+  background: #f8fbff;
   padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.paperdraw-config-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.paperdraw-config-field label {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--island-text-color, #555);
-}
-
-.paperdraw-config-field input {
-  padding: 6px 10px;
-  border: 1px solid var(--default-border-color, #d0d0d0);
-  border-radius: 6px;
-  font-size: 13px;
-  background: var(--island-bg-color, #fff);
-  color: var(--text-primary-color, #333);
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.paperdraw-config-field input:focus {
-  border-color: #4f7df9;
 }
 
 /* 文本输入区域 */
@@ -70,7 +60,6 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  flex: 1;
 }
 
 .paperdraw-textarea {
@@ -140,17 +129,6 @@
   background: var(--default-border-color, #e0e0e0);
 }
 
-.paperdraw-btn-text {
-  background: transparent;
-  color: #4f7df9;
-  padding: 4px 8px;
-  font-size: 12px;
-}
-
-.paperdraw-btn-text:hover {
-  text-decoration: underline;
-}
-
 /* CRS QA */
 .paperdraw-qa-section {
   display: flex;
@@ -207,37 +185,39 @@
   font-weight: 500;
 }
 
-/* 结果预览 */
-.paperdraw-draft-section {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
+.paperdraw-stream-section,
+.paperdraw-analysis-preview,
 .paperdraw-draft-placeholder {
   background: var(--island-bg-color, #f7f7f7);
   border: 1px solid var(--default-border-color, #e0e0e0);
   border-radius: 8px;
-  padding: 16px;
+  padding: 14px;
 }
 
+.paperdraw-stream-section h3,
+.paperdraw-analysis-preview h4,
 .paperdraw-draft-placeholder h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
+  margin: 0 0 10px;
+}
+
+.paperdraw-stream-output {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #364055;
+  max-height: 180px;
+  overflow: auto;
 }
 
 .paperdraw-draft-placeholder p {
-  margin: 0 0 12px;
+  margin: 0;
   font-size: 14px;
   color: var(--text-primary-color, #555);
 }
 
-.paperdraw-analysis-preview {
-  font-size: 13px;
-}
-
 .paperdraw-analysis-preview h4 {
-  margin: 12px 0 4px;
   font-size: 13px;
   font-weight: 600;
 }
@@ -251,18 +231,24 @@
   margin-bottom: 2px;
 }
 
-.entity-label {
-  font-weight: 500;
+.paperdraw-board-preview {
+  height: 100%;
+  min-height: 520px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
 }
 
-.entity-weight {
-  color: #888;
-  font-size: 12px;
+.paperdraw-board-preview .viewport-container {
+  height: 100%;
 }
 
-.paperdraw-hint {
-  font-size: 12px;
-  color: #888;
-  margin: 0;
-  font-style: italic;
+@media (max-width: 1100px) {
+  .paperdraw-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .paperdraw-right-panel {
+    min-height: 420px;
+  }
 }

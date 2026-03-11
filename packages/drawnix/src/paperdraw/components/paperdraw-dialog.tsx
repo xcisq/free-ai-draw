@@ -1,79 +1,73 @@
-/**
- * PaperDraw 主弹窗组件
- * 状态机管理：input → analyzing → qa → draft_flowchart
- */
-
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { useBoard } from '@plait-board/react-board';
+import {
+  getViewportOrigination,
+  PlaitBoard,
+  PlaitElement,
+  WritableClipboardOperationType,
+} from '@plait/core';
 import { useI18n } from '../../i18n';
 import { useDrawnix } from '../../hooks/use-drawnix';
 import {
-  PaperDrawPhase,
-  LLMConfig,
-  ExtractionResult,
   AnalysisResult,
-  CRSQuestion,
   CRSAnswer,
+  CRSQuestion,
+  ExtractionResult,
+  PaperDrawPhase,
 } from '../types/analyzer';
 import {
   extractFromText,
-  validateExtractionResult,
-  generateQuestions,
-  refineWithAnswers,
   generateDefaultAnalysis,
+  generateQuestions,
+  mergeLocalAnswers,
   validateAnalysisResult,
+  validateExtractionResult,
 } from '../analyzer';
-import { LLMConfigPanel } from './llm-config-panel';
+import { getPaperDrawEnvConfig } from '../config';
+import { buildFlowchartState } from '../builder/flowchart-builder';
 import { CRSQAPanel } from './crs-qa-panel';
+import { PaperDrawBoardPreview } from './paperdraw-board-preview';
 import './paperdraw-dialog.scss';
-
-const LLM_CONFIG_STORAGE_KEY = 'paperdraw-llm-config';
-
-function loadLLMConfig(): LLMConfig {
-  try {
-    const stored = localStorage.getItem(LLM_CONFIG_STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch {
-    // ignore
-  }
-  return {
-    apiKey: '',
-    baseUrl: 'https://api.openai.com/v1',
-    model: 'gpt-4o',
-  };
-}
-
-function saveLLMConfig(config: LLMConfig) {
-  localStorage.setItem(LLM_CONFIG_STORAGE_KEY, JSON.stringify(config));
-}
 
 const PaperDrawDialog = () => {
   const { t } = useI18n();
   const { appState, setAppState } = useDrawnix();
+  const mainBoard = useBoard();
+  const envConfig = useMemo(
+    () =>
+      getPaperDrawEnvConfig(
+        (import.meta as unknown as { env?: Record<string, string | undefined> })
+          .env
+      ),
+    []
+  );
 
   const [phase, setPhase] = useState<PaperDrawPhase>('input');
   const [text, setText] = useState('');
-  const [llmConfig, setLLMConfig] = useState<LLMConfig>(loadLLMConfig);
   const [error, setError] = useState<string | null>(null);
+  const [rawText, setRawText] = useState('');
 
-  // 分析结果
   const [extraction, setExtraction] = useState<ExtractionResult | null>(null);
   const [questions, setQuestions] = useState<CRSQuestion[]>([]);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [draftElements, setDraftElements] = useState<PlaitElement[]>([]);
 
-  // 配置面板是否展开
-  const [showConfig, setShowConfig] = useState(false);
+  const closeDialog = useCallback(() => {
+    setAppState({ ...appState, openDialogType: null });
+  }, [appState, setAppState]);
 
-  const handleConfigChange = useCallback((config: LLMConfig) => {
-    setLLMConfig(config);
-    saveLLMConfig(config);
+  const buildDraft = useCallback((analysis: AnalysisResult) => {
+    const draft = buildFlowchartState(analysis);
+    setAnalysisResult(analysis);
+    setDraftElements(draft.elements);
+    setPhase('draft_flowchart');
   }, []);
 
-  // 点击"分析"按钮
   const handleAnalyze = useCallback(async () => {
-    if (!llmConfig.apiKey) {
-      setError(t('dialog.paperdraw.error.noApiKey'));
+    if (!envConfig.isConfigured) {
+      setError(
+        `${t('dialog.paperdraw.error.noApiKey')} (.env.local / VITE_PAPERDRAW_API_KEY)`
+      );
       return;
     }
     if (!text.trim()) {
@@ -81,171 +75,217 @@ const PaperDrawDialog = () => {
     }
 
     setError(null);
+    setRawText('');
+    setExtraction(null);
+    setQuestions([]);
+    setAnalysisResult(null);
+    setDraftElements([]);
     setPhase('analyzing');
 
     try {
-      // Step 1: LLM 提取实体和关系
-      const rawResult = await extractFromText(text.trim(), llmConfig);
-      const validResult = validateExtractionResult(rawResult);
-      setExtraction(validResult);
+      const rawResult = await extractFromText(text.trim(), envConfig, {
+        onText: (value) => setRawText(value),
+      });
+      const normalizedExtraction = validateExtractionResult(rawResult);
+      setExtraction(normalizedExtraction);
 
-      // Step 2: 生成 CRS QA 问题
-      const qaQuestions = await generateQuestions(validResult, llmConfig);
-      setQuestions(qaQuestions);
+      const nextQuestions = generateQuestions(normalizedExtraction);
+      setQuestions(nextQuestions);
 
-      setPhase('qa');
+      if (nextQuestions.length) {
+        setPhase('qa');
+        return;
+      }
+
+      const nextAnalysis = validateAnalysisResult(
+        generateDefaultAnalysis(normalizedExtraction)
+      );
+      buildDraft(nextAnalysis);
     } catch (err: any) {
       console.error('PaperDraw analysis failed:', err);
       setError(`${t('dialog.paperdraw.error.analyzeFailed')}: ${err.message}`);
       setPhase('input');
     }
-  }, [text, llmConfig, t]);
+  }, [buildDraft, envConfig, t, text]);
 
-  // CRS QA 完成
   const handleQAComplete = useCallback(
-    async (answers: CRSAnswer[]) => {
-      if (!extraction) return;
-
-      setPhase('analyzing');
-      setError(null);
+    (answers: CRSAnswer[]) => {
+      if (!extraction) {
+        return;
+      }
 
       try {
-        const rawResult = await refineWithAnswers(extraction, answers, questions, llmConfig);
-        const validResult = validateAnalysisResult(rawResult);
-        setAnalysisResult(validResult);
-        setPhase('draft_flowchart');
+        const nextAnalysis = validateAnalysisResult(
+          mergeLocalAnswers(extraction, answers, questions)
+        );
+        buildDraft(nextAnalysis);
       } catch (err: any) {
-        console.error('PaperDraw refine failed:', err);
+        console.error('PaperDraw QA merge failed:', err);
         setError(`${t('dialog.paperdraw.error.analyzeFailed')}: ${err.message}`);
         setPhase('qa');
       }
     },
-    [extraction, questions, llmConfig, t]
+    [buildDraft, extraction, questions, t]
   );
 
-  // 跳过 QA
-  const handleSkipQA = useCallback(async () => {
-    if (!extraction) return;
-
-    setPhase('analyzing');
-    setError(null);
+  const handleSkipQA = useCallback(() => {
+    if (!extraction) {
+      return;
+    }
 
     try {
-      const rawResult = await generateDefaultAnalysis(extraction, llmConfig);
-      const validResult = validateAnalysisResult(rawResult);
-      setAnalysisResult(validResult);
-      setPhase('draft_flowchart');
+      const nextAnalysis = validateAnalysisResult(
+        generateDefaultAnalysis(extraction)
+      );
+      buildDraft(nextAnalysis);
     } catch (err: any) {
-      console.error('PaperDraw skip QA failed:', err);
+      console.error('PaperDraw default analysis failed:', err);
       setError(`${t('dialog.paperdraw.error.analyzeFailed')}: ${err.message}`);
       setPhase('qa');
     }
-  }, [extraction, llmConfig, t]);
+  }, [buildDraft, extraction, t]);
+
+  const insertToBoard = useCallback(() => {
+    if (!draftElements.length) {
+      return;
+    }
+
+    const boardContainerRect =
+      PlaitBoard.getBoardContainer(mainBoard).getBoundingClientRect();
+    const focusPoint = [
+      boardContainerRect.width / 4,
+      boardContainerRect.height / 2 - 20,
+    ];
+    const zoom = mainBoard.viewport.zoom;
+    const origination = getViewportOrigination(mainBoard);
+    const focusX = origination![0] + focusPoint[0] / zoom;
+    const focusY = origination![1] + focusPoint[1] / zoom;
+
+    mainBoard.insertFragment(
+      {
+        elements: JSON.parse(JSON.stringify(draftElements)),
+      },
+      [focusX, focusY],
+      WritableClipboardOperationType.paste
+    );
+
+    closeDialog();
+  }, [closeDialog, draftElements, mainBoard]);
 
   return (
     <div className="paperdraw-dialog">
       <div className="paperdraw-dialog-desc">{t('dialog.paperdraw.description')}</div>
+      <div className="paperdraw-env-hint">
+        <span>Model: {envConfig.model}</span>
+        <span>Base URL: {envConfig.baseUrl}</span>
+      </div>
 
       {error && <div className="paperdraw-error">{error}</div>}
 
-      {/* LLM 配置 */}
-      <div className="paperdraw-config-toggle">
-        <button
-          className="paperdraw-btn paperdraw-btn-text"
-          onClick={() => setShowConfig(!showConfig)}
-        >
-          {t('dialog.paperdraw.configTitle')} {showConfig ? '▲' : '▼'}
-        </button>
-      </div>
-      {showConfig && (
-        <LLMConfigPanel config={llmConfig} onChange={handleConfigChange} />
-      )}
-
-      {/* 阶段: input */}
-      {(phase === 'input' || phase === 'analyzing') && (
-        <div className="paperdraw-input-section">
-          <textarea
-            className="paperdraw-textarea"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={t('dialog.paperdraw.placeholder')}
-            disabled={phase === 'analyzing'}
-            rows={10}
-          />
-          <div className="paperdraw-actions">
-            <button
-              className="paperdraw-btn paperdraw-btn-primary"
-              onClick={handleAnalyze}
-              disabled={phase === 'analyzing' || !text.trim()}
-            >
-              {phase === 'analyzing'
-                ? t('dialog.paperdraw.analyzing')
-                : t('dialog.paperdraw.analyze')}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 阶段: qa */}
-      {phase === 'qa' && questions.length > 0 && (
-        <CRSQAPanel
-          questions={questions}
-          onComplete={handleQAComplete}
-          onSkip={handleSkipQA}
-        />
-      )}
-
-      {/* 阶段: draft_flowchart - 占位，后续阶段实现基础布局 */}
-      {phase === 'draft_flowchart' && analysisResult && (
-        <div className="paperdraw-draft-section">
-          <div className="paperdraw-draft-placeholder">
-            <h3>✅ 分析完成</h3>
-            <p>
-              提取到 <strong>{analysisResult.entities.length}</strong> 个实体，
-              <strong>{analysisResult.relations.length}</strong> 个关系，
-              <strong>{analysisResult.modules.length}</strong> 个模块
-            </p>
-            <div className="paperdraw-analysis-preview">
-              <h4>实体列表:</h4>
-              <ul>
-                {analysisResult.entities.map((e) => (
-                  <li key={e.id}>
-                    <span className="entity-label">{e.label}</span>
-                    <span className="entity-weight">
-                      {' '}
-                      (权重: {(analysisResult.weights[e.id] ?? 0.5).toFixed(2)})
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              {analysisResult.modules.length > 0 && (
-                <>
-                  <h4>模块分组:</h4>
-                  <ul>
-                    {analysisResult.modules.map((m) => (
-                      <li key={m.id}>
-                        <strong>{m.moduleLabel}</strong>:{' '}
-                        {m.entityIds
-                          .map(
-                            (eid) =>
-                              analysisResult.entities.find((e) => e.id === eid)
-                                ?.label ?? eid
-                          )
-                          .join(', ')}
-                      </li>
-                    ))}
-                  </ul>
-                </>
+      <div className="paperdraw-layout">
+        <div className="paperdraw-left-panel">
+          <div className="paperdraw-input-section">
+            <textarea
+              className="paperdraw-textarea"
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              placeholder={t('dialog.paperdraw.placeholder')}
+              disabled={phase === 'analyzing'}
+              rows={10}
+            />
+            <div className="paperdraw-actions">
+              <button
+                className="paperdraw-btn paperdraw-btn-primary"
+                onClick={handleAnalyze}
+                disabled={phase === 'analyzing' || !text.trim()}
+              >
+                {phase === 'analyzing'
+                  ? t('dialog.paperdraw.analyzing')
+                  : t('dialog.paperdraw.analyze')}
+              </button>
+              {draftElements.length > 0 && (
+                <button
+                  className="paperdraw-btn paperdraw-btn-secondary"
+                  onClick={insertToBoard}
+                >
+                  {t('dialog.paperdraw.insert')}
+                </button>
               )}
             </div>
           </div>
-          <div className="paperdraw-actions">
-            <p className="paperdraw-hint">
-              流程图渲染将在布局模块实现后可用
-            </p>
-          </div>
+
+          {(phase === 'analyzing' || rawText) && (
+            <div className="paperdraw-stream-section">
+              <h3>实时模型输出</h3>
+              <pre className="paperdraw-stream-output">
+                {rawText || '模型正在返回内容...'}
+              </pre>
+            </div>
+          )}
+
+          {phase === 'qa' && questions.length > 0 && (
+            <CRSQAPanel
+              questions={questions}
+              onComplete={handleQAComplete}
+              onSkip={handleSkipQA}
+            />
+          )}
+
+          {(extraction || analysisResult) && (
+            <div className="paperdraw-analysis-preview">
+              <h4>结构化结果</h4>
+              <p>
+                实体：
+                <strong>
+                  {' '}
+                  {(analysisResult ?? extraction)?.entities.length ?? 0}
+                </strong>
+                ，关系：
+                <strong>
+                  {' '}
+                  {(analysisResult ?? extraction)?.relations.length ?? 0}
+                </strong>
+              </p>
+              <ul>
+                {(analysisResult ?? extraction)?.entities.map((entity) => (
+                  <li key={entity.id}>
+                    {entity.label}
+                    {typeof entity.confidence === 'number'
+                      ? ` (${entity.confidence.toFixed(2)})`
+                      : ''}
+                  </li>
+                ))}
+              </ul>
+              {(analysisResult?.warnings ?? extraction?.warnings)?.length ? (
+                <>
+                  <h4>提示</h4>
+                  <ul>
+                    {(analysisResult?.warnings ?? extraction?.warnings)?.map(
+                      (warning) => (
+                        <li key={warning}>{warning}</li>
+                      )
+                    )}
+                  </ul>
+                </>
+              ) : null}
+            </div>
+          )}
         </div>
-      )}
+
+        <div className="paperdraw-right-panel">
+          {draftElements.length > 0 ? (
+            <PaperDrawBoardPreview
+              value={draftElements}
+              onChange={setDraftElements}
+            />
+          ) : (
+            <div className="paperdraw-draft-placeholder">
+              <h3>流程图预览</h3>
+              <p>完成文本分析后，这里会显示可编辑的真实流程图。</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

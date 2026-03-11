@@ -1,156 +1,213 @@
 /**
- * CRS (Conversational Recommendation System) 对话代理
- * 通过多轮 QA 确认模块分组和重要性权重
+ * 本地 QA 与分析结果合并
+ * 默认不再调用第二次 LLM，直接基于 ExtractionResult 生成问题和最终分析
  */
 
 import {
-  LLMConfig,
-  ExtractionResult,
   AnalysisResult,
-  CRSQuestion,
   CRSAnswer,
+  CRSQuestion,
+  Entity,
+  ExtractionResult,
+  LLMConfig,
+  ModularRelation,
+  Relation,
 } from '../types/analyzer';
-import { callLLM } from './llm-client';
 
-const GENERATE_QUESTIONS_PROMPT = `你是一个流程图生成助手的对话代理。基于已提取的实体和关系，生成 2-3 个问题来帮助用户确认：
-1. 模块分组：哪些实体应该归入同一个模块/阶段
-2. 重要性排序：哪些实体在流程中更重要（权重更高）
+const DEFAULT_WEIGHT = 0.5;
+const IMPORTANT_WEIGHT = 0.9;
+const ROOT_WEIGHT = 0.65;
 
-输出 JSON 格式：
-{
-  "questions": [
-    {
-      "id": "q1",
-      "type": "module_grouping",
-      "question": "问题文本",
-      "options": ["实体标签1", "实体标签2", ...],
-      "multiSelect": true
-    },
-    {
-      "id": "q2",
-      "type": "importance_ranking",
-      "question": "问题文本",
-      "options": ["实体标签1", "实体标签2", ...],
-      "multiSelect": false
+const getEntityByLabel = (entities: Entity[], label: string) => {
+  return entities.find((entity) => entity.label === label);
+};
+
+const getSequentialStats = (relations: Relation[]) => {
+  const indegree = new Map<string, number>();
+  const outdegree = new Map<string, number>();
+
+  for (const relation of relations) {
+    if (relation.type !== 'sequential') {
+      continue;
     }
-  ]
+    indegree.set(relation.target, (indegree.get(relation.target) || 0) + 1);
+    outdegree.set(relation.source, (outdegree.get(relation.source) || 0) + 1);
+  }
+
+  return { indegree, outdegree };
+};
+
+const getModuleQuestions = (extraction: ExtractionResult): CRSQuestion[] => {
+  return extraction.relations
+    .filter((relation): relation is ModularRelation => relation.type === 'modular')
+    .slice(0, 2)
+    .map((relation, index) => ({
+      id: `q-module-${index + 1}`,
+      type: 'module_grouping' as const,
+      question: `以下实体是否属于模块「${relation.moduleLabel}」？`,
+      options: relation.entityIds
+        .map((entityId) => extraction.entities.find((entity) => entity.id === entityId)?.label)
+        .filter((label): label is string => Boolean(label)),
+      multiSelect: true,
+      relatedEntityIds: relation.entityIds,
+      moduleLabel: relation.moduleLabel,
+    }))
+    .filter((question) => question.options.length > 1);
+};
+
+const getImportanceQuestion = (extraction: ExtractionResult): CRSQuestion[] => {
+  const { indegree, outdegree } = getSequentialStats(extraction.relations);
+
+  const candidates = extraction.entities
+    .filter((entity) => (outdegree.get(entity.id) || 0) > 0 || (indegree.get(entity.id) || 0) === 0)
+    .sort((left, right) => {
+      const rightScore = (outdegree.get(right.id) || 0) - (indegree.get(right.id) || 0);
+      const leftScore = (outdegree.get(left.id) || 0) - (indegree.get(left.id) || 0);
+      return rightScore - leftScore;
+    })
+    .slice(0, 4);
+
+  if (candidates.length < 2) {
+    return [];
+  }
+
+  return [
+    {
+      id: 'q-importance-1',
+      type: 'importance_ranking',
+      question: '以下实体中，哪个对整体流程最关键？',
+      options: candidates.map((entity) => entity.label),
+      multiSelect: false,
+      relatedEntityIds: candidates.map((entity) => entity.id),
+    },
+  ];
+};
+
+export function generateQuestions(extraction: ExtractionResult, _config?: LLMConfig): CRSQuestion[] {
+  return [...getModuleQuestions(extraction), ...getImportanceQuestion(extraction)];
 }
 
-注意：
-- 模块分组问题：options 列出所有可能属于同一模块的实体标签，multiSelect 为 true
-- 重要性排序问题：options 列出需要比较的实体标签，multiSelect 为 false（用户选最重要的）
-- 问题用与实体标签相同的语言
-- 每个问题最多列出 6 个 options`;
+const buildDefaultWeights = (entities: Entity[], relations: Relation[]) => {
+  const { indegree, outdegree } = getSequentialStats(relations);
+  return entities.reduce<Record<string, number>>((accumulator, entity) => {
+    const isRoot = (indegree.get(entity.id) || 0) === 0;
+    accumulator[entity.id] = isRoot || (outdegree.get(entity.id) || 0) > 0
+      ? ROOT_WEIGHT
+      : DEFAULT_WEIGHT;
+    return accumulator;
+  }, {});
+};
 
-const REFINE_PROMPT = `你是一个流程图生成助手。基于已提取的实体和关系，以及用户对问题的回答，生成最终的分析结果。
-
-你需要输出一个 JSON，包含：
-1. entities: 实体列表（保持原始提取不变）
-2. relations: 关系列表（可能根据用户回答调整模块分组）
-3. weights: 每个实体的重要性权重（0-1 范围，基于用户回答调整）
-4. modules: 模块分组列表（基于用户回答确认的分组）
-
-输出格式：
-{
-  "entities": [...],
-  "relations": [...],
-  "weights": {"e1": 0.8, "e2": 0.6, ...},
-  "modules": [
-    {"id": "m1", "type": "modular", "moduleLabel": "模块名", "entityIds": ["e1", "e2"]}
-  ]
-}
-
-注意：
-- 所有实体都必须有 weight 值
-- 如果用户选择了某个实体更重要，给它更高的权重（0.7-1.0）
-- 未被选中的实体给中等权重（0.4-0.6）
-- 用户确认的模块分组应体现在 modules 和 relations 中
-- 确保 modules 中的 entityIds 引用的是有效的实体 id`;
-
-/**
- * 基于 LLM 提取结果生成 QA 问题
- */
-export async function generateQuestions(
+const buildModules = (
   extraction: ExtractionResult,
-  config: LLMConfig
-): Promise<CRSQuestion[]> {
-  const entityLabels = extraction.entities.map((e) => e.label);
-  const relationsSummary = extraction.relations.map((r) => {
-    if (r.type === 'modular') {
-      return `模块 "${r.moduleLabel}" 包含 [${r.entityIds.join(', ')}]`;
+  answers: CRSAnswer[],
+  questions: CRSQuestion[]
+): ModularRelation[] => {
+  const defaultModules = extraction.relations
+    .filter((relation): relation is ModularRelation => relation.type === 'modular')
+    .map((relation, index) => ({
+      id: `m${index + 1}`,
+      type: 'modular' as const,
+      moduleLabel: relation.moduleLabel,
+      entityIds: [...relation.entityIds],
+      confidence: relation.confidence,
+    }));
+
+  const nextModules = defaultModules.map((module) => ({ ...module }));
+
+  for (const question of questions) {
+    if (question.type !== 'module_grouping' || !question.moduleLabel) {
+      continue;
     }
-    return `${r.source} --${r.type}--> ${r.target}`;
-  });
+    const answer = answers.find((item) => item.questionId === question.id);
+    if (!answer) {
+      continue;
+    }
+    const entityIds = answer.selectedOptions
+      .map((label) => getEntityByLabel(extraction.entities, label)?.id)
+      .filter((entityId): entityId is string => Boolean(entityId));
 
-  const content = await callLLM(config, [
-    { role: 'system', content: GENERATE_QUESTIONS_PROMPT },
-    {
-      role: 'user',
-      content: `已提取的实体标签: ${JSON.stringify(entityLabels)}
-已识别的关系: ${JSON.stringify(relationsSummary)}
+    const existing = nextModules.find((module) => module.moduleLabel === question.moduleLabel);
+    if (!existing) {
+      if (entityIds.length > 1) {
+        nextModules.push({
+          id: `m${nextModules.length + 1}`,
+          type: 'modular',
+          moduleLabel: question.moduleLabel,
+          entityIds,
+          confidence: DEFAULT_WEIGHT,
+        });
+      }
+      continue;
+    }
 
-请生成问题帮助用户确认分组和重要性。`,
-    },
-  ]);
+    if (entityIds.length > 1) {
+      existing.entityIds = Array.from(new Set(entityIds));
+    } else {
+      existing.entityIds = [];
+    }
+  }
 
-  const parsed = JSON.parse(content);
-  return parsed.questions as CRSQuestion[];
-}
+  return nextModules.filter((module) => module.entityIds.length > 1);
+};
 
-/**
- * 根据用户回答让 LLM 生成最终分析结果
- */
-export async function refineWithAnswers(
+const mergeModularRelations = (relations: Relation[], modules: ModularRelation[]): Relation[] => {
+  const nonModularRelations = relations.filter((relation) => relation.type !== 'modular');
+  return [...nonModularRelations, ...modules.map((module, index) => ({ ...module, id: `r-mod-${index + 1}` }))];
+};
+
+export function refineWithAnswers(
   extraction: ExtractionResult,
   answers: CRSAnswer[],
   questions: CRSQuestion[],
-  config: LLMConfig
-): Promise<AnalysisResult> {
-  const qaHistory = questions.map((q) => {
-    const answer = answers.find((a) => a.questionId === q.id);
-    return {
-      question: q.question,
-      type: q.type,
-      selectedOptions: answer?.selectedOptions ?? [],
-    };
-  });
+  _config?: LLMConfig
+): AnalysisResult {
+  const weights = buildDefaultWeights(extraction.entities, extraction.relations);
+  const modules = buildModules(extraction, answers, questions);
 
-  const content = await callLLM(config, [
-    { role: 'system', content: REFINE_PROMPT },
-    {
-      role: 'user',
-      content: `原始提取结果:
-${JSON.stringify(extraction, null, 2)}
+  for (const question of questions) {
+    if (question.type !== 'importance_ranking') {
+      continue;
+    }
+    const answer = answers.find((item) => item.questionId === question.id);
+    const selectedLabel = answer?.selectedOptions[0];
+    if (!selectedLabel) {
+      continue;
+    }
+    const selectedEntity = getEntityByLabel(extraction.entities, selectedLabel);
+    if (!selectedEntity) {
+      continue;
+    }
+    weights[selectedEntity.id] = IMPORTANT_WEIGHT;
+  }
 
-用户的问答记录:
-${JSON.stringify(qaHistory, null, 2)}
-
-请基于用户的回答生成最终分析结果。`,
-    },
-  ]);
-
-  const parsed = JSON.parse(content);
-  return parsed as AnalysisResult;
+  return {
+    entities: extraction.entities,
+    relations: mergeModularRelations(extraction.relations, modules),
+    weights,
+    modules,
+    warnings: extraction.warnings,
+  };
 }
 
-/**
- * 跳过 QA 环节，使用 LLM 直接生成默认的 AnalysisResult
- */
-export async function generateDefaultAnalysis(
+export const mergeLocalAnswers = refineWithAnswers;
+
+export function generateDefaultAnalysis(
   extraction: ExtractionResult,
-  config: LLMConfig
-): Promise<AnalysisResult> {
-  const content = await callLLM(config, [
-    { role: 'system', content: REFINE_PROMPT },
-    {
-      role: 'user',
-      content: `原始提取结果:
-${JSON.stringify(extraction, null, 2)}
+  _config?: LLMConfig
+): AnalysisResult {
+  const modules = extraction.relations.filter(
+    (relation): relation is ModularRelation => relation.type === 'modular'
+  );
 
-用户选择跳过问答环节。请根据文本内容自动推断合理的模块分组和重要性权重，生成最终分析结果。`,
-    },
-  ]);
-
-  const parsed = JSON.parse(content);
-  return parsed as AnalysisResult;
+  return {
+    entities: extraction.entities,
+    relations: extraction.relations,
+    weights: buildDefaultWeights(extraction.entities, extraction.relations),
+    modules: modules.map((module, index) => ({
+      ...module,
+      id: `m${index + 1}`,
+    })),
+    warnings: extraction.warnings,
+  };
 }

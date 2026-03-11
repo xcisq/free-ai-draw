@@ -1,6 +1,6 @@
-# Drawnix PaperDraw 功能 — PRD 与技术方案 v2.1
+# Drawnix PaperDraw 功能 — PRD 与技术方案 v2.3
 
-> **版本**: v2.2 | **日期**: 2026-03-11 | **状态**: 已确认
+> **版本**: v2.3 | **日期**: 2026-03-11 | **状态**: 本地开发中
 > **目标**: 基于 PaperDraw 论文，为 Drawnix 实现"自然语言 → 论文级 Pipeline 流程图"
 
 ---
@@ -10,22 +10,33 @@
 ### 1.1 核心理念（对齐论文）
 
 PaperDraw 论文提出三阶段系统：
-1. **Text Analyzer** — LLM 提取实体/关系 + CRS 对话代理迭代确认用户意图
+1. **Text Analyzer** — LLM 流式抽取流程骨架 + 本地 QA 校对 + 本地合并分析结果
 2. **Controllable Layout Optimizer** — 多目标优化元素排列 + 连接路由算法
 3. **Visual Elements Optimizer** — 风格向量库 + 结构相似性推荐 + 自适应风格应用
 
 **关键设计决策：**
-- 文本解析器以 **LLM 为核心**
-- 新增 **用户 QA 交互环节**（CRS 模式）
+- 文本解析器仍以 **LLM 为核心**，但默认走 **单次 LLM 调用快速路径**
+- 当前以 **本地前端直连 + XHR 流式** 为主，不使用 `fetch` 请求模型供应商
+- 新增 **实时反馈区**：先展示模型流式输出，再增量展示结构化候选结果
+- QA 默认由 **本地规则生成 + 本地合并** 完成；仅在结构冲突或用户主动触发时启用 **AI Repair** 第二次调用
 - 节点统一为 **矩形 + 文本**
 - 关系分三类：**sequential（顺序连接）**、**modular（模块包含）**、**annotative（注释）**
-- Text Analyzer 完成后 **立即生成初版流程图**（基础布局），布局优化器由用户 **手动触发**
+- Text Analyzer 完成后 **先完成语义确认，再立即生成初版流程图**（基础布局），布局优化器由用户 **手动触发**
 
 ### 1.2 用户画像
 
 - 学术研究者：从论文方法描述自动生成 pipeline 图
 - 技术文档作者：从系统描述生成方法流程图
 - 非技术用户：零语法门槛，自然语言输入
+
+### 1.3 当前实现现状（2026-03）
+
+- **已完成**：文本输入、LLM 配置、实体/关系抽取、QA 问题展示、分析结果预览
+- **未完成**：初版流程图落板、插入画布、布局优化联动、PaperDraw 专项测试
+- **当前范围**：仅面向本地开发，不考虑线上部署、线上密钥管理和生产可用性
+- **性能痛点**：当前默认路径需要 3 次串行 LLM 调用，跳过 QA 也仍会再次调模型
+- **准确性痛点**：QA 问题缺少原文上下文，本地校验规则偏弱，文案与真实可用能力存在偏差
+- **本次改造目标**：改为“流式单次调用为主 + 本地 QA/合并 + 可选 AI Repair”的快速工作流
 
 ---
 
@@ -40,24 +51,25 @@ PaperDraw 论文提出三阶段系统：
 | | (1) 文本分析视图        |  | (3) 流程图编辑视图            | |
 | |  - 文本输入区           |  |  - 初版流程图（可编辑 Board） | |
 | |  - "分析"按钮           |  |  - 可直接编辑节点/连线       | |
-| |  - QA 问答区域          |  |  - "优化布局"按钮（手动）    | |
-| |    (CRS 多轮对话)       |  |  - 布局交互(选择/缩放/路由)  | |
+| |  - 实时模型输出区       |  |  - "优化布局"按钮（手动）    | |
+| |  - 本地 QA 校对区       |  |  - 布局交互(选择/缩放/路由)  | |
 | +------------------------+  +------------------------------+ |
 | | (2) 语义可视化视图       |  | (4) 风格推荐视图             | |
 | |  (可选 toggle 展示)     |  |  - 推荐风格列表              | |
-| |  - 实体列表+权重        |  |  - NL 风格指令输入           | |
-| |  - 模块分组关系         |  |  - "插入画布"按钮            | |
-| |  - 连接关系图           |  |                              | |
+| |  - 实体列表+置信度      |  |  - NL 风格指令输入           | |
+| |  - 模块分组候选         |  |  - "插入画布"按钮            | |
+| |  - 关系预览/警告        |  |                              | |
 | +------------------------+  +------------------------------+ |
 +-------------------------------------------------------------+
 ```
 
 ### 2.1 核心设计决策
 
-Text Analyzer 完成后，系统已经拥有完整的流程图逻辑骨架（实体 + 关系 + 模块分组 + 权重），此时立即用基础布局渲染出**初版流程图**，用户可以直接看到、直接编辑。布局优化器是在这个基础上做**增量优化**，由用户手动触发。
+Text Analyzer 不再等所有 AI 步骤全部结束才反馈，而是先把模型流式输出和结构化候选结果展示给用户，再通过本地 QA 与本地合并尽快生成**初版流程图**。只有在本地校验发现结构冲突、或用户主动点击“AI 修复”时，才触发第二次模型调用。布局优化器仍在初版流程图基础上做**增量优化**，由用户手动触发。
 
-- **初版流程图**：Text Analyzer --> 基础自动布局（简单左右/上下排列） --> 生成 PlaitElement[] --> 可编辑 Board
-- **语义视图可选**：用户可 toggle 切换查看文本列表形式（实体、权重、模块分组）
+- **快速路径**：文本输入 --> 流式 LLM 抽取 --> 本地校验/后处理 --> 本地 QA --> 本地合并 --> 初版流程图
+- **实时反馈**：先展示模型流式输出，再增量展示实体、关系、模块候选
+- **AI 修复可选**：仅在结构冲突、信息缺失或用户主动触发时执行第二次模型调用
 - **用户可编辑**：初版流程图就是标准 Plait 元素，用户可拖拽节点、修改文字、删除/新增连线
 - **手动优化**：用户点击"优化布局"按钮触发 Layout Optimizer，在当前图的基础上优化
 
@@ -66,24 +78,29 @@ Text Analyzer 完成后，系统已经拥有完整的流程图逻辑骨架（实
 ```mermaid
 flowchart TB
     A[用户输入文本] --> B["点击'分析'"]
-    B --> C[LLM 提取实体与关系]
-    C --> D[CRS 对话: 模块分组 QA]
-    D --> E[CRS 对话: 重要性权重 QA]
-    E --> F["生成初版流程图（基础布局）"]
-    F --> G["(3) 展示初版流程图（可编辑 Board）"]
-    G --> H{"用户操作"}
-    H -->|"toggle 查看"| I["(2) 语义可视化视图（文本列表）"]
-    I --> G
-    H -->|直接编辑| J[拖拽/改文字/删除/新增节点连线]
-    J --> G
-    H -->|"点击'优化布局'"| K[可控布局优化器]
-    K --> L[元素排列优化]
-    L --> M[连接路由优化]
-    M --> G
-    H -->|选择风格| N["(4) 风格推荐"]
-    N --> O[应用风格]
-    O --> G
-    H -->|确认| P["插入主画布 board.insertFragment"]
+    B --> C[前端 XHR 发起流式 LLM 调用]
+    C --> D[实时展示模型输出]
+    D --> E[解析 ExtractionResult 候选]
+    E --> F[本地校验 去重 补全]
+    F --> G[本地 QA: 模块分组 / 重要性 / 低置信项]
+    G --> H[本地合并 AnalysisResult]
+    F -->|结构冲突或用户触发| R[AI Repair 可选第二次调用]
+    R --> H
+    H --> I["生成初版流程图（基础布局）"]
+    I --> J["(3) 展示初版流程图（可编辑 Board）"]
+    J --> K{"用户操作"}
+    K -->|"toggle 查看"| L["(2) 语义可视化视图（文本列表）"]
+    L --> J
+    K -->|直接编辑| M[拖拽/改文字/删除/新增节点连线]
+    M --> J
+    K -->|"点击'优化布局'"| N[可控布局优化器]
+    N --> O[元素排列优化]
+    O --> P[连接路由优化]
+    P --> J
+    K -->|选择风格| Q["(4) 风格推荐"]
+    Q --> S[应用风格]
+    S --> J
+    K -->|确认| T["插入主画布 board.insertFragment"]
 ```
 
 ---
@@ -95,10 +112,12 @@ flowchart TB
 #### 3.1.1 核心功能
 
 1. **实体提取**：从文本中识别关键实体名词（步骤/模块/数据/方法）
-2. **关系提取**：识别实体间的深层语义关系
-3. **CRS 对话代理**：通过多轮 QA 确认模块分组和重要性权重
-4. **生成初版流程图**：基于 AnalysisResult 用基础布局立即渲染可编辑的流程图
-5. **语义可视化**（可选 toggle）：以文本列表形式展示实体、权重、模块分组供对照
+2. **流式实时反馈**：模型输出过程中即时展示原始流与结构化候选结果
+3. **关系提取**：识别实体间的深层语义关系，并附带 evidence / confidence
+4. **本地 QA 校对**：针对低置信项、模块分组和重要性生成本地问题并收集确认
+5. **本地合并 / AI Repair**：默认本地生成 AnalysisResult，仅在必要时触发二次 AI 修复
+6. **生成初版流程图**：基于 AnalysisResult 用基础布局立即渲染可编辑的流程图
+7. **语义可视化**（可选 toggle）：以文本列表形式展示实体、权重、模块分组和警告信息供对照
 
 #### 3.1.2 三种关系类型（对齐论文 Section 3.2.3）
 
@@ -118,6 +137,7 @@ interface Entity {
   id: string;
   label: string;         // 实体名称（显示在矩形中）
   evidence?: string;      // 原文溯源片段
+  confidence?: number;    // 置信度 0-1
 }
 
 /** 顺序关系 - 箭头连接 */
@@ -127,6 +147,8 @@ interface SequentialRelation {
   source: string;         // 源实体 id
   target: string;         // 目标实体 id
   label?: string;         // 连接线上的文字
+  evidence?: string;
+  confidence?: number;
 }
 
 /** 模块关系 - 边界框包含 */
@@ -135,6 +157,7 @@ interface ModularRelation {
   type: 'modular';
   moduleLabel: string;    // 模块名称
   entityIds: string[];    // 包含的实体 id 列表
+  confidence?: number;
 }
 
 /** 注释关系 - 虚线连接 */
@@ -144,6 +167,8 @@ interface AnnotativeRelation {
   source: string;
   target: string;
   label?: string;
+  evidence?: string;
+  confidence?: number;
 }
 
 type Relation = SequentialRelation | ModularRelation | AnnotativeRelation;
@@ -152,9 +177,10 @@ type Relation = SequentialRelation | ModularRelation | AnnotativeRelation;
 interface ExtractionResult {
   entities: Entity[];
   relations: Relation[];
+  warnings?: string[];     // 去重/补全/冲突检测后的提示
 }
 
-/** 经 CRS 确认后的完整分析结果 */
+/** 经本地 QA / AI Repair 确认后的完整分析结果 */
 interface AnalysisResult {
   entities: Entity[];
   relations: Relation[];
@@ -163,83 +189,69 @@ interface AnalysisResult {
 }
 ```
 
-#### 3.1.4 LLM Prompt 设计
+#### 3.1.4 LLM 调用策略（流式快速路径）
 
 ```typescript
 // paperdraw/analyzer/llm-client.ts
 
-const EXTRACTION_SYSTEM_PROMPT = `
-你是一个学术论文流程图生成助手。给定一段描述研究方法/流程的文本，你需要：
-1. 提取所有关键实体（步骤、模块、数据、方法名等）
-2. 识别实体间的关系：
-   - sequential: 顺序/依赖关系（A 之后是 B）
-   - modular: 模块包含关系（A 和 B 属于同一阶段/模块）
-   - annotative: 注释/补充关系
-3. 以 JSON 格式输出
-
-输出格式：
-{
-  "entities": [{"id": "e1", "label": "实体名称", "evidence": "原文片段"}],
-  "relations": [
-    {"id": "r1", "type": "sequential", "source": "e1", "target": "e2"},
-    {"id": "r2", "type": "modular", "moduleLabel": "模块名", "entityIds": ["e1","e2"]},
-    {"id": "r3", "type": "annotative", "source": "e3", "target": "e4"}
-  ]
+interface LLMTransport {
+  streamChat(
+    config: LLMConfig,
+    messages: ChatMessage[],
+    handlers: {
+      onDelta: (chunk: string) => void;
+      onFinal: (content: string) => void;
+      onError: (error: Error) => void;
+    }
+  ): { abort: () => void };
 }
-`;
 ```
 
-#### 3.1.5 CRS 对话代理（核心交互）
+调用策略：
 
-论文 Section 4.2.2 的 Conversational Agent，两类问题迭代确认：
+- **本地开发阶段采用前端直连**；使用 XHR 对接 OpenAI-compatible 接口，不使用 `fetch`
+- **默认开启流式返回**，前端先展示 `onDelta` 的原始内容，提升可感知速度
+- 模型最终必须输出可解析的 `final_json`，其中包含 `entities / relations / evidence / confidence`
+- 前端在 `onFinal` 后执行本地校验、去重、补边、孤点检测和低置信项标注
+- 当本地规则无法修复冲突时，再进入可选的 **AI Repair** 第二次调用
 
-**问题类型 1 - 模块分组：**
-```
-Q: "以下哪些实体应该属于同一个模块？"
-   [文本解析] [LLM推理] [实体提取] [关系识别]
-   用户选择 -> 确认分组
-```
+#### 3.1.5 本地 QA 校对器（默认） + AI Repair（可选）
 
-**问题类型 2 - 重要性权重：**
-```
-Q: "以下实体中，哪个对整体流程贡献更大？"
-   [文本解析器] [布局优化器]
-   用户选择 -> 调整权重排序
-```
+默认不再让 LLM 生成多轮 QA 问题，而是由本地规则针对“需要用户确认的点”生成最少量的问题：
+
+- **模块分组确认**：当多个实体存在模块候选冲突时，询问是否归为同组
+- **重要性确认**：当多个主干节点竞争核心地位时，询问哪个更重要
+- **低置信项确认**：当实体/关系置信度低于阈值时，提示用户保留、合并或删除
 
 ```typescript
 // paperdraw/analyzer/crs-agent.ts
 
-interface CRSQuestion {
-  id: string;
-  type: 'module_grouping' | 'importance_ranking';
-  question: string;
-  options: string[];        // 可选实体标签
-  multiSelect: boolean;     // 模块分组允许多选
-}
-
-interface CRSAnswer {
-  questionId: string;
-  selectedOptions: string[];
-}
-
-/** 基于 LLM 和提取结果生成 QA 问题 */
-async function generateQuestions(
+function generateLocalQuestions(
   extraction: ExtractionResult,
-  llmConfig: LLMConfig
-): Promise<CRSQuestion[]>;
+): CRSQuestion[];
 
-/** 根据用户回答让 LLM 更新分析结果 */
-async function refineWithAnswers(
+function mergeLocalAnswers(
+  extraction: ExtractionResult,
+  answers: CRSAnswer[]
+): AnalysisResult;
+
+async function repairWithAI(
   extraction: ExtractionResult,
   answers: CRSAnswer[],
+  issues: string[],
   llmConfig: LLMConfig
 ): Promise<AnalysisResult>;
 ```
 
+关键规则：
+
+- `skip QA` 表示接受默认值，直接本地合并，不再额外发起 LLM 请求
+- 本地合并负责生成 `weights`、整理 `modules`、同步 `relations`
+- 仅当存在结构冲突、缺失关键边或用户主动点击“AI 修复”时，才执行 `repairWithAI`
+
 #### 3.1.6 基础布局（初版流程图生成）
 
-Text Analyzer + CRS QA 完成后，立即使用简单布局算法生成初版流程图：
+流式抽取 + 本地 QA / AI Repair 完成后，立即使用简单布局算法生成初版流程图：
 
 ```typescript
 // paperdraw/layout/basic-layout.ts
@@ -285,7 +297,7 @@ export function basicLayout(
 
 | | 基础布局（Text Analyzer 后立即生成） | 优化布局（用户手动触发） |
 |---|---|---|
-| **触发时机** | 自动，CRS QA 完成后立即 | 手动，用户点击"优化布局" |
+| **触发时机** | 自动，本地 QA / AI Repair 完成后立即 | 手动，用户点击"优化布局" |
 | **算法** | 简单拓扑排序 + 等间距排列 | ELK 层次化 + 多目标微调 |
 | **耗时** | < 100ms（同步） | < 2s（Web Worker） |
 | **可编辑性** | 生成后即可编辑 | 优化后仍可编辑 |
@@ -469,8 +481,8 @@ interface StyleTemplate {
 ```typescript
 type PaperDrawPhase =
   | 'input'           // 用户输入文本
-  | 'analyzing'       // LLM 提取中
-  | 'qa'              // CRS QA 对话轮次
+  | 'analyzing'       // 流式抽取 / 可选 AI Repair 中，持续展示模型输出
+  | 'qa'              // 本地 QA 校对轮次
   | 'draft_flowchart' // 初版流程图（基础布局，可编辑 Board）
   | 'optimizing'      // 用户点击"优化布局"后，Layout Optimizer 运行中
   | 'editing'         // 优化后继续编辑/调整
@@ -485,6 +497,7 @@ input -> analyzing -> qa -> draft_flowchart <-> optimizing <-> editing -> stylin
 ```
 
 - `draft_flowchart`: 进入此阶段即可看到初版流程图，Board 可编辑
+- `analyzing`: 持续展示流式模型输出和结构化候选结果
 - 用户可在 `draft_flowchart` / `editing` 阶段随时直接编辑节点
 - 用户可随时 toggle 查看语义文本视图（不改变阶段）
 
@@ -494,9 +507,9 @@ input -> analyzing -> qa -> draft_flowchart <-> optimizing <-> editing -> stylin
 packages/drawnix/src/paperdraw/
 +-- types/              # 类型定义
 +-- analyzer/
-|   +-- llm-client.ts   # OpenAI 兼容接口调用（前端直连）
-|   +-- crs-agent.ts    # CRS 对话代理（2-3轮，可跳过）
-|   +-- validator.ts    # 结果校验
+|   +-- llm-client.ts   # XHR 流式请求 + 输出解析
+|   +-- crs-agent.ts    # 本地 QA 生成/本地合并/可选 AI Repair
+|   +-- validator.ts    # 结构校验 + 去重补全 + 规则修复
 +-- layout/
 |   +-- basic-layout.ts # 基础布局（初版流程图用）
 |   +-- elk-layout.ts   # ELK 优化布局 + 正交路由
@@ -516,8 +529,8 @@ packages/drawnix/src/paperdraw/
 
 | 阶段 | 内容 | 估时 |
 |------|------|------|
-| **M-A** | 类型定义 + LLM 客户端 + 弹窗骨架 | 5-8 人日 |
-| **M-B** | LLM 文本提取 + CRS QA 交互 + 语义可视化 | 10-15 人日 |
+| **M-A** | 类型定义 + 流式 LLM Transport + 弹窗骨架 | 5-8 人日 |
+| **M-B** | LLM 文本抽取 + 实时展示 + 本地 QA/合并 + 语义可视化 | 10-15 人日 |
 | **M-C** | 基础布局（初版流程图） + ELK 优化布局 + 连接路由 | 10-15 人日 |
 | **M-D** | 视觉优化 + 模板库 + PlaitElement 构建 | 8-12 人日 |
 | **M-E** | 端到端集成 + 可编辑 Board + 交互式调整 + E2E 测试 | 8-12 人日 |
@@ -528,7 +541,9 @@ packages/drawnix/src/paperdraw/
 ## 6. 已确认事项
 
 **流程与交互：**
+- Text Analyzer 默认走“**单次流式调用 + 本地 QA/合并**”快速路径
 - Text Analyzer 完成后立即生成**初版流程图**（基础布局），无需等待布局优化器
+- 分析过程中要先展示**实时模型输出**，再逐步展示结构化候选结果
 - 初版流程图使用**可编辑 Board**（非只读），用户可直接拖拽/编辑
 - 语义文本视图（实体列表/权重/模块）作为**可选 toggle**，用户按需查看
 - 布局优化器由**用户手动触发**（点击"优化布局"按钮）
@@ -536,8 +551,10 @@ packages/drawnix/src/paperdraw/
 
 **技术选型：**
 - **LLM 接口**：使用 OpenAI 兼容接口（统一 API 格式，可对接 OpenAI/DeepSeek/Qwen 等）
-- **调用方式**：前端直连 API（用户自行配置 API Key + Base URL）
-- **CRS QA**：默认 2-3 轮（模块分组 + 重要性排序），用户可选择**跳过**直接生成
+- **调用方式**：本地前端直连 OpenAI-compatible 接口，使用 XHR 流式请求，不使用 `fetch`
+- **环境范围**：当前仅支持本地 `.env.local` 开发配置，暂不考虑线上部署与生产密钥管理
+- **QA 策略**：默认本地规则生成与本地合并；用户可选择**跳过 QA** 直接走默认值
+- **AI Repair**：仅在结构冲突、信息缺失或用户主动触发时执行第二次模型调用
 - **风格模板**：MVP 3 套（academic-default / minimal-bw / tech-blue），含完整样式属性（填充色、线条色/粗细、文本色/大小/粗细、阴影等）
 - **节点形状**：严格全部使用**矩形**
 - **布局算法**：使用 ELK 成熟算法（含正交路由），不自研 MultiRect-CenterLine

@@ -1,81 +1,71 @@
+import { PlaitElement, Point } from '@plait/core';
+
 /**
- * PaperDraw Text Analyzer 核心类型定义
+ * PaperDraw 文本解析与草图生成核心类型
  */
 
-// ========== 实体 ==========
-
-/** 实体 — 统一为矩形节点 */
 export interface Entity {
   id: string;
-  /** 实体名称（显示在矩形中） */
   label: string;
-  /** 原文溯源片段 */
   evidence?: string;
+  confidence?: number;
 }
 
-// ========== 关系 ==========
-
-/** 顺序关系 — 有向箭头连接 */
 export interface SequentialRelation {
   id: string;
   type: 'sequential';
-  /** 源实体 id */
   source: string;
-  /** 目标实体 id */
   target: string;
-  /** 连接线上的文字 */
   label?: string;
+  evidence?: string;
+  confidence?: number;
 }
 
-/** 模块关系 — 边界框包含 */
 export interface ModularRelation {
   id: string;
   type: 'modular';
-  /** 模块名称 */
   moduleLabel: string;
-  /** 包含的实体 id 列表 */
   entityIds: string[];
+  confidence?: number;
 }
 
-/** 注释关系 — 虚线连接 */
 export interface AnnotativeRelation {
   id: string;
   type: 'annotative';
   source: string;
   target: string;
   label?: string;
+  evidence?: string;
+  confidence?: number;
 }
 
-export type Relation = SequentialRelation | ModularRelation | AnnotativeRelation;
+export type Relation =
+  | SequentialRelation
+  | ModularRelation
+  | AnnotativeRelation;
 
-// ========== 结果 ==========
-
-/** LLM 初步提取结果 */
 export interface ExtractionResult {
   entities: Entity[];
   relations: Relation[];
+  warnings?: string[];
 }
 
-/** 经 CRS 确认后的完整分析结果 */
 export interface AnalysisResult {
   entities: Entity[];
   relations: Relation[];
-  /** 实体 id → 重要性权重 0-1 */
   weights: Record<string, number>;
-  /** 确认后的模块分组 */
   modules: ModularRelation[];
+  warnings?: string[];
 }
-
-// ========== CRS 对话 ==========
 
 export interface CRSQuestion {
   id: string;
   type: 'module_grouping' | 'importance_ranking';
   question: string;
-  /** 可选实体标签 */
   options: string[];
-  /** 模块分组允许多选 */
   multiSelect: boolean;
+  relatedEntityIds?: string[];
+  moduleLabel?: string;
 }
 
 export interface CRSAnswer {
@@ -83,15 +73,88 @@ export interface CRSAnswer {
   selectedOptions: string[];
 }
 
-// ========== LLM 配置 ==========
-
 export interface LLMConfig {
   apiKey: string;
   baseUrl: string;
   model: string;
 }
 
-// ========== 状态机 ==========
+export interface PaperDrawEnvConfig extends LLMConfig {
+  isConfigured: boolean;
+}
+
+export interface StreamProgress {
+  rawText: string;
+}
+
+export type PaperDrawStreamPhase =
+  | 'idle'
+  | 'streaming'
+  | 'parsing'
+  | 'completed'
+  | 'error';
+
+export interface PaperDrawStreamState {
+  phase: PaperDrawStreamPhase;
+  rawText: string;
+  finalJson: string;
+  error?: string;
+}
+
+export interface PaperDrawPromptConfig {
+  finalJsonStart: string;
+  finalJsonEnd: string;
+  relationTypes: Array<{
+    type: Relation['type'];
+    description: string;
+  }>;
+  extractionSystemPrompt: string;
+}
+
+export type LayoutDirection = 'LR' | 'TB';
+
+export interface LayoutNode {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  weight: number;
+  confidence: number;
+}
+
+export interface LayoutEdge {
+  id: string;
+  type: 'sequential' | 'annotative';
+  sourceId: string;
+  targetId: string;
+  points: [Point, Point];
+  label?: string;
+}
+
+export interface LayoutGroup {
+  id: string;
+  moduleLabel: string;
+  entityIds: string[];
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface LayoutResult {
+  nodes: LayoutNode[];
+  edges: LayoutEdge[];
+  groups: LayoutGroup[];
+  direction: LayoutDirection;
+}
+
+export interface DraftFlowchartState {
+  analysis: AnalysisResult;
+  layout: LayoutResult;
+  elements: PlaitElement[];
+}
 
 export type PaperDrawPhase =
   | 'input'

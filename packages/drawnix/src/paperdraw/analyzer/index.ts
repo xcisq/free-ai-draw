@@ -1,3 +1,17 @@
-export { callLLM, extractFromText } from './llm-client';
-export { generateQuestions, refineWithAnswers, generateDefaultAnalysis } from './crs-agent';
-export { validateExtractionResult, validateAnalysisResult, ValidationError } from './validator';
+export {
+  createSSEProcessor,
+  extractFinalJsonBlock,
+  extractFromText,
+} from './llm-client';
+export {
+  generateQuestions,
+  generateDefaultAnalysis,
+  refineWithAnswers,
+  mergeLocalAnswers,
+} from './crs-agent';
+export {
+  normalizeExtractionResult,
+  validateExtractionResult,
+  validateAnalysisResult,
+  ValidationError,
+} from './validator';
