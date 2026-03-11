@@ -169,6 +169,25 @@ const arTranslations: Translations = {
     // Mind map elements text
     "mind.centralText": "الموضوع المركزي",
     "mind.abstractNodeText": "ملخص",
+    
+    // PaperDraw
+    'extraTools.paperdrawToFlowchart': 'PaperDraw مخطط انسيابي',
+    'dialog.paperdraw.description': 'أدخل نصًا يصف طريقة بحث أو سير عمل، وسيقوم AI تلقائيًا باستخراج الكيانات والعلاقات لإنشاء مخطط انسيابي.',
+    'dialog.paperdraw.placeholder': 'أدخل وصف النص هنا...',
+    'dialog.paperdraw.analyze': 'تحليل',
+    'dialog.paperdraw.analyzing': 'جارٍ التحليل...',
+    'dialog.paperdraw.skip': 'تخطي',
+    'dialog.paperdraw.confirm': 'تأكيد',
+    'dialog.paperdraw.insert': 'إدراج في اللوحة',
+    'dialog.paperdraw.configTitle': 'إعدادات LLM',
+    'dialog.paperdraw.apiKey': 'API Key',
+    'dialog.paperdraw.baseUrl': 'Base URL',
+    'dialog.paperdraw.model': 'النموذج',
+    'dialog.paperdraw.error.noApiKey': 'يرجى تكوين API Key أولاً',
+    'dialog.paperdraw.error.analyzeFailed': 'فشل التحليل، يرجى المحاولة مرة أخرى',
+    'dialog.paperdraw.toggleSemantic': 'عرض دلالي',
+    'dialog.paperdraw.qaTitle': 'يرجى تأكيد ما يلي',
+    'dialog.paperdraw.optimizeLayout': 'تحسين التخطيط',
 
     'tutorial.title': 'Drawnix',
     'tutorial.description': 'سبورة شاملة تتضمن الخرائط الذهنية والمخططات الانسيابية والرسم الحر وغير ذلك',

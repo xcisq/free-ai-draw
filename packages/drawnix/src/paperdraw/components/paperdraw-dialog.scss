@@ -1,0 +1,268 @@
+.paperdraw-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.paperdraw-dialog-desc {
+  color: var(--island-text-color, #555);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.paperdraw-error {
+  color: #e53e3e;
+  background: #fff5f5;
+  border: 1px solid #feb2b2;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+/* LLM 配置 */
+.paperdraw-config-toggle {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.paperdraw-config {
+  background: var(--island-bg-color, #f7f7f7);
+  border: 1px solid var(--default-border-color, #e0e0e0);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.paperdraw-config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.paperdraw-config-field label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--island-text-color, #555);
+}
+
+.paperdraw-config-field input {
+  padding: 6px 10px;
+  border: 1px solid var(--default-border-color, #d0d0d0);
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--island-bg-color, #fff);
+  color: var(--text-primary-color, #333);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.paperdraw-config-field input:focus {
+  border-color: #4f7df9;
+}
+
+/* 文本输入区域 */
+.paperdraw-input-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.paperdraw-textarea {
+  width: 100%;
+  min-height: 200px;
+  padding: 12px;
+  border: 1px solid var(--default-border-color, #d0d0d0);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  background: var(--island-bg-color, #fff);
+  color: var(--text-primary-color, #333);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.paperdraw-textarea:focus {
+  border-color: #4f7df9;
+}
+
+.paperdraw-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 按钮 */
+.paperdraw-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.paperdraw-btn {
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.paperdraw-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.paperdraw-btn-primary {
+  background: #4f7df9;
+  color: #fff;
+}
+
+.paperdraw-btn-primary:hover:not(:disabled) {
+  background: #3a6ae0;
+}
+
+.paperdraw-btn-secondary {
+  background: var(--island-bg-color, #f0f0f0);
+  color: var(--text-primary-color, #333);
+  border: 1px solid var(--default-border-color, #d0d0d0);
+}
+
+.paperdraw-btn-secondary:hover:not(:disabled) {
+  background: var(--default-border-color, #e0e0e0);
+}
+
+.paperdraw-btn-text {
+  background: transparent;
+  color: #4f7df9;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.paperdraw-btn-text:hover {
+  text-decoration: underline;
+}
+
+/* CRS QA */
+.paperdraw-qa-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.paperdraw-qa-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary-color, #333);
+}
+
+.paperdraw-qa-card {
+  background: var(--island-bg-color, #f7f7f7);
+  border: 1px solid var(--default-border-color, #e0e0e0);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.paperdraw-qa-question {
+  font-size: 14px;
+  margin: 0 0 8px;
+  color: var(--text-primary-color, #333);
+  line-height: 1.5;
+}
+
+.paperdraw-qa-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.paperdraw-qa-option {
+  padding: 6px 12px;
+  border: 1px solid var(--default-border-color, #d0d0d0);
+  border-radius: 16px;
+  background: var(--island-bg-color, #fff);
+  color: var(--text-primary-color, #333);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.paperdraw-qa-option:hover {
+  border-color: #4f7df9;
+}
+
+.paperdraw-qa-option.selected {
+  background: #edf2ff;
+  border-color: #4f7df9;
+  color: #4f7df9;
+  font-weight: 500;
+}
+
+/* 结果预览 */
+.paperdraw-draft-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.paperdraw-draft-placeholder {
+  background: var(--island-bg-color, #f7f7f7);
+  border: 1px solid var(--default-border-color, #e0e0e0);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.paperdraw-draft-placeholder h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.paperdraw-draft-placeholder p {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--text-primary-color, #555);
+}
+
+.paperdraw-analysis-preview {
+  font-size: 13px;
+}
+
+.paperdraw-analysis-preview h4 {
+  margin: 12px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.paperdraw-analysis-preview ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.paperdraw-analysis-preview li {
+  margin-bottom: 2px;
+}
+
+.entity-label {
+  font-weight: 500;
+}
+
+.entity-weight {
+  color: #888;
+  font-size: 12px;
+}
+
+.paperdraw-hint {
+  font-size: 12px;
+  color: #888;
+  margin: 0;
+  font-style: italic;
+}

@@ -168,6 +168,25 @@ const zhTranslations: Translations = {
 
   #### 哇 是个程序员 🤯 ⌨️ 💡 👩 💻`,
 
+  // PaperDraw
+  'extraTools.paperdrawToFlowchart': 'PaperDraw 流程图',
+  'dialog.paperdraw.description': '输入描述研究方法或工作流程的文本，AI 将自动提取实体和关系，生成流程图。',
+  'dialog.paperdraw.placeholder': '在此输入文本描述...',
+  'dialog.paperdraw.analyze': '分析',
+  'dialog.paperdraw.analyzing': '分析中...',
+  'dialog.paperdraw.skip': '跳过',
+  'dialog.paperdraw.confirm': '确认',
+  'dialog.paperdraw.insert': '插入画布',
+  'dialog.paperdraw.configTitle': 'LLM 配置',
+  'dialog.paperdraw.apiKey': 'API Key',
+  'dialog.paperdraw.baseUrl': 'Base URL',
+  'dialog.paperdraw.model': '模型',
+  'dialog.paperdraw.error.noApiKey': '请先配置 API Key',
+  'dialog.paperdraw.error.analyzeFailed': '分析失败，请重试',
+  'dialog.paperdraw.toggleSemantic': '语义视图',
+  'dialog.paperdraw.qaTitle': '请确认以下信息',
+  'dialog.paperdraw.optimizeLayout': '优化布局',
+
   'tutorial.title': 'Drawnix',
   'tutorial.description': 'All-in-one 白板，包含思维导图、流程图、自由画笔等',
   'tutorial.dataDescription': '所有数据被存在你的浏览器本地',

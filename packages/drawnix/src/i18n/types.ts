@@ -155,6 +155,25 @@ export interface Translations {
   'mind.centralText': string;
   'mind.abstractNodeText': string;
 
+  // PaperDraw
+  'extraTools.paperdrawToFlowchart': string;
+  'dialog.paperdraw.description': string;
+  'dialog.paperdraw.placeholder': string;
+  'dialog.paperdraw.analyze': string;
+  'dialog.paperdraw.analyzing': string;
+  'dialog.paperdraw.skip': string;
+  'dialog.paperdraw.confirm': string;
+  'dialog.paperdraw.insert': string;
+  'dialog.paperdraw.configTitle': string;
+  'dialog.paperdraw.apiKey': string;
+  'dialog.paperdraw.baseUrl': string;
+  'dialog.paperdraw.model': string;
+  'dialog.paperdraw.error.noApiKey': string;
+  'dialog.paperdraw.error.analyzeFailed': string;
+  'dialog.paperdraw.toggleSemantic': string;
+  'dialog.paperdraw.qaTitle': string;
+  'dialog.paperdraw.optimizeLayout': string;
+
   'tutorial.title': string;
   'tutorial.description': string;
   'tutorial.dataDescription': string;

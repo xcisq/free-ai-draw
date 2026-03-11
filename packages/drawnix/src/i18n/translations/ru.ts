@@ -173,6 +173,25 @@ const ruTranslations: Translations = {
   // Mind map elements text
   'mind.centralText': 'Центральная тема',
   'mind.abstractNodeText': 'Резюме',
+  
+  // PaperDraw
+  'extraTools.paperdrawToFlowchart': 'PaperDraw Блок-схема',
+  'dialog.paperdraw.description': 'Введите текст, описывающий метод или рабочий процесс, и AI автоматически создаст блок-схему.',
+  'dialog.paperdraw.placeholder': 'Введите описание текста...',
+  'dialog.paperdraw.analyze': 'Анализировать',
+  'dialog.paperdraw.analyzing': 'Анализ...',
+  'dialog.paperdraw.skip': 'Пропустить',
+  'dialog.paperdraw.confirm': 'Подтвердить',
+  'dialog.paperdraw.insert': 'Вставить на холст',
+  'dialog.paperdraw.configTitle': 'Настройки LLM',
+  'dialog.paperdraw.apiKey': 'API Key',
+  'dialog.paperdraw.baseUrl': 'Base URL',
+  'dialog.paperdraw.model': 'Модель',
+  'dialog.paperdraw.error.noApiKey': 'Пожалуйста, сначала настройте API Key',
+  'dialog.paperdraw.error.analyzeFailed': 'Анализ не удался, попробуйте снова',
+  'dialog.paperdraw.toggleSemantic': 'Семантический вид',
+  'dialog.paperdraw.qaTitle': 'Пожалуйста, подтвердите следующее',
+  'dialog.paperdraw.optimizeLayout': 'Оптимизировать макет',
 
   'tutorial.title': 'Drawnix',
   'tutorial.description':

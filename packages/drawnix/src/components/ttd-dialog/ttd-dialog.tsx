@@ -1,7 +1,12 @@
+import { lazy, Suspense } from 'react';
 import { Dialog, DialogContent } from '../dialog/dialog';
 import MermaidToDrawnix from './mermaid-to-drawnix';
 import { DialogType, useDrawnix } from '../../hooks/use-drawnix';
 import MarkdownToDrawnix from './markdown-to-drawnix';
+
+const PaperDrawDialog = lazy(
+  () => import('../../paperdraw/components/paperdraw-dialog')
+);
 
 export const TTDDialog = ({ container }: { container: HTMLElement | null }) => {
   const { appState, setAppState } = useDrawnix();
@@ -31,6 +36,21 @@ export const TTDDialog = ({ container }: { container: HTMLElement | null }) => {
       >
         <DialogContent className="Dialog ttd-dialog" container={container}>
           <MarkdownToDrawnix></MarkdownToDrawnix>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={appState.openDialogType === DialogType.paperdrawToFlowchart}
+        onOpenChange={(open) => {
+          setAppState({
+            ...appState,
+            openDialogType: open ? DialogType.paperdrawToFlowchart : null,
+          });
+        }}
+      >
+        <DialogContent className="Dialog ttd-dialog" container={container}>
+          <Suspense fallback={<div style={{ padding: 16 }}>Loading...</div>}>
+            <PaperDrawDialog />
+          </Suspense>
         </DialogContent>
       </Dialog>
     </>

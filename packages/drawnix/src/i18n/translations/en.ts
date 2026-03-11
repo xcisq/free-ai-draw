@@ -171,6 +171,25 @@ const enTranslations: Translations = {
   'mind.centralText': 'Central Topic',
   'mind.abstractNodeText': 'Summary',
 
+  // PaperDraw
+  'extraTools.paperdrawToFlowchart': 'PaperDraw Flowchart',
+  'dialog.paperdraw.description': 'Enter text describing a research method or workflow, and AI will automatically extract entities and relationships to generate a flowchart.',
+  'dialog.paperdraw.placeholder': 'Enter your text description here...',
+  'dialog.paperdraw.analyze': 'Analyze',
+  'dialog.paperdraw.analyzing': 'Analyzing...',
+  'dialog.paperdraw.skip': 'Skip',
+  'dialog.paperdraw.confirm': 'Confirm',
+  'dialog.paperdraw.insert': 'Insert to Canvas',
+  'dialog.paperdraw.configTitle': 'LLM Configuration',
+  'dialog.paperdraw.apiKey': 'API Key',
+  'dialog.paperdraw.baseUrl': 'Base URL',
+  'dialog.paperdraw.model': 'Model',
+  'dialog.paperdraw.error.noApiKey': 'Please configure API Key first',
+  'dialog.paperdraw.error.analyzeFailed': 'Analysis failed, please try again',
+  'dialog.paperdraw.toggleSemantic': 'Semantic View',
+  'dialog.paperdraw.qaTitle': 'Please confirm the following',
+  'dialog.paperdraw.optimizeLayout': 'Optimize Layout',
+
   'tutorial.title': 'Drawnix',
   'tutorial.description':
     'All-in-one whiteboard, including mind maps, flowcharts, free drawing, and more',

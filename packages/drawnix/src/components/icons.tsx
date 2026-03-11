@@ -646,3 +646,13 @@ export const FontSizeStepperDownIcon: React.FC<
     </svg>
   );
 };
+
+export const PaperDrawIcon = createIcon(
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="none" fill="currentColor">
+      <path d="M3.5 1C2.67157 1 2 1.67157 2 2.5V13.5C2 14.3284 2.67157 15 3.5 15H12.5C13.3284 15 14 14.3284 14 13.5V5.5L10 1H3.5ZM3.2 2.5C3.2 2.33431 3.33431 2.2 3.5 2.2H9.4V5C9.4 5.55228 9.84772 6 10.4 6H12.8V13.5C12.8 13.6657 12.6657 13.8 12.5 13.8H3.5C3.33431 13.8 3.2 13.6657 3.2 13.5V2.5Z" />
+      <path d="M11.5 3.5L12 4.5L13 5L12 5.5L11.5 6.5L11 5.5L10 5L11 4.5L11.5 3.5Z" fillRule="evenodd" />
+      <path d="M6 7.5L6.5 8.5L7.5 9L6.5 9.5L6 10.5L5.5 9.5L4.5 9L5.5 8.5L6 7.5Z" fillRule="evenodd" />
+    </g>
+  </svg>
+);
