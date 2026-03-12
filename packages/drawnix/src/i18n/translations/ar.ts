@@ -185,9 +185,13 @@ const arTranslations: Translations = {
     'dialog.paperdraw.model': 'النموذج',
     'dialog.paperdraw.error.noApiKey': 'يرجى تكوين API Key أولاً',
     'dialog.paperdraw.error.analyzeFailed': 'فشل التحليل، يرجى المحاولة مرة أخرى',
+    'dialog.paperdraw.error.invalidOptimizeSelection':
+      'يرجى تحديد عقدتين مستطيلتين على الأقل قبل إعادة ترتيب الجزء المحدد',
     'dialog.paperdraw.toggleSemantic': 'عرض دلالي',
     'dialog.paperdraw.qaTitle': 'يرجى تأكيد ما يلي',
     'dialog.paperdraw.optimizeLayout': 'تحسين التخطيط',
+    'dialog.paperdraw.optimizeSelection': 'إعادة ترتيب الجزء المحدد',
+    'dialog.paperdraw.optimizeGlobal': 'إعادة ترتيب المخطط بالكامل',
 
     'tutorial.title': 'Drawnix',
     'tutorial.description': 'سبورة شاملة تتضمن الخرائط الذهنية والمخططات الانسيابية والرسم الحر وغير ذلك',

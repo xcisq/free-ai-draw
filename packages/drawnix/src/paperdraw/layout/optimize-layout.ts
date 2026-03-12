@@ -39,7 +39,7 @@ function removeDuplicatePoints(points: Point[]) {
   return result;
 }
 
-function simplifyOrthogonalRoute(points: Point[]) {
+export function simplifyOrthogonalRoute(points: Point[]) {
   const uniquePoints = removeDuplicatePoints(points);
   if (uniquePoints.length <= 2) {
     return uniquePoints;
@@ -115,7 +115,7 @@ function getCrossingEdgeCount(
   }).length;
 }
 
-function recomputeGroups(
+export function recomputeLayoutGroups(
   groups: LayoutGroup[],
   nodeMap: Map<string, LayoutNode>
 ): LayoutGroup[] {
@@ -182,7 +182,7 @@ function redistributeSlots(baseLayout: LayoutResult) {
     cursorX += slot.width + gap;
   }
 
-  const groups = recomputeGroups(baseLayout.groups, nodeMap);
+  const groups = recomputeLayoutGroups(baseLayout.groups, nodeMap);
   return { nodes, groups };
 }
 
@@ -196,10 +196,11 @@ function buildNodeToGroupMap(groups: LayoutGroup[]) {
   return mapping;
 }
 
-function optimizeEdges(
+export function buildOptimizedEdgeRoutes(
   edges: LayoutEdge[],
   nodes: LayoutNode[],
-  groups: LayoutGroup[]
+  groups: LayoutGroup[],
+  edgeIdsToRoute?: Set<string>
 ) {
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const nodeToGroupMap = buildNodeToGroupMap(groups);
@@ -223,6 +224,10 @@ function optimizeEdges(
   const moduleLaneUsage = new Map<string, number>();
 
   return edges.map((edge) => {
+    if (edgeIdsToRoute && !edgeIdsToRoute.has(edge.id)) {
+      return edge;
+    }
+
     const sourceNode = nodeMap.get(edge.sourceId);
     const targetNode = nodeMap.get(edge.targetId);
     if (!sourceNode || !targetNode) {
@@ -315,7 +320,7 @@ function optimizeEdges(
 export function optimizeLayout(analysis: AnalysisResult): LayoutResult {
   const baseLayout = basicLayout(analysis);
   const redistributed = redistributeSlots(baseLayout);
-  const edges = optimizeEdges(
+  const edges = buildOptimizedEdgeRoutes(
     baseLayout.edges,
     redistributed.nodes,
     redistributed.groups

@@ -2,23 +2,33 @@ import { withGroup } from '@plait/common';
 import { Board, Wrapper } from '@plait-board/react-board';
 import {
   BoardTransforms,
+  getSelectedElements,
   PlaitBoard,
   PlaitElement,
   PlaitPlugin,
   PlaitPointerType,
 } from '@plait/core';
-import { ArrowLineShape, DrawTransforms, getArrowLines, withDraw } from '@plait/draw';
+import {
+  ArrowLineShape,
+  DrawTransforms,
+  getArrowLines,
+  PlaitDrawElement,
+  withDraw,
+} from '@plait/draw';
 import { useEffect, useRef, useState } from 'react';
 import { withCommonPlugin } from '../../plugins/with-common';
+import { PaperDrawSelectionState } from '../types/analyzer';
 
 interface PaperDrawBoardPreviewProps {
   value: PlaitElement[];
   onChange: (value: PlaitElement[]) => void;
+  onSelectionChange?: (selection: PaperDrawSelectionState) => void;
 }
 
 export const PaperDrawBoardPreview = ({
   value,
   onChange,
+  onSelectionChange,
 }: PaperDrawBoardPreviewProps) => {
   const [boardValue, setBoardValue] = useState<PlaitElement[]>(value);
   const boardRef = useRef<PlaitBoard | null>(null);
@@ -95,6 +105,23 @@ export const PaperDrawBoardPreview = ({
           lastEmittedValueRef.current = nextValue;
           setBoardValue(nextValue);
           onChange(nextValue);
+        }}
+        onSelectionChange={() => {
+          const board = boardRef.current;
+          if (!board || !onSelectionChange) {
+            return;
+          }
+
+          const selectedElements = getSelectedElements(board);
+          onSelectionChange({
+            elementIds: selectedElements.map((element) => element.id),
+            geometryIds: selectedElements
+              .filter((element) => PlaitDrawElement.isGeometry(element))
+              .map((element) => element.id),
+            edgeIds: selectedElements
+              .filter((element) => PlaitDrawElement.isArrowLine(element))
+              .map((element) => element.id),
+          });
         }}
       >
         <Board

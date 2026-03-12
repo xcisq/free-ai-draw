@@ -183,9 +183,12 @@ const zhTranslations: Translations = {
   'dialog.paperdraw.model': '模型',
   'dialog.paperdraw.error.noApiKey': '请先配置 API Key',
   'dialog.paperdraw.error.analyzeFailed': '分析失败，请重试',
+  'dialog.paperdraw.error.invalidOptimizeSelection': '请至少选择 2 个矩形节点再进行局部重排',
   'dialog.paperdraw.toggleSemantic': '语义视图',
   'dialog.paperdraw.qaTitle': '请确认以下信息',
   'dialog.paperdraw.optimizeLayout': '优化布局',
+  'dialog.paperdraw.optimizeSelection': '重排已选区域',
+  'dialog.paperdraw.optimizeGlobal': '整体重排',
 
   'tutorial.title': 'Drawnix',
   'tutorial.description': 'All-in-one 白板，包含思维导图、流程图、自由画笔等',

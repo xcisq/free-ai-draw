@@ -333,34 +333,29 @@ export function basicLayout(
 
 当前仓库现状补充：
 
-- 代码里已经有 `optimizeLayout` 文案和 `optimizing` 状态，但**还没有真正的第二阶段实现**
-- 当前仓库**尚未引入 `elkjs` 依赖**，因此本轮先落地**本地启发式 MVP**
-- 目标是先把“优化布局”按钮接通，优先解决模块间距、跨模块线条走廊、折线 waypoint 落板三个问题
-- 后续若确认需要更强的全局路由，再在此接口上升级到 ELK，而不是推翻现有数据结构
+- 当前仓库已经接入 **`elkjs`**，第二阶段从“本地启发式 MVP”升级为“**ELK 主优化器 + 本地 fallback**”
+- “优化布局”不再只是重新渲染原图，而是支持 **整体重排** 与 **选区局部重排**
+- 本地启发式优化器继续保留，用于 ELK 失败、超时或局部边界边的兜底路由
+- 当前重点从“先接通按钮”切换为“**布局最优 + 局部重排 + 边界连接合理**”
 
 #### 3.2.1 基础布局 vs 优化布局
 
 | | 基础布局（Text Analyzer 后立即生成） | 优化布局（用户手动触发） |
 |---|---|---|
 | **触发时机** | 自动，本地 QA / AI Repair 完成后立即 | 手动，用户点击"优化布局" |
-| **算法** | 模块优先两层布局 | 本地启发式优化（MVP） -> ELK 升级位 |
+| **算法** | 模块优先两层布局 | ELK 层次化布局 + 正交路由，失败时回退本地启发式 |
 | **耗时** | < 100ms（同步） | < 2s（Web Worker） |
 | **可编辑性** | 生成后即可编辑 | 优化后仍可编辑 |
 | **尊重用户编辑** | - | 保留用户固定/移动的节点 |
 
-MVP 拆分为两个阶段：
+当前第二阶段拆分为两个层次：
 
-1. **Layout Optimizer（本轮实现）**
-   - 按模块外部连线密度动态拉开模块间距
-   - 为跨模块边预留上/下走廊空间
-   - 保持模块内部节点排布稳定，不重排用户已感知的局部结构
-2. **Line Optimizer（本轮实现）**
-   - 为跨模块边、注释边、非相邻模块内边生成显式 waypoint
-   - 让折线不再完全依赖默认的两点 elbow 推导
-   - 通过“走廊 lane + 侧边端口”减少线条与节点、模块框的冲突
-3. **ELK Upgrade（后续）**
-   - 在不改 `LayoutResult` / `routing` 接口的前提下替换底层求解器
-   - 提供更强的全局最优布局与正交路由
+1. **ELK 主优化器（本轮实现）**
+   - 整体重排：对整张图做层次化布局和正交路由
+   - 选区局部重排：只重排用户选中的矩形节点和相关箭头
+   - 模块层级通过 compound node / hierarchy handling 保留
+2. **本地 fallback 路由器（本轮保留）**
+   - 当 ELK 失败或局部边界边效果不理想时，继续使用走廊 lane + waypoint 兜底
 
 #### 3.2.2 多目标优化（论文 Section 4.3.1）
 
@@ -369,37 +364,39 @@ MVP 拆分为两个阶段：
 - **视觉信息流 VIF**（公式2）：连续方向夹角 > 90度 扣分，保持阅读流连贯
 - **边界框几何**（公式3）：贴合目标宽高比（单栏 / 双栏格式）
 
-本地 MVP 实现策略：
+当前实现策略：
 
-- **目标 1：空白更均匀**
-  - 不再使用固定模块间距，而是根据跨模块边数量动态扩展 gap
-- **目标 2：阅读流更顺**
-  - 顺序主链优先走模块中轴，跨模块边优先走顶部/底部公共走廊
-- **目标 3：线条更少穿插**
-  - 同方向多条跨模块边分配不同 lane，避免完全重叠
-- **目标 4：不破坏初版图认知**
-  - 模块内部节点顺序、节点尺寸、模块顺序保持稳定
+- **目标 1：全局布局更优**
+  - 使用 ELK layered 算法优化层级、顺序和模块层次
+- **目标 2：线条更少交叉**
+  - 默认启用 ELK 正交路由
+- **目标 3：支持局部优化**
+  - 用户可选择部分矩形节点/箭头，只重排该区域
+- **目标 4：边界连接合理**
+  - 选区与未选区之间的边在 ELK 后继续做本地二次整理
+- **目标 5：保留回退能力**
+  - ELK 超时或异常时，自动回退到本地启发式优化
 
-后续升级策略：ELK 层次化布局 --> 多目标迭代微调（尊重用户已固定的节点位置）
+后续升级策略：在 ELK 结果之上继续增加评分驱动的多目标微调
 
-#### 3.2.3 连接路由 - 本地正交线条优化（MVP）
+#### 3.2.3 连接路由 - ELK 正交路由 + 本地边界优化
 
-当前本地 MVP 不直接依赖 ELK，而是先基于现有 Plait elbow line 能力，补一个“显式 waypoint 路由层”。
+当前默认由 ELK 输出正交 bend points，再映射回 `LayoutEdge.routing`。对于局部重排后连接选区与未选区的边，以及 ELK 输出不稳定的边，再使用本地路由器兜底。
 
-MVP 路由规则：
+当前路由规则：
 
-- **模块内相邻主链边**：可继续使用直线或简单 elbow
-- **模块内非相邻边**：强制走模块右侧或左侧局部走廊
-- **跨模块顺序边**：优先走全局顶部/底部公共走廊，再进入目标模块
-- **注释边**：优先走模块右侧说明走廊，避免压在主链上
-- **多条同向边**：按目标模块顺序分配 lane index，减少边边重叠
+- **整体重排**：由 ELK 直接输出层次化节点位置与正交折线
+- **局部重排内部边**：由 ELK 对选区子图输出 bend points
+- **局部重排边界边**：用本地走廊路由重新连接选区与未选区
+- **注释边**：若 ELK 效果不理想，优先回退到模块侧挂走廊
+- **异常回退**：ELK 失败时，整图回退到 `optimizeLayout()`
 
 技术实现：
 
-- `LayoutEdge` 增加 `routing: Point[]`，允许输出显式 waypoint
+- `LayoutEdge.routing` 作为 ELK bend points 的标准承载字段
 - builder 在创建 elbow line 后写入 `element.points = routing`
 - 预览板在初次生成和手动优化后做一次 route stabilization
-- “优化布局”按钮触发的是 `optimizeLayout()`，而不是重新跑文本分析
+- “优化布局”按钮触发的是当前 draft 上的 ELK 优化，而不是重新跑文本分析
 
 #### 3.2.4 关键数据结构
 
@@ -446,18 +443,20 @@ interface LayoutResult {
 
 #### 3.2.5 当前需要补齐的实现点
 
-按当前代码现状，第二阶段优先补这 5 项：
+按当前代码现状，第二阶段优先补这 6 项：
 
-1. `paperdraw/layout/optimize-layout.ts`
-   - 基于 `basicLayout` 结果做模块间距再分配与 lane 规划
-2. `paperdraw/builder/build-flowchart-elements.ts`
-   - 支持将 `routing` 直接写入 elbow line 的 `points`
-3. `paperdraw/builder/flowchart-builder.ts`
-   - 提供 `buildOptimizedFlowchartState()`，与 `buildFlowchartState()` 并存
-4. `paperdraw/components/paperdraw-dialog.tsx`
-   - 接通“优化布局”按钮和 `optimizing` 状态
-5. `paperdraw/layout/*.spec.ts`
-   - 增加优化布局和 waypoint 路由测试，防止按钮只是“重新渲染原图”
+1. `paperdraw/layout/elk-layout.ts`
+   - ELK graph 构建、输出映射、局部重排子图构建
+2. `paperdraw/layout/elk-layout.worker.ts`
+   - 在 worker 中运行 ELK，避免阻塞 UI
+3. `paperdraw/layout/optimize-layout.ts`
+   - 继续承担 fallback 和边界边兜底
+4. `paperdraw/builder/flowchart-builder.ts`
+   - 提供 `buildElkOptimizedFlowchartState()`
+5. `paperdraw/components/paperdraw-dialog.tsx`
+   - “重排已选区域 / 整体重排”菜单入口与状态切换
+6. `paperdraw/layout/*.spec.ts`
+   - 增加 ELK 全局优化、局部重排、fallback 与 routing 测试
 
 ### 3.3 Visual Elements Optimizer（视觉元素优化器）
 

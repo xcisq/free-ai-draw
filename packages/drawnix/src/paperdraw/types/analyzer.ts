@@ -173,6 +173,20 @@ export interface LayoutResult {
   direction: LayoutDirection;
 }
 
+export type OptimizeMode = 'selection' | 'global';
+
+export interface PaperDrawSelectionState {
+  elementIds: string[];
+  geometryIds: string[];
+  edgeIds: string[];
+}
+
+export interface ElkLayoutOptions {
+  mode: OptimizeMode;
+  selection?: PaperDrawSelectionState;
+  timeoutMs?: number;
+}
+
 export interface DraftFlowchartState {
   analysis: AnalysisResult;
   layout: LayoutResult;

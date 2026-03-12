@@ -8,12 +8,18 @@ import {
 } from '@plait/core';
 import { useI18n } from '../../i18n';
 import { useDrawnix } from '../../hooks/use-drawnix';
+import Menu from '../../components/menu/menu';
+import MenuItem from '../../components/menu/menu-item';
+import { Popover, PopoverContent, PopoverTrigger } from '../../components/popover/popover';
 import {
-  AnalysisResult,
-  CRSAnswer,
-  CRSQuestion,
-  ExtractionResult,
-  PaperDrawPhase,
+  type AnalysisResult,
+  type CRSAnswer,
+  type CRSQuestion,
+  type ElkLayoutOptions,
+  type ExtractionResult,
+  type OptimizeMode,
+  type PaperDrawPhase,
+  type PaperDrawSelectionState,
 } from '../types/analyzer';
 import {
   extractFromText,
@@ -26,8 +32,10 @@ import {
 import { getPaperDrawEnvConfig } from '../config';
 import {
   buildFlowchartState,
+  buildElkOptimizedFlowchartState,
   buildOptimizedFlowchartState,
 } from '../builder/flowchart-builder';
+import { isValidSelectionForOptimize } from '../layout/layout-snapshot';
 import { CRSQAPanel } from './crs-qa-panel';
 import { PaperDrawBoardPreview } from './paperdraw-board-preview';
 import './paperdraw-dialog.scss';
@@ -54,6 +62,12 @@ const PaperDrawDialog = () => {
   const [questions, setQuestions] = useState<CRSQuestion[]>([]);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [draftElements, setDraftElements] = useState<PlaitElement[]>([]);
+  const [selectionState, setSelectionState] = useState<PaperDrawSelectionState>({
+    elementIds: [],
+    geometryIds: [],
+    edgeIds: [],
+  });
+  const [optimizeMenuOpen, setOptimizeMenuOpen] = useState(false);
 
   const closeDialog = useCallback(() => {
     setAppState({ ...appState, openDialogType: null });
@@ -83,6 +97,11 @@ const PaperDrawDialog = () => {
     setQuestions([]);
     setAnalysisResult(null);
     setDraftElements([]);
+    setSelectionState({
+      elementIds: [],
+      geometryIds: [],
+      edgeIds: [],
+    });
     setPhase('analyzing');
 
     try {
@@ -175,23 +194,60 @@ const PaperDrawDialog = () => {
     closeDialog();
   }, [closeDialog, draftElements, mainBoard]);
 
-  const handleOptimizeLayout = useCallback(() => {
-    if (!analysisResult) {
-      return;
+  const canOptimizeSelection = useMemo(() => {
+    if (!analysisResult || !draftElements.length) {
+      return false;
     }
+    return isValidSelectionForOptimize(selectionState, analysisResult, draftElements);
+  }, [analysisResult, draftElements, selectionState]);
 
-    try {
-      setError(null);
-      setPhase('optimizing');
-      const optimizedDraft = buildOptimizedFlowchartState(analysisResult);
-      setDraftElements(optimizedDraft.elements);
-      setPhase('draft_flowchart');
-    } catch (err: any) {
-      console.error('PaperDraw optimize layout failed:', err);
-      setError(`${t('dialog.paperdraw.error.analyzeFailed')}: ${err.message}`);
-      setPhase('draft_flowchart');
-    }
-  }, [analysisResult, t]);
+  const handleOptimizeLayout = useCallback(
+    async (mode: OptimizeMode) => {
+      if (!analysisResult) {
+        return;
+      }
+
+      if (mode === 'selection' && !canOptimizeSelection) {
+        setError(t('dialog.paperdraw.error.invalidOptimizeSelection'));
+        return;
+      }
+
+      try {
+        setOptimizeMenuOpen(false);
+        setError(null);
+        setPhase('optimizing');
+        const options: ElkLayoutOptions = {
+          mode,
+          selection: selectionState,
+          timeoutMs: 4000,
+        };
+        const optimizedDraft = await buildElkOptimizedFlowchartState(
+          analysisResult,
+          draftElements,
+          options
+        );
+        setDraftElements(optimizedDraft.elements);
+        setPhase('draft_flowchart');
+      } catch (err: any) {
+        console.error('PaperDraw ELK optimize failed, fallback to heuristic:', err);
+        try {
+          const fallbackDraft = buildOptimizedFlowchartState(
+            analysisResult,
+            draftElements
+          );
+          setDraftElements(fallbackDraft.elements);
+          setPhase('draft_flowchart');
+        } catch (fallbackError: any) {
+          console.error('PaperDraw optimize layout failed:', fallbackError);
+          setError(
+            `${t('dialog.paperdraw.error.analyzeFailed')}: ${fallbackError.message}`
+          );
+          setPhase('draft_flowchart');
+        }
+      }
+    },
+    [analysisResult, canOptimizeSelection, draftElements, selectionState, t]
+  );
 
   return (
     <div className="paperdraw-dialog">
@@ -226,15 +282,42 @@ const PaperDrawDialog = () => {
               </button>
               {draftElements.length > 0 && (
                 <>
-                  <button
-                    className="paperdraw-btn paperdraw-btn-secondary"
-                    onClick={handleOptimizeLayout}
-                    disabled={phase === 'optimizing'}
+                  <Popover
+                    open={optimizeMenuOpen}
+                    onOpenChange={setOptimizeMenuOpen}
+                    placement="bottom-end"
                   >
-                    {phase === 'optimizing'
-                      ? `${t('dialog.paperdraw.optimizeLayout')}...`
-                      : t('dialog.paperdraw.optimizeLayout')}
-                  </button>
+                    <PopoverTrigger asChild>
+                      <button
+                        className="paperdraw-btn paperdraw-btn-secondary"
+                        disabled={phase === 'optimizing'}
+                      >
+                        {phase === 'optimizing'
+                          ? `${t('dialog.paperdraw.optimizeLayout')}...`
+                          : t('dialog.paperdraw.optimizeLayout')}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent>
+                      <Menu onSelect={() => setOptimizeMenuOpen(false)}>
+                        <MenuItem
+                          disabled={!canOptimizeSelection || phase === 'optimizing'}
+                          onSelect={() => {
+                            void handleOptimizeLayout('selection');
+                          }}
+                        >
+                          {t('dialog.paperdraw.optimizeSelection')}
+                        </MenuItem>
+                        <MenuItem
+                          disabled={phase === 'optimizing'}
+                          onSelect={() => {
+                            void handleOptimizeLayout('global');
+                          }}
+                        >
+                          {t('dialog.paperdraw.optimizeGlobal')}
+                        </MenuItem>
+                      </Menu>
+                    </PopoverContent>
+                  </Popover>
                   <button
                     className="paperdraw-btn paperdraw-btn-secondary"
                     onClick={insertToBoard}
@@ -310,6 +393,7 @@ const PaperDrawDialog = () => {
             <PaperDrawBoardPreview
               value={draftElements}
               onChange={setDraftElements}
+              onSelectionChange={setSelectionState}
             />
           ) : (
             <div className="paperdraw-draft-placeholder">

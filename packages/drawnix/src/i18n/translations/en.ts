@@ -186,9 +186,13 @@ const enTranslations: Translations = {
   'dialog.paperdraw.model': 'Model',
   'dialog.paperdraw.error.noApiKey': 'Please configure API Key first',
   'dialog.paperdraw.error.analyzeFailed': 'Analysis failed, please try again',
+  'dialog.paperdraw.error.invalidOptimizeSelection':
+    'Select at least 2 rectangular nodes before optimizing a partial region',
   'dialog.paperdraw.toggleSemantic': 'Semantic View',
   'dialog.paperdraw.qaTitle': 'Please confirm the following',
   'dialog.paperdraw.optimizeLayout': 'Optimize Layout',
+  'dialog.paperdraw.optimizeSelection': 'Reflow Selected Region',
+  'dialog.paperdraw.optimizeGlobal': 'Reflow Entire Diagram',
 
   'tutorial.title': 'Drawnix',
   'tutorial.description':

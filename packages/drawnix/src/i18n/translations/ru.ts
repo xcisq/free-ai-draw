@@ -189,9 +189,13 @@ const ruTranslations: Translations = {
   'dialog.paperdraw.model': 'Модель',
   'dialog.paperdraw.error.noApiKey': 'Пожалуйста, сначала настройте API Key',
   'dialog.paperdraw.error.analyzeFailed': 'Анализ не удался, попробуйте снова',
+  'dialog.paperdraw.error.invalidOptimizeSelection':
+    'Перед локальной перестройкой выберите как минимум 2 прямоугольных узла',
   'dialog.paperdraw.toggleSemantic': 'Семантический вид',
   'dialog.paperdraw.qaTitle': 'Пожалуйста, подтвердите следующее',
   'dialog.paperdraw.optimizeLayout': 'Оптимизировать макет',
+  'dialog.paperdraw.optimizeSelection': 'Перестроить выбранную область',
+  'dialog.paperdraw.optimizeGlobal': 'Перестроить всю диаграмму',
 
   'tutorial.title': 'Drawnix',
   'tutorial.description':
