@@ -105,6 +105,41 @@ describe('buildFlowchartElements', () => {
     expect(edge.target.connection).toEqual([0, 0.65]);
   });
 
+  it('writes explicit routing points onto elbow lines when optimizer provides waypoints', () => {
+    const routing = [
+      [220, 25.2],
+      [252, 25.2],
+      [252, -40],
+      [288, -40],
+      [288, 46.8],
+      [320, 46.8],
+    ] as [number, number][];
+    const layout: LayoutResult = {
+      ...baseLayout,
+      edges: [
+        {
+          id: 'edge-routed',
+          type: 'sequential',
+          sourceId: 'n1',
+          targetId: 'n2',
+          shape: 'elbow',
+          sourceConnection: [1, 0.35],
+          targetConnection: [0, 0.65],
+          points: [
+            [220, 25.2],
+            [320, 46.8],
+          ],
+          routing,
+        },
+      ],
+    };
+
+    const elements = buildFlowchartElements(layout);
+    const edge = elements.find((element) => element.id === 'edge-routed') as any;
+
+    expect(edge.points).toEqual(routing);
+  });
+
   it('keeps straight arrow lines when layout marks the edge as straight', () => {
     const layout: LayoutResult = {
       ...baseLayout,

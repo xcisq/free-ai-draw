@@ -151,6 +151,7 @@ export interface LayoutEdge {
   sourceConnection: [number, number];
   targetConnection: [number, number];
   points: [Point, Point];
+  routing?: Point[];
   label?: string;
 }
 

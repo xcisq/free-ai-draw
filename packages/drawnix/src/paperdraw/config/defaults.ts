@@ -13,6 +13,11 @@ export const PAPERDRAW_LAYOUT_DEFAULTS = {
   moduleTitleHeight: 28,
   moduleGridThreshold: 4,
   moduleGridColumns: 2,
+  optimizedModuleGapX: 180,
+  optimizedGapPerCrossEdge: 36,
+  routeLaneSpacing: 36,
+  routeOuterMargin: 48,
+  routeInnerMargin: 32,
 };
 
 export const PAPERDRAW_THEME = {

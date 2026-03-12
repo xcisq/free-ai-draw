@@ -331,15 +331,36 @@ export function basicLayout(
 > **触发方式**: 用户在初版流程图上手动点击"优化布局"按钮触发。
 > 优化器读取当前 Board 上的元素状态（用户可能已手动编辑过），进行增量优化。
 
+当前仓库现状补充：
+
+- 代码里已经有 `optimizeLayout` 文案和 `optimizing` 状态，但**还没有真正的第二阶段实现**
+- 当前仓库**尚未引入 `elkjs` 依赖**，因此本轮先落地**本地启发式 MVP**
+- 目标是先把“优化布局”按钮接通，优先解决模块间距、跨模块线条走廊、折线 waypoint 落板三个问题
+- 后续若确认需要更强的全局路由，再在此接口上升级到 ELK，而不是推翻现有数据结构
+
 #### 3.2.1 基础布局 vs 优化布局
 
 | | 基础布局（Text Analyzer 后立即生成） | 优化布局（用户手动触发） |
 |---|---|---|
 | **触发时机** | 自动，本地 QA / AI Repair 完成后立即 | 手动，用户点击"优化布局" |
-| **算法** | 模块优先两层布局 | ELK 层次化 + 多目标微调 |
+| **算法** | 模块优先两层布局 | 本地启发式优化（MVP） -> ELK 升级位 |
 | **耗时** | < 100ms（同步） | < 2s（Web Worker） |
 | **可编辑性** | 生成后即可编辑 | 优化后仍可编辑 |
 | **尊重用户编辑** | - | 保留用户固定/移动的节点 |
+
+MVP 拆分为两个阶段：
+
+1. **Layout Optimizer（本轮实现）**
+   - 按模块外部连线密度动态拉开模块间距
+   - 为跨模块边预留上/下走廊空间
+   - 保持模块内部节点排布稳定，不重排用户已感知的局部结构
+2. **Line Optimizer（本轮实现）**
+   - 为跨模块边、注释边、非相邻模块内边生成显式 waypoint
+   - 让折线不再完全依赖默认的两点 elbow 推导
+   - 通过“走廊 lane + 侧边端口”减少线条与节点、模块框的冲突
+3. **ELK Upgrade（后续）**
+   - 在不改 `LayoutResult` / `routing` 接口的前提下替换底层求解器
+   - 提供更强的全局最优布局与正交路由
 
 #### 3.2.2 多目标优化（论文 Section 4.3.1）
 
@@ -348,17 +369,37 @@ export function basicLayout(
 - **视觉信息流 VIF**（公式2）：连续方向夹角 > 90度 扣分，保持阅读流连贯
 - **边界框几何**（公式3）：贴合目标宽高比（单栏 / 双栏格式）
 
-实现策略：ELK 层次化布局 --> 多目标迭代微调（尊重用户已固定的节点位置）
+本地 MVP 实现策略：
 
-#### 3.2.3 连接路由 - ELK 正交路由（MVP）
+- **目标 1：空白更均匀**
+  - 不再使用固定模块间距，而是根据跨模块边数量动态扩展 gap
+- **目标 2：阅读流更顺**
+  - 顺序主链优先走模块中轴，跨模块边优先走顶部/底部公共走廊
+- **目标 3：线条更少穿插**
+  - 同方向多条跨模块边分配不同 lane，避免完全重叠
+- **目标 4：不破坏初版图认知**
+  - 模块内部节点顺序、节点尺寸、模块顺序保持稳定
 
-MVP 阶段使用 ELK 内置的成熟正交路由算法（`elk.edgeRouting: ORTHOGONAL`），后续迭代可考虑实现论文的 MultiRect-CenterLine 算法。
+后续升级策略：ELK 层次化布局 --> 多目标迭代微调（尊重用户已固定的节点位置）
 
-ELK 正交路由优势：
-- 成熟稳定，社区广泛使用
-- 与 ELK 布局引擎天然集成
-- 自动处理连线不穿越节点的硬约束
-- 支持最小化弯折和交叉
+#### 3.2.3 连接路由 - 本地正交线条优化（MVP）
+
+当前本地 MVP 不直接依赖 ELK，而是先基于现有 Plait elbow line 能力，补一个“显式 waypoint 路由层”。
+
+MVP 路由规则：
+
+- **模块内相邻主链边**：可继续使用直线或简单 elbow
+- **模块内非相邻边**：强制走模块右侧或左侧局部走廊
+- **跨模块顺序边**：优先走全局顶部/底部公共走廊，再进入目标模块
+- **注释边**：优先走模块右侧说明走廊，避免压在主链上
+- **多条同向边**：按目标模块顺序分配 lane index，减少边边重叠
+
+技术实现：
+
+- `LayoutEdge` 增加 `routing: Point[]`，允许输出显式 waypoint
+- builder 在创建 elbow line 后写入 `element.points = routing`
+- 预览板在初次生成和手动优化后做一次 route stabilization
+- “优化布局”按钮触发的是 `optimizeLayout()`，而不是重新跑文本分析
 
 #### 3.2.4 关键数据结构
 
@@ -378,7 +419,7 @@ interface LayoutEdge {
   id: string;
   sourceId: string;
   targetId: string;
-  routing: [number, number][];
+  routing?: [number, number][];  // 显式 waypoint，优化布局阶段可填充
   type: 'sequential' | 'annotative';
 }
 
@@ -402,6 +443,21 @@ interface LayoutResult {
   };
 }
 ```
+
+#### 3.2.5 当前需要补齐的实现点
+
+按当前代码现状，第二阶段优先补这 5 项：
+
+1. `paperdraw/layout/optimize-layout.ts`
+   - 基于 `basicLayout` 结果做模块间距再分配与 lane 规划
+2. `paperdraw/builder/build-flowchart-elements.ts`
+   - 支持将 `routing` 直接写入 elbow line 的 `points`
+3. `paperdraw/builder/flowchart-builder.ts`
+   - 提供 `buildOptimizedFlowchartState()`，与 `buildFlowchartState()` 并存
+4. `paperdraw/components/paperdraw-dialog.tsx`
+   - 接通“优化布局”按钮和 `optimizing` 状态
+5. `paperdraw/layout/*.spec.ts`
+   - 增加优化布局和 waypoint 路由测试，防止按钮只是“重新渲染原图”
 
 ### 3.3 Visual Elements Optimizer（视觉元素优化器）
 

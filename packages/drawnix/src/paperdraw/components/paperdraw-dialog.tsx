@@ -24,7 +24,10 @@ import {
   validateExtractionResult,
 } from '../analyzer';
 import { getPaperDrawEnvConfig } from '../config';
-import { buildFlowchartState } from '../builder/flowchart-builder';
+import {
+  buildFlowchartState,
+  buildOptimizedFlowchartState,
+} from '../builder/flowchart-builder';
 import { CRSQAPanel } from './crs-qa-panel';
 import { PaperDrawBoardPreview } from './paperdraw-board-preview';
 import './paperdraw-dialog.scss';
@@ -172,6 +175,24 @@ const PaperDrawDialog = () => {
     closeDialog();
   }, [closeDialog, draftElements, mainBoard]);
 
+  const handleOptimizeLayout = useCallback(() => {
+    if (!analysisResult) {
+      return;
+    }
+
+    try {
+      setError(null);
+      setPhase('optimizing');
+      const optimizedDraft = buildOptimizedFlowchartState(analysisResult);
+      setDraftElements(optimizedDraft.elements);
+      setPhase('draft_flowchart');
+    } catch (err: any) {
+      console.error('PaperDraw optimize layout failed:', err);
+      setError(`${t('dialog.paperdraw.error.analyzeFailed')}: ${err.message}`);
+      setPhase('draft_flowchart');
+    }
+  }, [analysisResult, t]);
+
   return (
     <div className="paperdraw-dialog">
       <div className="paperdraw-dialog-desc">{t('dialog.paperdraw.description')}</div>
@@ -204,12 +225,24 @@ const PaperDrawDialog = () => {
                   : t('dialog.paperdraw.analyze')}
               </button>
               {draftElements.length > 0 && (
-                <button
-                  className="paperdraw-btn paperdraw-btn-secondary"
-                  onClick={insertToBoard}
-                >
-                  {t('dialog.paperdraw.insert')}
-                </button>
+                <>
+                  <button
+                    className="paperdraw-btn paperdraw-btn-secondary"
+                    onClick={handleOptimizeLayout}
+                    disabled={phase === 'optimizing'}
+                  >
+                    {phase === 'optimizing'
+                      ? `${t('dialog.paperdraw.optimizeLayout')}...`
+                      : t('dialog.paperdraw.optimizeLayout')}
+                  </button>
+                  <button
+                    className="paperdraw-btn paperdraw-btn-secondary"
+                    onClick={insertToBoard}
+                    disabled={phase === 'optimizing'}
+                  >
+                    {t('dialog.paperdraw.insert')}
+                  </button>
+                </>
               )}
             </div>
           </div>

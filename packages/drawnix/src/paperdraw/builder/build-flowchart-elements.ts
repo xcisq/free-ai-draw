@@ -80,6 +80,9 @@ export function buildFlowchartElements(layout: LayoutResult) {
       }
     );
     element.id = edge.id;
+    if (edge.routing && edge.routing.length > 2) {
+      element.points = edge.routing;
+    }
     return element;
   });
 
