@@ -6,9 +6,13 @@ export const PAPERDRAW_LAYOUT_DEFAULTS = {
   nodeHeight: 72,
   nodeGapX: 96,
   nodeGapY: 88,
+  moduleGapX: 140,
+  moduleGapY: 112,
   modulePaddingX: 24,
   modulePaddingY: 24,
   moduleTitleHeight: 28,
+  moduleGridThreshold: 4,
+  moduleGridColumns: 2,
 };
 
 export const PAPERDRAW_THEME = {

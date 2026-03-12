@@ -1,4 +1,4 @@
-import { Point } from '@plait/core';
+import type { Point } from '@plait/core';
 import {
   ArrowLineMarkerType,
   ArrowLineShape,
@@ -7,7 +7,7 @@ import {
   createGeometryElementWithText,
 } from '@plait/draw';
 import { PAPERDRAW_THEME } from '../config/defaults';
-import { LayoutDirection, LayoutGroup, LayoutNode, LayoutResult } from '../types/analyzer';
+import { LayoutGroup, LayoutNode, LayoutResult } from '../types/analyzer';
 
 const createNodePoints = (node: LayoutNode): [Point, Point] => {
   return [
@@ -21,16 +21,6 @@ const createGroupPoints = (group: LayoutGroup): [Point, Point] => {
     [group.x, group.y],
     [group.x + group.width, group.y + group.height],
   ];
-};
-
-const getConnectionPoint = (
-  direction: LayoutDirection,
-  handle: 'source' | 'target'
-): [number, number] => {
-  if (direction === 'TB') {
-    return handle === 'source' ? [0.5, 1] : [0.5, 0];
-  }
-  return handle === 'source' ? [1, 0.5] : [0, 0.5];
 };
 
 export function buildFlowchartElements(layout: LayoutResult) {
@@ -71,16 +61,16 @@ export function buildFlowchartElements(layout: LayoutResult) {
         : PAPERDRAW_THEME.sequentialStrokeColor;
 
     const element = createArrowLineElement(
-      ArrowLineShape.straight,
+      edge.shape === 'elbow' ? ArrowLineShape.elbow : ArrowLineShape.straight,
       edge.points,
       {
         boundId: edge.sourceId,
-        connection: getConnectionPoint(layout.direction, 'source'),
+        connection: edge.sourceConnection,
         marker: ArrowLineMarkerType.none,
       },
       {
         boundId: edge.targetId,
-        connection: getConnectionPoint(layout.direction, 'target'),
+        connection: edge.targetConnection,
         marker: ArrowLineMarkerType.arrow,
       },
       undefined,

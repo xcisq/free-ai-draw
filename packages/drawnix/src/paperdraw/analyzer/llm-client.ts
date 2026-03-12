@@ -1,4 +1,4 @@
-import { PAPERDRAW_PROMPT_CONFIG } from '../config';
+import { buildExtractionUserPrompt, PAPERDRAW_PROMPT_CONFIG } from '../config';
 import { ExtractionResult, LLMConfig } from '../types/analyzer';
 
 interface ChatMessage {
@@ -156,7 +156,7 @@ export async function extractFromText(
       },
       {
         role: 'user',
-        content: text,
+        content: buildExtractionUserPrompt(text),
       },
     ],
     handlers

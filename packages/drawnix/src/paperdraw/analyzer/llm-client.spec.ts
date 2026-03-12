@@ -5,9 +5,9 @@ import {
 
 describe('PaperDraw llm-client helpers', () => {
   it('extracts final json block from tagged text', () => {
-    const rawText = `思考中...\n<<PAPERDRAW_JSON_START>>{"entities":[],"relations":[]}\n<<PAPERDRAW_JSON_END>>`;
+    const rawText = `思考中...\n<<PAPERDRAW_JSON_START>>{"entities":[],"modules":[],"relations":[]}\n<<PAPERDRAW_JSON_END>>`;
 
-    expect(extractFinalJsonBlock(rawText)).toBe('{"entities":[],"relations":[]}');
+    expect(extractFinalJsonBlock(rawText)).toBe('{"entities":[],"modules":[],"relations":[]}');
   });
 
   it('parses OpenAI-compatible SSE chunks', () => {
@@ -20,7 +20,7 @@ describe('PaperDraw llm-client helpers', () => {
       [
         'data: {"choices":[{"delta":{"content":"分析中"}}]}',
         'data: {"choices":[{"delta":{"content":"<<PAPERDRAW_JSON_START>>"}}]}',
-        'data: {"choices":[{"delta":{"content":"{\\"entities\\":[],\\"relations\\":[]}"}}]}',
+        'data: {"choices":[{"delta":{"content":"{\\"entities\\":[],\\"modules\\":[],\\"relations\\":[]}"}}]}',
         'data: {"choices":[{"delta":{"content":"<<PAPERDRAW_JSON_END>>"}}]}',
         'data: [DONE]',
         '',
@@ -28,6 +28,6 @@ describe('PaperDraw llm-client helpers', () => {
     );
 
     expect(rawText).toContain('分析中');
-    expect(extractFinalJsonBlock(rawText)).toBe('{"entities":[],"relations":[]}');
+    expect(extractFinalJsonBlock(rawText)).toBe('{"entities":[],"modules":[],"relations":[]}');
   });
 });

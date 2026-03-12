@@ -3,26 +3,31 @@
  * 默认不再调用第二次 LLM，直接基于 ExtractionResult 生成问题和最终分析
  */
 
+import { PAPERDRAW_LOW_CONFIDENCE_THRESHOLD } from '../config/defaults';
 import {
   AnalysisResult,
   CRSAnswer,
   CRSQuestion,
   Entity,
   ExtractionResult,
+  FlowRelation,
   LLMConfig,
-  ModularRelation,
-  Relation,
 } from '../types/analyzer';
 
 const DEFAULT_WEIGHT = 0.5;
 const IMPORTANT_WEIGHT = 0.9;
 const ROOT_WEIGHT = 0.65;
+const MAX_LOW_CONFIDENCE_QUESTIONS = 2;
+
+const getEntityById = (entities: Entity[], entityId: string) => {
+  return entities.find((entity) => entity.id === entityId);
+};
 
 const getEntityByLabel = (entities: Entity[], label: string) => {
   return entities.find((entity) => entity.label === label);
 };
 
-const getSequentialStats = (relations: Relation[]) => {
+const getSequentialStats = (relations: FlowRelation[]) => {
   const indegree = new Map<string, number>();
   const outdegree = new Map<string, number>();
 
@@ -37,22 +42,61 @@ const getSequentialStats = (relations: Relation[]) => {
   return { indegree, outdegree };
 };
 
+const buildDefaultWeights = (entities: Entity[], relations: FlowRelation[]) => {
+  const { indegree, outdegree } = getSequentialStats(relations);
+  return entities.reduce<Record<string, number>>((accumulator, entity) => {
+    const isRoot = (indegree.get(entity.id) || 0) === 0;
+    accumulator[entity.id] = isRoot || (outdegree.get(entity.id) || 0) > 0
+      ? ROOT_WEIGHT
+      : DEFAULT_WEIGHT;
+    return accumulator;
+  }, {});
+};
+
 const getModuleQuestions = (extraction: ExtractionResult): CRSQuestion[] => {
-  return extraction.relations
-    .filter((relation): relation is ModularRelation => relation.type === 'modular')
-    .slice(0, 2)
-    .map((relation, index) => ({
+  return [...extraction.modules]
+    .sort((left, right) => {
+      const leftPriority =
+        (left.entityIds.length > 4 ? 2 : 0) +
+        ((left.confidence ?? DEFAULT_WEIGHT) < PAPERDRAW_LOW_CONFIDENCE_THRESHOLD ? 1 : 0);
+      const rightPriority =
+        (right.entityIds.length > 4 ? 2 : 0) +
+        ((right.confidence ?? DEFAULT_WEIGHT) < PAPERDRAW_LOW_CONFIDENCE_THRESHOLD ? 1 : 0);
+      return rightPriority - leftPriority;
+    })
+    .slice(0, Math.max(2, extraction.modules.length))
+    .map((moduleItem, index) => ({
       id: `q-module-${index + 1}`,
       type: 'module_grouping' as const,
-      question: `以下实体是否属于模块「${relation.moduleLabel}」？`,
-      options: relation.entityIds
-        .map((entityId) => extraction.entities.find((entity) => entity.id === entityId)?.label)
+      question:
+        moduleItem.entityIds.length > 4
+          ? `模块「${moduleItem.label}」较大，以下实体哪些应保留在这个模块中？`
+          : `请确认以下实体是否属于模块「${moduleItem.label}」`,
+      options: moduleItem.entityIds
+        .map((entityId) => getEntityById(extraction.entities, entityId)?.label)
         .filter((label): label is string => Boolean(label)),
       multiSelect: true,
-      relatedEntityIds: relation.entityIds,
-      moduleLabel: relation.moduleLabel,
+      relatedEntityIds: [...moduleItem.entityIds],
+      moduleId: moduleItem.id,
+      moduleLabel: moduleItem.label,
     }))
-    .filter((question) => question.options.length > 1);
+    .filter((question) => question.options.length >= 2);
+};
+
+const getLowConfidenceQuestions = (extraction: ExtractionResult): CRSQuestion[] => {
+  return extraction.entities
+    .filter((entity) => (entity.confidence ?? DEFAULT_WEIGHT) < PAPERDRAW_LOW_CONFIDENCE_THRESHOLD)
+    .sort((left, right) => (left.confidence ?? DEFAULT_WEIGHT) - (right.confidence ?? DEFAULT_WEIGHT))
+    .slice(0, MAX_LOW_CONFIDENCE_QUESTIONS)
+    .map((entity, index) => ({
+      id: `q-low-confidence-${index + 1}`,
+      type: 'low_confidence' as const,
+      question: `实体「${entity.label}」置信度较低，是否保留？`,
+      options: ['保留', '忽略'],
+      multiSelect: false,
+      relatedEntityIds: [entity.id],
+      entityId: entity.id,
+    }));
 };
 
 const getImportanceQuestion = (extraction: ExtractionResult): CRSQuestion[] => {
@@ -84,77 +128,79 @@ const getImportanceQuestion = (extraction: ExtractionResult): CRSQuestion[] => {
 };
 
 export function generateQuestions(extraction: ExtractionResult, _config?: LLMConfig): CRSQuestion[] {
-  return [...getModuleQuestions(extraction), ...getImportanceQuestion(extraction)];
+  return [
+    ...getModuleQuestions(extraction),
+    ...getLowConfidenceQuestions(extraction),
+    ...getImportanceQuestion(extraction),
+  ];
 }
 
-const buildDefaultWeights = (entities: Entity[], relations: Relation[]) => {
-  const { indegree, outdegree } = getSequentialStats(relations);
-  return entities.reduce<Record<string, number>>((accumulator, entity) => {
-    const isRoot = (indegree.get(entity.id) || 0) === 0;
-    accumulator[entity.id] = isRoot || (outdegree.get(entity.id) || 0) > 0
-      ? ROOT_WEIGHT
-      : DEFAULT_WEIGHT;
-    return accumulator;
-  }, {});
-};
-
-const buildModules = (
-  extraction: ExtractionResult,
+function applyLowConfidenceAnswers(
+  entities: Entity[],
   answers: CRSAnswer[],
   questions: CRSQuestion[]
-): ModularRelation[] => {
-  const defaultModules = extraction.relations
-    .filter((relation): relation is ModularRelation => relation.type === 'modular')
-    .map((relation, index) => ({
-      id: `m${index + 1}`,
-      type: 'modular' as const,
-      moduleLabel: relation.moduleLabel,
-      entityIds: [...relation.entityIds],
-      confidence: relation.confidence,
-    }));
-
-  const nextModules = defaultModules.map((module) => ({ ...module }));
+) {
+  const ignoredEntityIds = new Set<string>();
 
   for (const question of questions) {
-    if (question.type !== 'module_grouping' || !question.moduleLabel) {
+    if (question.type !== 'low_confidence' || !question.entityId) {
       continue;
     }
     const answer = answers.find((item) => item.questionId === question.id);
-    if (!answer) {
-      continue;
-    }
-    const entityIds = answer.selectedOptions
-      .map((label) => getEntityByLabel(extraction.entities, label)?.id)
-      .filter((entityId): entityId is string => Boolean(entityId));
-
-    const existing = nextModules.find((module) => module.moduleLabel === question.moduleLabel);
-    if (!existing) {
-      if (entityIds.length > 1) {
-        nextModules.push({
-          id: `m${nextModules.length + 1}`,
-          type: 'modular',
-          moduleLabel: question.moduleLabel,
-          entityIds,
-          confidence: DEFAULT_WEIGHT,
-        });
-      }
-      continue;
-    }
-
-    if (entityIds.length > 1) {
-      existing.entityIds = Array.from(new Set(entityIds));
-    } else {
-      existing.entityIds = [];
+    if (answer?.selectedOptions[0] === '忽略') {
+      ignoredEntityIds.add(question.entityId);
     }
   }
 
-  return nextModules.filter((module) => module.entityIds.length > 1);
-};
+  return {
+    ignoredEntityIds,
+    entities: entities.filter((entity) => !ignoredEntityIds.has(entity.id)),
+  };
+}
 
-const mergeModularRelations = (relations: Relation[], modules: ModularRelation[]): Relation[] => {
-  const nonModularRelations = relations.filter((relation) => relation.type !== 'modular');
-  return [...nonModularRelations, ...modules.map((module, index) => ({ ...module, id: `r-mod-${index + 1}` }))];
-};
+function updateModules(
+  extraction: ExtractionResult,
+  entities: Entity[],
+  answers: CRSAnswer[],
+  questions: CRSQuestion[]
+) {
+  const allowedEntityIds = new Set(entities.map((entity) => entity.id));
+
+  const nextModules = extraction.modules
+    .map((moduleItem) => ({ ...moduleItem, entityIds: [...moduleItem.entityIds] }))
+    .map((moduleItem) => {
+      const question = questions.find(
+        (item) => item.type === 'module_grouping' && item.moduleId === moduleItem.id
+      );
+      const answer = question
+        ? answers.find((item) => item.questionId === question.id)
+        : undefined;
+
+      const entityIds = answer
+        ? answer.selectedOptions
+            .map((label) => getEntityByLabel(entities, label)?.id)
+            .filter((entityId): entityId is string => Boolean(entityId && allowedEntityIds.has(entityId)))
+        : moduleItem.entityIds.filter((entityId) => allowedEntityIds.has(entityId));
+
+      return {
+        ...moduleItem,
+        entityIds: Array.from(new Set(entityIds)),
+      };
+    })
+    .filter((moduleItem) => moduleItem.entityIds.length >= 2);
+
+  return nextModules.map((moduleItem, index) => ({
+    ...moduleItem,
+    id: `m${index + 1}`,
+    order: moduleItem.order ?? index + 1,
+  }));
+}
+
+function filterRelations(relations: FlowRelation[], allowedEntityIds: Set<string>) {
+  return relations.filter((relation) => {
+    return allowedEntityIds.has(relation.source) && allowedEntityIds.has(relation.target);
+  });
+}
 
 export function refineWithAnswers(
   extraction: ExtractionResult,
@@ -162,8 +208,11 @@ export function refineWithAnswers(
   questions: CRSQuestion[],
   _config?: LLMConfig
 ): AnalysisResult {
-  const weights = buildDefaultWeights(extraction.entities, extraction.relations);
-  const modules = buildModules(extraction, answers, questions);
+  const { entities } = applyLowConfidenceAnswers(extraction.entities, answers, questions);
+  const allowedEntityIds = new Set(entities.map((entity) => entity.id));
+  const relations = filterRelations(extraction.relations, allowedEntityIds);
+  const weights = buildDefaultWeights(entities, relations);
+  const modules = updateModules(extraction, entities, answers, questions);
 
   for (const question of questions) {
     if (question.type !== 'importance_ranking') {
@@ -174,7 +223,7 @@ export function refineWithAnswers(
     if (!selectedLabel) {
       continue;
     }
-    const selectedEntity = getEntityByLabel(extraction.entities, selectedLabel);
+    const selectedEntity = getEntityByLabel(entities, selectedLabel);
     if (!selectedEntity) {
       continue;
     }
@@ -182,8 +231,8 @@ export function refineWithAnswers(
   }
 
   return {
-    entities: extraction.entities,
-    relations: mergeModularRelations(extraction.relations, modules),
+    entities,
+    relations,
     weights,
     modules,
     warnings: extraction.warnings,
@@ -196,17 +245,14 @@ export function generateDefaultAnalysis(
   extraction: ExtractionResult,
   _config?: LLMConfig
 ): AnalysisResult {
-  const modules = extraction.relations.filter(
-    (relation): relation is ModularRelation => relation.type === 'modular'
-  );
-
   return {
     entities: extraction.entities,
     relations: extraction.relations,
     weights: buildDefaultWeights(extraction.entities, extraction.relations),
-    modules: modules.map((module, index) => ({
-      ...module,
+    modules: extraction.modules.map((moduleItem, index) => ({
+      ...moduleItem,
       id: `m${index + 1}`,
+      order: moduleItem.order ?? index + 1,
     })),
     warnings: extraction.warnings,
   };

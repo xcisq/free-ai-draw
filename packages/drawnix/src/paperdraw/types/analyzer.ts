@@ -1,4 +1,4 @@
-import { PlaitElement, Point } from '@plait/core';
+import type { PlaitElement, Point } from '@plait/core';
 
 /**
  * PaperDraw 文本解析与草图生成核心类型
@@ -21,12 +21,16 @@ export interface SequentialRelation {
   confidence?: number;
 }
 
+/**
+ * 兼容旧输出使用。进入 validator 后会被统一归并为 modules。
+ */
 export interface ModularRelation {
   id: string;
   type: 'modular';
   moduleLabel: string;
   entityIds: string[];
   confidence?: number;
+  evidence?: string;
 }
 
 export interface AnnotativeRelation {
@@ -39,33 +43,44 @@ export interface AnnotativeRelation {
   confidence?: number;
 }
 
-export type Relation =
-  | SequentialRelation
-  | ModularRelation
-  | AnnotativeRelation;
+export interface ModuleGroup {
+  id: string;
+  label: string;
+  entityIds: string[];
+  order?: number;
+  confidence?: number;
+  evidence?: string;
+}
+
+export type PromptRelationType = 'sequential' | 'modular' | 'annotative';
+export type FlowRelation = SequentialRelation | AnnotativeRelation;
+export type RawRelation = FlowRelation | ModularRelation;
 
 export interface ExtractionResult {
   entities: Entity[];
-  relations: Relation[];
+  relations: FlowRelation[];
+  modules: ModuleGroup[];
   warnings?: string[];
 }
 
 export interface AnalysisResult {
   entities: Entity[];
-  relations: Relation[];
+  relations: FlowRelation[];
   weights: Record<string, number>;
-  modules: ModularRelation[];
+  modules: ModuleGroup[];
   warnings?: string[];
 }
 
 export interface CRSQuestion {
   id: string;
-  type: 'module_grouping' | 'importance_ranking';
+  type: 'module_grouping' | 'low_confidence' | 'importance_ranking';
   question: string;
   options: string[];
   multiSelect: boolean;
   relatedEntityIds?: string[];
+  moduleId?: string;
   moduleLabel?: string;
+  entityId?: string;
 }
 
 export interface CRSAnswer {
@@ -105,7 +120,7 @@ export interface PaperDrawPromptConfig {
   finalJsonStart: string;
   finalJsonEnd: string;
   relationTypes: Array<{
-    type: Relation['type'];
+    type: PromptRelationType;
     description: string;
   }>;
   extractionSystemPrompt: string;
@@ -116,12 +131,15 @@ export type LayoutDirection = 'LR' | 'TB';
 export interface LayoutNode {
   id: string;
   label: string;
+  moduleId?: string;
   x: number;
   y: number;
   width: number;
   height: number;
   weight: number;
   confidence: number;
+  row?: number;
+  column?: number;
 }
 
 export interface LayoutEdge {
@@ -129,6 +147,9 @@ export interface LayoutEdge {
   type: 'sequential' | 'annotative';
   sourceId: string;
   targetId: string;
+  shape: 'straight' | 'elbow';
+  sourceConnection: [number, number];
+  targetConnection: [number, number];
   points: [Point, Point];
   label?: string;
 }
@@ -141,6 +162,7 @@ export interface LayoutGroup {
   y: number;
   width: number;
   height: number;
+  order: number;
 }
 
 export interface LayoutResult {
