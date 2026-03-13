@@ -35,6 +35,7 @@ import {
   buildElkOptimizedFlowchartState,
   buildOptimizedFlowchartState,
 } from '../builder/flowchart-builder';
+import { PAPERDRAW_LAYOUT_DEFAULTS } from '../config/defaults';
 import { isValidSelectionForOptimize } from '../layout/layout-snapshot';
 import { CRSQAPanel } from './crs-qa-panel';
 import { PaperDrawBoardPreview } from './paperdraw-board-preview';
@@ -219,7 +220,12 @@ const PaperDrawDialog = () => {
         const options: ElkLayoutOptions = {
           mode,
           selection: selectionState,
-          timeoutMs: 4000,
+          profile: 'auto',
+          quality: 'quality',
+          timeoutMs:
+            mode === 'selection'
+              ? PAPERDRAW_LAYOUT_DEFAULTS.optimizerSelectionTimeoutMs
+              : PAPERDRAW_LAYOUT_DEFAULTS.optimizerGlobalTimeoutMs,
         };
         const optimizedDraft = await buildElkOptimizedFlowchartState(
           analysisResult,

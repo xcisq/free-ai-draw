@@ -1,5 +1,5 @@
 import type { AnalysisResult, ElkLayoutOptions, LayoutResult } from '../types/analyzer';
-import { computeElkOptimizedLayout } from './elk-layout';
+import { computeOptimizedLayoutV2 } from './layout-optimizer-v2';
 
 interface ElkWorkerRequest {
   analysis: AnalysisResult;
@@ -21,7 +21,7 @@ self.onmessage = async (
   event: MessageEvent<ElkWorkerRequest>
 ) => {
   try {
-    const layout = await computeElkOptimizedLayout(
+    const layout = await computeOptimizedLayoutV2(
       event.data.analysis,
       event.data.elements as any,
       event.data.options

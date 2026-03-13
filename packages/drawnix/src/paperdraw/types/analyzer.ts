@@ -166,11 +166,54 @@ export interface LayoutGroup {
   order: number;
 }
 
+export type LayoutProfileId = 'single' | 'double' | 'auto';
+
+export interface LayoutProfile {
+  id: 'single' | 'double';
+  targetAspectRatio: number;
+  maxWidth: number;
+  maxHeight: number;
+  scale: number;
+}
+
+export interface LayoutMetrics {
+  blankSpaceScore: number;
+  vifScore: number;
+  aspectRatioPenalty: number;
+  alignmentPenalty: number;
+  groupingPenalty: number;
+  estimatedCrossings: number;
+  bends: number;
+  routeLength: number;
+  hardConstraintViolations: number;
+  totalScore: number;
+}
+
 export interface LayoutResult {
   nodes: LayoutNode[];
   edges: LayoutEdge[];
   groups: LayoutGroup[];
   direction: LayoutDirection;
+  metrics?: LayoutMetrics;
+}
+
+export interface LayoutConstraintModel {
+  nodes: LayoutNode[];
+  edges: LayoutEdge[];
+  groups: LayoutGroup[];
+  sequentialEdges: LayoutEdge[];
+  annotativeEdges: LayoutEdge[];
+  pinnedNodeIds: string[];
+  pinnedGroupIds: string[];
+  profile: LayoutProfile;
+  mainFlowDirection: LayoutDirection;
+}
+
+export interface LayoutCandidate {
+  id: string;
+  grammar: 'H' | 'V' | 'D' | 'COMPOSITE';
+  layout: LayoutResult;
+  metrics: LayoutMetrics;
 }
 
 export type OptimizeMode = 'selection' | 'global';
@@ -181,11 +224,15 @@ export interface PaperDrawSelectionState {
   edgeIds: string[];
 }
 
-export interface ElkLayoutOptions {
+export interface LayoutOptimizeOptions {
   mode: OptimizeMode;
   selection?: PaperDrawSelectionState;
+  profile?: LayoutProfileId;
+  quality?: 'quality';
   timeoutMs?: number;
 }
+
+export type ElkLayoutOptions = LayoutOptimizeOptions;
 
 export interface DraftFlowchartState {
   analysis: AnalysisResult;

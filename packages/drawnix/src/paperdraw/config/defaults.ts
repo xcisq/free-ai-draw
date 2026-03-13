@@ -18,6 +18,20 @@ export const PAPERDRAW_LAYOUT_DEFAULTS = {
   routeLaneSpacing: 36,
   routeOuterMargin: 48,
   routeInnerMargin: 32,
+  routeNodeObstaclePadding: 12,
+  routeGroupObstaclePadding: 8,
+  routeGridMargin: 24,
+  profileSingleAspectRatio: 0.72,
+  profileDoubleAspectRatio: 1.68,
+  profileSingleMaxWidth: 760,
+  profileSingleMaxHeight: 1480,
+  profileDoubleMaxWidth: 1360,
+  profileDoubleMaxHeight: 920,
+  profileDefaultScale: 1,
+  optimizerGlobalCandidateCount: 24,
+  optimizerSelectionCandidateCount: 12,
+  optimizerGlobalTimeoutMs: 6000,
+  optimizerSelectionTimeoutMs: 3500,
 };
 
 export const PAPERDRAW_THEME = {

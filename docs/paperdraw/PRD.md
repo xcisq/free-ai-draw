@@ -330,133 +330,337 @@ export function basicLayout(
 
 > **触发方式**: 用户在初版流程图上手动点击"优化布局"按钮触发。
 > 优化器读取当前 Board 上的元素状态（用户可能已手动编辑过），进行增量优化。
+> 目标不是“再跑一次现有布局”，而是以**论文级流程图设计规范**为硬约束，生成更可读、更紧凑、更少冲突的排布与路由结果。
 
-当前仓库现状补充：
+当前状态与问题判断：
 
-- 当前仓库已经接入 **`elkjs`**，第二阶段从“本地启发式 MVP”升级为“**ELK 主优化器 + 本地 fallback**”
-- “优化布局”不再只是重新渲染原图，而是支持 **整体重排** 与 **选区局部重排**
-- 本地启发式优化器继续保留，用于 ELK 失败、超时或局部边界边的兜底路由
-- 当前重点从“先接通按钮”切换为“**布局最优 + 局部重排 + 边界连接合理**”
+- 当前仓库虽然已经接入 **`elkjs`**，但单独依赖 ELK layered + orthogonal 还不够，仍会出现：
+  - 模块组织不够稳定
+  - 主链与分支缺乏明确版式
+  - 连线仍可能绕行不佳、穿插过多
+  - 复杂图下无法稳定满足“**不穿实体**”这一硬约束
+- 因此第二阶段最终目标应升级为：**语义约束建模 + 基础布局语法 + 多目标评分 + ELK 精排 + 自定义正交避障路由** 的混合优化器。
 
-#### 3.2.1 基础布局 vs 优化布局
+#### 3.2.1 前置硬约束与设计规范
 
-| | 基础布局（Text Analyzer 后立即生成） | 优化布局（用户手动触发） |
-|---|---|---|
-| **触发时机** | 自动，本地 QA / AI Repair 完成后立即 | 手动，用户点击"优化布局" |
-| **算法** | 模块优先两层布局 | ELK 层次化布局 + 正交路由，失败时回退本地启发式 |
-| **耗时** | < 100ms（同步） | < 2s（Web Worker） |
-| **可编辑性** | 生成后即可编辑 | 优化后仍可编辑 |
-| **尊重用户编辑** | - | 保留用户固定/移动的节点 |
+布局优化必须以前期调研得到的论文级流程图原则作为前置约束，而不是单纯依赖某个通用布局库。
 
-当前第二阶段拆分为两个层次：
+基础设计原则：
 
-1. **ELK 主优化器（本轮实现）**
-   - 整体重排：对整张图做层次化布局和正交路由
-   - 选区局部重排：只重排用户选中的矩形节点和相关箭头
-   - 模块层级通过 compound node / hierarchy handling 保留
-2. **本地 fallback 路由器（本轮保留）**
-   - 当 ELK 失败或局部边界边效果不理想时，继续使用走廊 lane + waypoint 兜底
+- **元素对齐**：同行元素共享基线、同列元素共享中心线；模块内节点默认保持规则网格或主轴对齐
+- **空间高效**：尽量压缩无意义空白，提升图面信息密度
+- **尺寸标准化**：输出需适配论文单栏 / 双栏的目标版式，由统一 `LayoutProfile` 约束宽高比、最大宽度和缩放
+- **自然阅读流**：主流程优先遵循“从左到右、从上到下”；若采用垂直主链，也必须保持一致方向，不允许频繁反向
 
-#### 3.2.2 多目标优化（论文 Section 4.3.1）
+设计空间规范：
 
-三个优化目标：
-- **空白最小化**（公式1）：最大化空间利用效率
-- **视觉信息流 VIF**（公式2）：连续方向夹角 > 90度 扣分，保持阅读流连贯
-- **边界框几何**（公式3）：贴合目标宽高比（单栏 / 双栏格式）
+- 基础布局类型限定为 **水平 H / 垂直 V / 对角 D**
+- 复杂图不直接自由摆放，而是由 H / V / D 基础类型做**递归组合**
+- 连接路由与元素排列是两个并行优化目标，不能只优化其中一个
 
-当前实现策略：
+语义逻辑约束：
 
-- **目标 1：全局布局更优**
-  - 使用 ELK layered 算法优化层级、顺序和模块层次
-- **目标 2：线条更少交叉**
-  - 默认启用 ELK 正交路由
-- **目标 3：支持局部优化**
-  - 用户可选择部分矩形节点/箭头，只重排该区域
-- **目标 4：边界连接合理**
-  - 选区与未选区之间的边在 ELK 后继续做本地二次整理
-- **目标 5：保留回退能力**
-  - ELK 超时或异常时，自动回退到本地启发式优化
+- **顺序关系**：决定主链先后与阅读方向
+- **模块化关系**：决定视觉聚合、边界框与一级布局单元
+- **注释性关系**：视为模块侧挂或节点侧挂的特殊关系，不得破坏主链
 
-后续升级策略：在 ELK 结果之上继续增加评分驱动的多目标微调
+约束分级：
 
-#### 3.2.3 连接路由 - ELK 正交路由 + 本地边界优化
+| 级别 | 约束 |
+|------|------|
+| **硬约束** | 节点不重叠、模块边界包裹成员、边不穿任何实体包围盒、主链拓扑顺序不被破坏、输出尺寸不超过目标版式上限 |
+| **强偏好** | 同行同列对齐、空白最小化、拐点少、交叉少、视觉流连续、宽高比接近目标值 |
 
-当前默认由 ELK 输出正交 bend points，再映射回 `LayoutEdge.routing`。对于局部重排后连接选区与未选区的边，以及 ELK 输出不稳定的边，再使用本地路由器兜底。
+#### 3.2.2 优化输入与语义约束建模
 
-当前路由规则：
-
-- **整体重排**：由 ELK 直接输出层次化节点位置与正交折线
-- **局部重排内部边**：由 ELK 对选区子图输出 bend points
-- **局部重排边界边**：用本地走廊路由重新连接选区与未选区
-- **注释边**：若 ELK 效果不理想，优先回退到模块侧挂走廊
-- **异常回退**：ELK 失败时，整图回退到 `optimizeLayout()`
-
-技术实现：
-
-- `LayoutEdge.routing` 作为 ELK bend points 的标准承载字段
-- builder 在创建 elbow line 后写入 `element.points = routing`
-- 预览板在初次生成和手动优化后做一次 route stabilization
-- “优化布局”按钮触发的是当前 draft 上的 ELK 优化，而不是重新跑文本分析
-
-#### 3.2.4 关键数据结构
+布局优化器的输入不再只是 `nodes + edges`，而是一个带语义的约束模型：
 
 ```typescript
-// paperdraw/types/layout.ts
+interface SemanticLayoutGraph {
+  entities: Entity[];
+  sequentialEdges: FlowRelation[];
+  annotativeEdges: FlowRelation[];
+  modules: ModuleGroup[];
+  pinnedNodeIds: string[];        // 用户明确固定或未选中的节点
+  layoutProfile: 'single' | 'double';
+}
+```
 
-interface LayoutNode {
-  id: string;
-  x: number; y: number;
-  width: number; height: number;
-  label: string;
-  weight: number;
-  pinned?: boolean;  // 用户手动固定的节点，优化时不移动
+建模步骤：
+
+1. 从 `AnalysisResult` 和当前 draft 元素恢复 **语义 DAG**
+2. 提取主链、分支、模块、注释、跨模块依赖
+3. 将模块转为一级布局单元，将模块内部节点转为二级布局单元
+4. 将用户未选中的节点、手动移动节点转为 `pinned` / `semi-fixed` 约束
+5. 根据导出目标选择 `LayoutProfile`
+
+语义映射规则：
+
+- 顺序边优先形成主链或子链
+- 模块节点优先聚成 cluster，并在布局阶段保留边界框
+- 注释边优先进入“侧挂轨道”，默认不参与主链排序
+- 若一个节点同时承担主链和注释角色，主链约束优先
+
+#### 3.2.3 元素排列优化：布局语法 + 多目标评分
+
+元素排列优化不应只跑一次通用图布局，而应先生成多个满足语义的候选排布，再通过评分选优。
+
+##### A. 候选布局生成
+
+以基础布局类型做递归组合：
+
+- **H(水平)**：适合单主链、左右推进结构
+- **V(垂直)**：适合阶段堆叠、上下推进结构
+- **D(对角)**：适合强调跨阶段跃迁、斜向过渡，但只能作为局部子结构使用
+
+候选生成规则：
+
+1. 模块级先生成一级结构候选，例如 `H(H,V,H)`、`V(H,H)`、`H(D,H)`
+2. 每个模块内部再生成局部候选，例如 `TB`、`2 列网格`、`小型 H/V 组合`
+3. 主链与分支分开编码，注释节点统一尝试侧挂
+4. 生成 `K` 个候选布局后进入评分阶段，保留 Pareto 前沿或 Top-K
+
+##### B. 三大核心优化目标
+
+1. **空白空间最小化**
+
+```text
+F_blank = 1 - Area(all nodes and groups) / Area(global bounding box)
+```
+
+- 目标：最小化 `F_blank`
+- 含义：减少无效空白，提高图面利用率
+
+2. **视觉信息流（VIF）连续性**
+
+```text
+F_vif = Σ turnPenalty(angle_i) + Σ reversePenalty(edge_j)
+```
+
+- 对连续元素之间的大角度转折施加惩罚
+- 对明显逆阅读流的边施加更高惩罚
+- 保证视觉路径尽量连续、少跳跃
+
+3. **边界框几何约束**
+
+```text
+F_ratio = abs((W / H) - targetRatio) / targetRatio
+```
+
+- `targetRatio` 由单栏 / 双栏 profile 决定
+- 布局最终包围盒应尽量接近期望宽高比
+
+##### C. 补充目标
+
+- **对齐惩罚**：破坏同行/同列基线时扣分
+- **模块紧凑度**：同模块内部距离过大时扣分
+- **预估交叉数**：在正式路由前估计跨模块和跨层冲突
+
+综合评分模型：
+
+```text
+Score = w1 * F_blank
+      + w2 * F_vif
+      + w3 * F_ratio
+      + w4 * F_align
+      + w5 * F_group
+      + w6 * F_cross
+```
+
+执行策略：
+
+- 先过滤所有违反硬约束的候选
+- 对剩余候选计算综合分数
+- 选择最优候选进入精排与路由阶段
+
+#### 3.2.4 线条优化器：正交避障路由
+
+线条优化的硬约束必须提升为：
+
+- **连接线不可穿过任何实体或模块边界内部的禁行区域**
+- 在此基础上，再追求 **拐点少、交叉少、长度短、路由效率高**
+
+##### A. 路由输入与障碍建模
+
+- 将节点矩形、模块边界框统一扩张为 `obstacle box`
+- 为每个节点建立 `N/E/S/W` 四侧端口候选，必要时支持多端口槽位
+- 为模块外缘建立“外侧走廊”
+- 为注释边建立侧挂通道，不与主链共线
+
+##### B. 路由求解方式
+
+最终路由器不只依赖 ELK bend points，而是使用**自定义正交避障路由器**做最终成图：
+
+1. 先构建 rectilinear visibility graph / routing grid
+2. 对每条边做端口分配
+3. 使用 `A* / Dijkstra` 在障碍图上搜索最短可行正交路径
+4. 使用 rip-up and reroute 处理高拥塞和交叉冲突
+5. 最后做折线简化和冗余拐点去除
+
+路由代价函数：
+
+```text
+C_route = a * length
+        + b * bends
+        + c * crossings
+        + d * reverseFlow
+        + e * congestion
+```
+
+关键规则：
+
+- **主链边优先路由**
+- **模块内边次优先**
+- **跨模块边第三优先**
+- **注释边最后路由，并尽量走外侧走廊**
+
+这样可以保证主干结构先被保护，再安排支线和注释线。
+
+#### 3.2.5 ELK 的角色边界与配置基线
+
+根据当前 `elkjs` 文档和本地 `knownLayoutOptions()` 查询，可确认 ELK 支持：
+
+- `org.eclipse.elk.direction`
+- `org.eclipse.elk.edgeRouting`
+- `org.eclipse.elk.hierarchyHandling`
+- `org.eclipse.elk.portConstraints`
+- `org.eclipse.elk.port.side`
+- `org.eclipse.elk.layered.crossingMinimization.strategy`
+- `org.eclipse.elk.layered.nodePlacement.favorStraightEdges`
+- `org.eclipse.elk.layered.nodePlacement.strategy`
+- `org.eclipse.elk.layered.priority.straightness`
+- `org.eclipse.elk.layered.considerModelOrder.strategy`
+- `org.eclipse.elk.layered.considerModelOrder.portModelOrder`
+- `org.eclipse.elk.layered.unnecessaryBendpoints`
+
+基于这些能力，当前推断的最优工程分工是：
+
+1. **ELK 负责**
+   - 层次化粗排
+   - 模块层级布局
+   - 初步 crossing minimization
+   - 初步 orthogonal bend points 生成
+2. **PaperDraw 自研优化器负责**
+   - 候选布局语法生成
+   - 多目标评分与选优
+   - 单栏 / 双栏 profile 适配
+   - 最终 obstacle-aware orthogonal routing
+   - 局部重排后的边界边修复
+
+也就是说，ELK 在最终架构中是**受约束的精排器**，而不是唯一的最终布局决策器。
+
+建议的 ELK baseline 选项：
+
+```typescript
+const ELK_BASE_OPTIONS = {
+  'elk.algorithm': 'layered',
+  'elk.edgeRouting': 'ORTHOGONAL',
+  'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
+  'elk.portConstraints': 'FIXED_SIDE',
+  'elk.layered.nodePlacement.favorStraightEdges': 'true',
+  'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
+  'elk.layered.unnecessaryBendpoints': 'false',
+};
+```
+
+说明：以上是根据官方 option 描述做出的工程推断，用于保证方向一致、端口固定、尽量直边、减少无效折点。
+
+#### 3.2.6 关键数据结构
+
+```typescript
+interface LayoutProfile {
+  id: 'single' | 'double';
+  targetAspectRatio: number;
+  maxWidth: number;
+  maxHeight: number;
+  scale: number;
 }
 
-interface LayoutEdge {
-  id: string;
-  sourceId: string;
-  targetId: string;
-  routing?: [number, number][];  // 显式 waypoint，优化布局阶段可填充
-  type: 'sequential' | 'annotative';
+interface LayoutMetrics {
+  blankSpaceScore: number;
+  vifScore: number;
+  aspectRatioPenalty: number;
+  alignmentPenalty: number;
+  crossings: number;
+  bends: number;
+  routeLength: number;
+  hardConstraintViolations: number;
+  totalScore: number;
 }
 
-interface LayoutGroup {
+interface LayoutCandidate {
   id: string;
-  moduleLabel: string;
-  nodeIds: string[];
-  x: number; y: number;
-  width: number; height: number;
+  grammar: 'H' | 'V' | 'D' | 'COMPOSITE';
+  layout: LayoutResult;
+  metrics: LayoutMetrics;
 }
 
 interface LayoutResult {
   nodes: LayoutNode[];
   edges: LayoutEdge[];
   groups: LayoutGroup[];
-  metrics: {
-    blankSpaceScore: number;
-    vifScore: number;
-    geometryScore: number;
-    crossings: number;
-  };
+  metrics: LayoutMetrics;
 }
 ```
 
-#### 3.2.5 当前需要补齐的实现点
+#### 3.2.7 后续实施计划（本部分为最高优先级）
 
-按当前代码现状，第二阶段优先补这 6 项：
+按当前问题严重程度，布局优化器与线条优化器的后续开发顺序固定为：
 
-1. `paperdraw/layout/elk-layout.ts`
-   - ELK graph 构建、输出映射、局部重排子图构建
-2. `paperdraw/layout/elk-layout.worker.ts`
-   - 在 worker 中运行 ELK，避免阻塞 UI
-3. `paperdraw/layout/optimize-layout.ts`
-   - 继续承担 fallback 和边界边兜底
-4. `paperdraw/builder/flowchart-builder.ts`
-   - 提供 `buildElkOptimizedFlowchartState()`
-5. `paperdraw/components/paperdraw-dialog.tsx`
-   - “重排已选区域 / 整体重排”菜单入口与状态切换
-6. `paperdraw/layout/*.spec.ts`
-   - 增加 ELK 全局优化、局部重排、fallback 与 routing 测试
+1. **约束与评分基础设施**
+   - 新增 `constraint-model.ts`
+   - 新增 `layout-profile.ts`
+   - 新增 `layout-metrics.ts`
+   - 固化硬约束校验、空白/VIF/宽高比评分
+
+2. **布局语法与候选生成器**
+   - 新增 `layout-grammar.ts`
+   - 新增 `candidate-generator.ts`
+   - 实现 H/V/D 基础类型与递归组合
+
+3. **ELK 精排器重构**
+   - 保留现有 `elk-layout.ts`，但降级为 candidate refiner
+   - 增加端口侧固定、顺序保持、straightness 优先级
+
+4. **正交避障路由器 v2**
+   - 新增 `orthogonal-router.ts`
+   - 实现 obstacle graph、端口分配、A* 路由、rip-up and reroute
+   - 明确把“边不穿实体”做成硬约束
+
+5. **整体 / 局部重排统一化**
+   - 新增 `layout-optimizer-v2.ts`
+   - 全局优化和选区优化统一走“候选生成 -> 评分 -> ELK 精排 -> 正交避障路由”
+
+6. **测试与评估集**
+   - 增加多模块、长主链、注释密集、跨模块回边等回归样例
+   - 每次优化后必须校验：
+     - 节点不重叠
+     - 边不穿实体
+     - 主链方向一致
+     - 拐点、交叉和空白分数有统计输出
+
+对应文件规划：
+
+```text
+paperdraw/layout/
+  |- constraint-model.ts
+  |- layout-profile.ts
+  |- layout-metrics.ts
+  |- layout-grammar.ts
+  |- candidate-generator.ts
+  |- elk-layout.ts
+  |- orthogonal-router.ts
+  |- layout-optimizer-v2.ts
+  |- *.spec.ts
+```
+
+验收标准提升为：
+
+- 优化后布局必须符合论文级阅读流，不再只是“看起来大致合理”
+- 多模块图优先形成模块块状结构，而不是退化成单链
+- 任意边都不得穿过任何实体包围盒
+- 在满足硬约束前提下，尽量减少拐点、交叉、冗余空白
+- 局部重排不得破坏未选区域的整体稳定性
 
 ### 3.3 Visual Elements Optimizer（视觉元素优化器）
 
