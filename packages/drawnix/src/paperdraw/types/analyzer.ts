@@ -244,7 +244,11 @@ export interface LayoutMetrics {
   alignmentPenalty: number;
   groupingPenalty: number;
   estimatedCrossings: number;
+  nodeCrossings: number;
+  moduleCrossings: number;
+  edgeCrossings: number;
   bends: number;
+  bendCount: number;
   routeLength: number;
   hardConstraintViolations: number;
   totalScore: number;
@@ -361,6 +365,8 @@ export interface LayoutResult {
   engine?: LayoutEngine;
   fallbackFrom?: LayoutEngine;
   templateId?: PipelineTemplateId;
+  routingEngine?: 'pipeline_v3' | 'orthogonal_v1';
+  routeFallbackFrom?: 'pipeline_v3';
 }
 
 export interface LayoutConstraintModel {

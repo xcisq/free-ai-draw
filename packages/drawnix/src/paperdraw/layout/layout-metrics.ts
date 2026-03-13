@@ -22,7 +22,11 @@ const EMPTY_METRICS: LayoutMetrics = {
   alignmentPenalty: 0,
   groupingPenalty: 0,
   estimatedCrossings: 0,
+  nodeCrossings: 0,
+  moduleCrossings: 0,
+  edgeCrossings: 0,
   bends: 0,
+  bendCount: 0,
   routeLength: 0,
   hardConstraintViolations: 0,
   totalScore: 0,
@@ -323,7 +327,52 @@ function computeRouteStats(layout: LayoutResult) {
     }
   });
 
-  return { bends, routeLength };
+  return { bends, bendCount: bends, routeLength };
+}
+
+function computeObstacleCrossings(layout: LayoutResult) {
+  const nodeToGroup = new Map<string, string>();
+  layout.groups.forEach((group) => {
+    group.entityIds.forEach((entityId) => nodeToGroup.set(entityId, group.id));
+  });
+
+  let nodeCrossings = 0;
+  let moduleCrossings = 0;
+
+  layout.edges.forEach((edge) => {
+    const sourceGroupId = nodeToGroup.get(edge.sourceId);
+    const targetGroupId = nodeToGroup.get(edge.targetId);
+    const edgeSegments = getEdgeSegments(edge);
+
+    edgeSegments.forEach(([start, end]) => {
+      layout.nodes.forEach((node) => {
+        if (node.id === edge.sourceId || node.id === edge.targetId) {
+          return;
+        }
+        if (
+          segmentIntersectsRect(start, end, getNodeRect(node)) ||
+          pointInsideRect(start, getNodeRect(node)) ||
+          pointInsideRect(end, getNodeRect(node))
+        ) {
+          nodeCrossings += 1;
+        }
+      });
+
+      layout.groups.forEach((group) => {
+        if (group.id === sourceGroupId || group.id === targetGroupId) {
+          return;
+        }
+        if (segmentIntersectsRect(start, end, getGroupRect(group))) {
+          moduleCrossings += 1;
+        }
+      });
+    });
+  });
+
+  return {
+    nodeCrossings,
+    moduleCrossings,
+  };
 }
 
 function countHardConstraintViolations(
@@ -331,11 +380,6 @@ function countHardConstraintViolations(
   model: LayoutConstraintModel
 ) {
   const nodeMap = new Map(layout.nodes.map((node) => [node.id, node]));
-  const groupMap = new Map(layout.groups.map((group) => [group.id, group]));
-  const nodeToGroup = new Map<string, string>();
-  layout.groups.forEach((group) => {
-    group.entityIds.forEach((entityId) => nodeToGroup.set(entityId, group.id));
-  });
 
   let violations = 0;
 
@@ -380,38 +424,8 @@ function countHardConstraintViolations(
     violations += 1;
   }
 
-  layout.edges.forEach((edge) => {
-    const sourceGroupId = nodeToGroup.get(edge.sourceId);
-    const targetGroupId = nodeToGroup.get(edge.targetId);
-    const edgeSegments = getEdgeSegments(edge);
-
-    edgeSegments.forEach(([start, end]) => {
-      layout.nodes.forEach((node) => {
-        if (node.id === edge.sourceId || node.id === edge.targetId) {
-          return;
-        }
-        if (
-          segmentIntersectsRect(start, end, getNodeRect(node)) ||
-          pointInsideRect(start, getNodeRect(node)) ||
-          pointInsideRect(end, getNodeRect(node))
-        ) {
-          violations += 1;
-        }
-      });
-
-      layout.groups.forEach((group) => {
-        if (group.id === sourceGroupId || group.id === targetGroupId) {
-          return;
-        }
-        if (!groupMap.has(group.id)) {
-          return;
-        }
-        if (segmentIntersectsRect(start, end, getGroupRect(group))) {
-          violations += 1;
-        }
-      });
-    });
-  });
+  const { nodeCrossings, moduleCrossings } = computeObstacleCrossings(layout);
+  violations += nodeCrossings + moduleCrossings;
 
   return violations;
 }
@@ -425,8 +439,10 @@ export function computeLayoutMetrics(
   const aspectRatioPenalty = computeAspectRatioPenalty(layout, model);
   const alignmentPenalty = computeAlignmentPenalty(layout);
   const groupingPenalty = computeGroupingPenalty(layout);
-  const estimatedCrossings = computeEstimatedCrossings(layout);
-  const { bends, routeLength } = computeRouteStats(layout);
+  const edgeCrossings = computeEstimatedCrossings(layout);
+  const estimatedCrossings = edgeCrossings;
+  const { bends, bendCount, routeLength } = computeRouteStats(layout);
+  const { nodeCrossings, moduleCrossings } = computeObstacleCrossings(layout);
   const hardConstraintViolations = countHardConstraintViolations(layout, model);
   const totalScore =
     0.25 * blankSpaceScore +
@@ -434,7 +450,7 @@ export function computeLayoutMetrics(
     0.15 * aspectRatioPenalty +
     0.15 * alignmentPenalty +
     0.1 * groupingPenalty +
-    0.1 * estimatedCrossings +
+    0.1 * edgeCrossings +
     hardConstraintViolations * 10;
 
   return {
@@ -445,7 +461,11 @@ export function computeLayoutMetrics(
     alignmentPenalty,
     groupingPenalty,
     estimatedCrossings,
+    nodeCrossings,
+    moduleCrossings,
+    edgeCrossings,
     bends,
+    bendCount,
     routeLength,
     hardConstraintViolations,
     totalScore,

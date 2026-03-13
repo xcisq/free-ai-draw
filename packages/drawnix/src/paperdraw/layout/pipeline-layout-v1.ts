@@ -6,8 +6,9 @@ import type {
 import { buildLayoutConstraintModel } from './constraint-model';
 import { refineLayoutWithElk } from './elk-layout';
 import { withLayoutMetrics } from './layout-metrics';
-import { routeLayoutOrthogonally } from './orthogonal-router';
 import { buildLayoutIntent } from './pipeline-layout-intent';
+import { routeLayoutOrthogonally } from './orthogonal-router';
+import { routePipelineLayoutV3 } from './pipeline-router-v3';
 import { generatePipelineSkeletonLayout } from './pipeline-skeleton-generator';
 import { matchPipelineTemplates } from './pipeline-template-matcher';
 
@@ -29,14 +30,37 @@ export async function computePipelineLayoutV1(
   );
   const model = buildLayoutConstraintModel(skeletonLayout, options);
   const refined = await refineLayoutWithElk(skeletonLayout, model);
-  const routed = routeLayoutOrthogonally(
-    {
-      ...refined,
-      engine: 'pipeline_v1',
-      templateId: templateMatch.rootTemplateId,
-    },
-    model
-  );
+  let routed: LayoutResult;
+
+  try {
+    routed = routePipelineLayoutV3(
+      {
+        ...refined,
+        engine: 'pipeline_v1',
+        templateId: templateMatch.rootTemplateId,
+      },
+      model,
+      intent,
+      {
+        templateId: templateMatch.rootTemplateId,
+      }
+    );
+  } catch {
+    routed = {
+      ...routeLayoutOrthogonally(
+        {
+          ...refined,
+          engine: 'pipeline_v1',
+          templateId: templateMatch.rootTemplateId,
+          routingEngine: 'orthogonal_v1',
+          routeFallbackFrom: 'pipeline_v3',
+        },
+        model
+      ),
+      routingEngine: 'orthogonal_v1',
+      routeFallbackFrom: 'pipeline_v3',
+    };
+  }
 
   return withLayoutMetrics(
     {

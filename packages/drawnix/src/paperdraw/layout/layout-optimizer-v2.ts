@@ -20,7 +20,9 @@ import { generateLayoutCandidates } from './candidate-generator';
 import { refineLayoutWithElk } from './elk-layout';
 import { withLayoutMetrics } from './layout-metrics';
 import { routeLayoutOrthogonally } from './orthogonal-router';
+import { buildLayoutIntent } from './pipeline-layout-intent';
 import { computePipelineLayoutV1 } from './pipeline-layout-v1';
+import { routePipelineLayoutV3 } from './pipeline-router-v3';
 
 function pickBestCandidate(candidates: LayoutCandidate[]) {
   return [...candidates].sort((left, right) => {
@@ -221,6 +223,20 @@ function buildSelectionSubAnalysis(
   };
 }
 
+function getSelectionEdgeIdsToRoute(
+  layout: LayoutResult,
+  movableNodeIds: Set<string>
+) {
+  return new Set(
+    layout.edges
+      .filter(
+        (edge) =>
+          movableNodeIds.has(edge.sourceId) || movableNodeIds.has(edge.targetId)
+      )
+      .map((edge) => edge.id)
+  );
+}
+
 export async function computeOptimizedLayoutV2(
   analysis: AnalysisResult,
   elements: PlaitElement[],
@@ -286,6 +302,29 @@ export async function computeOptimizedLayoutV2(
       pinnedNodeIds,
       pinnedGroupIds
     );
+    const mergedEdgeIdsToRoute = getSelectionEdgeIdsToRoute(merged, movableNodeIds);
+
+    if ((optimizedSelectionLayout.engine ?? normalizedOptions.engine) === 'pipeline_v1') {
+      const mergedIntent = buildLayoutIntent(analysis, merged);
+      return withLayoutMetrics(
+        routePipelineLayoutV3(
+          {
+            ...merged,
+            engine: optimizedSelectionLayout.engine ?? normalizedOptions.engine,
+            templateId: optimizedSelectionLayout.templateId,
+            fallbackFrom: optimizedSelectionLayout.fallbackFrom,
+          },
+          mergedModel,
+          mergedIntent,
+          {
+            edgeIdsToRoute: mergedEdgeIdsToRoute,
+            templateId: optimizedSelectionLayout.templateId,
+          }
+        ),
+        mergedModel
+      );
+    }
+
     return withLayoutMetrics(
       routeLayoutOrthogonally(
         {
@@ -294,7 +333,8 @@ export async function computeOptimizedLayoutV2(
           templateId: optimizedSelectionLayout.templateId,
           fallbackFrom: optimizedSelectionLayout.fallbackFrom,
         },
-        mergedModel
+        mergedModel,
+        mergedEdgeIdsToRoute
       ),
       mergedModel
     );

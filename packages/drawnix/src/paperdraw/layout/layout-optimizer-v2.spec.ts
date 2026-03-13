@@ -150,6 +150,7 @@ describe('layout-optimizer-v2', () => {
     const layout = basicLayout(analysis);
     const draftElements = createDraftElementsFromLayout(layout);
     const anchorNode = layout.nodes.find((node) => node.id === 'e5')!;
+    const unaffectedEdge = layout.edges.find((edge) => edge.id === 'r5')!;
     const selection: PaperDrawSelectionState = {
       elementIds: ['m1'],
       geometryIds: ['m1'],
@@ -165,8 +166,10 @@ describe('layout-optimizer-v2', () => {
       timeoutMs: 2500,
     });
     const nextAnchorNode = optimized.nodes.find((node) => node.id === 'e5')!;
+    const nextUnaffectedEdge = optimized.edges.find((edge) => edge.id === 'r5')!;
 
     expect([nextAnchorNode.x, nextAnchorNode.y]).toEqual([anchorNode.x, anchorNode.y]);
+    expect(nextUnaffectedEdge.points).toEqual(unaffectedEdge.points);
     expect(optimized.metrics).toBeDefined();
   });
 
