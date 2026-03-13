@@ -65,17 +65,55 @@ describe('pipeline-layout-intent', () => {
     const edgeMap = new Map(intent.edges.map((edge) => [edge.id, edge]));
     const moduleMap = new Map(intent.modules.map((moduleItem) => [moduleItem.id, moduleItem]));
 
-    expect(nodeMap.get('n1')?.role).toBe('input');
+    expect(nodeMap.get('n1')?.role).toBe('media');
     expect(nodeMap.get('n3')?.role).toBe('decoder');
     expect(nodeMap.get('n4')?.role).toBe('simulator');
-    expect(nodeMap.get('n6')?.role).toBe('output');
+    expect(nodeMap.get('n6')?.role).toBe('state');
     expect(moduleMap.get('m2')?.role).toBe('auxiliary_stage');
     expect(moduleMap.get('m4')?.role).toBe('output_stage');
 
-    expect(intent.dominantSpine).toEqual(['n1', 'n2', 'n3', 'n4', 'n6']);
+    expect(intent.dominantSpine[0]).toBe('n1');
+    expect(intent.dominantSpine[1]).toBe('n2');
+    expect(intent.dominantSpine.at(-2)).toBe('n4');
+    expect(intent.dominantSpine.at(-1)).toBe('n6');
+    expect(intent.spineSegments).toEqual(
+      expect.arrayContaining([
+        ['n1', 'n2'],
+        ['n4'],
+        ['n6'],
+      ])
+    );
     expect(intent.branchRoots).toContain('n5');
+    expect(intent.branchAttachments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          branchRootId: 'n5',
+          attachToId: 'n2',
+          side: 'right',
+        }),
+      ])
+    );
     expect(intent.mergeNodes).toContain('n4');
+    expect(intent.mergeClusters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          mergeNodeId: 'n4',
+          sourceIds: expect.arrayContaining(['n2', 'n3']),
+        }),
+      ])
+    );
     expect(intent.feedbackEdges).toContain('r8');
+    expect(intent.statePairs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          currentId: 'n5',
+          nextId: 'n6',
+        }),
+      ])
+    );
+    expect(intent.inputContainers).toContain('n1');
+    expect(intent.zoneScores.inputZoneScore).toBeGreaterThan(0.2);
+    expect(intent.zoneScores.outputZoneScore).toBeGreaterThan(0.2);
     expect(edgeMap.get('r8')?.role).toBe('feedback');
   });
 });

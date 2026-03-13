@@ -9,15 +9,24 @@ import { generatePipelineSkeletonLayout } from './pipeline-skeleton-generator';
 
 const EMPTY_FEATURES: TemplateFitFeatures = {
   spineLength: 0,
+  spineSegmentCount: 0,
   branchCount: 0,
+  branchAttachmentCount: 0,
   mergeCount: 0,
+  mergeClusterCount: 0,
   feedbackCount: 0,
   inputContainerCount: 0,
+  inputModuleCount: 0,
   stateNodeCount: 0,
+  statePairCount: 0,
   simulatorNodeCount: 0,
   topControlCount: 0,
   bottomAuxCount: 0,
   outputNodeCount: 0,
+  inputZoneScore: 0,
+  controlZoneScore: 0,
+  auxZoneScore: 0,
+  outputZoneScore: 0,
 };
 
 function createTemplateMatch(rootTemplateId: PipelineTemplateId) {
@@ -61,6 +70,7 @@ describe('pipeline-skeleton-generator', () => {
 
     expect(nodeMap.get('n1')!.x).toBeLessThan(nodeMap.get('n2')!.x);
     expect(nodeMap.get('n4')!.x).toBeGreaterThan(nodeMap.get('n3')!.x);
+    expect(nodeMap.get('n1')!.y).not.toBe(nodeMap.get('n2')!.y);
   });
 
   it('builds a spine-lower-branch skeleton with auxiliary nodes below the main spine', () => {
@@ -97,6 +107,7 @@ describe('pipeline-skeleton-generator', () => {
 
     expect(nodeMap.get('n3')!.y).toBeGreaterThan(nodeMap.get('n2')!.y);
     expect(nodeMap.get('n3')!.y).toBeGreaterThan(nodeMap.get('n4')!.y);
+    expect(nodeMap.get('n1')!.x).toBeLessThan(nodeMap.get('n4')!.x);
   });
 
   it('builds a split-merge skeleton with branch nodes separated from the merge target', () => {
@@ -136,6 +147,7 @@ describe('pipeline-skeleton-generator', () => {
     expect(nodeMap.get('n2')!.y).not.toBe(nodeMap.get('n3')!.y);
     expect(nodeMap.get('n2')!.x).toBeGreaterThan(nodeMap.get('n1')!.x);
     expect(nodeMap.get('n3')!.x).toBeGreaterThan(nodeMap.get('n1')!.x);
-    expect(nodeMap.get('n4')!.x).not.toBe(nodeMap.get('n2')!.x);
+    expect(nodeMap.get('n4')!.x).toBeGreaterThanOrEqual(nodeMap.get('n2')!.x);
+    expect(nodeMap.get('n4')!.x).toBeGreaterThan(nodeMap.get('n3')!.x);
   });
 });

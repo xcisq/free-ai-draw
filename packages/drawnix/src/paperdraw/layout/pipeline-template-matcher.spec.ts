@@ -36,6 +36,35 @@ describe('pipeline-template-matcher', () => {
     expect(matchTemplate(analysis).rootTemplateId).toBe('paired-state-simulator');
   });
 
+  it('matches spine-lower-branch from topology even when labels are generic', () => {
+    const analysis: AnalysisResult = {
+      entities: [
+        { id: 'n1', label: 'Input' },
+        { id: 'n2', label: 'Stage 1' },
+        { id: 'n3', label: 'Stage 2' },
+        { id: 'n4', label: 'Stage 3' },
+        { id: 'n5', label: 'Branch Node' },
+        { id: 'n6', label: 'Branch Output' },
+      ],
+      relations: [
+        { id: 'r1', type: 'sequential', source: 'n1', target: 'n2' },
+        { id: 'r2', type: 'sequential', source: 'n2', target: 'n3' },
+        { id: 'r3', type: 'sequential', source: 'n3', target: 'n4' },
+        { id: 'r4', type: 'sequential', source: 'n2', target: 'n5' },
+        { id: 'r5', type: 'sequential', source: 'n5', target: 'n6' },
+      ],
+      weights: { n1: 0.9, n2: 0.88, n3: 0.86, n4: 0.91, n5: 0.55, n6: 0.58 },
+      modules: [
+        { id: 'm1', label: 'Input', entityIds: ['n1'], order: 1 },
+        { id: 'm2', label: 'Core A', entityIds: ['n2', 'n3'], order: 2 },
+        { id: 'm3', label: 'Branch', entityIds: ['n5', 'n6'], order: 3 },
+        { id: 'm4', label: 'Core B', entityIds: ['n4'], order: 4 },
+      ],
+    };
+
+    expect(matchTemplate(analysis).rootTemplateId).toBe('spine-lower-branch');
+  });
+
   it('matches split-merge for fan-out and merge structures', () => {
     const analysis: AnalysisResult = {
       entities: [
@@ -60,7 +89,12 @@ describe('pipeline-template-matcher', () => {
       ],
     };
 
-    expect(matchTemplate(analysis).rootTemplateId).toBe('split-merge');
+    const match = matchTemplate(analysis);
+
+    expect(match.rootTemplateId).toBe('split-merge');
+    expect(match.localTemplateIds).toEqual(
+      expect.arrayContaining(['small-fan-out', 'small-fan-in'])
+    );
   });
 
   it('falls back to input-core-output when the graph is mostly a left-to-right pipeline', () => {

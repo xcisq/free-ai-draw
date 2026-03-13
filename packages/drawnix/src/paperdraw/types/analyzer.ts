@@ -268,6 +268,30 @@ export interface LayoutIntentEdge {
   priority: number;
 }
 
+export interface LayoutIntentBranchAttachment {
+  branchRootId: string;
+  attachToId: string;
+  side: 'top' | 'bottom' | 'left' | 'right';
+}
+
+export interface LayoutIntentMergeCluster {
+  mergeNodeId: string;
+  sourceIds: string[];
+}
+
+export interface LayoutIntentStatePair {
+  currentId: string;
+  nextId: string;
+  viaId?: string;
+}
+
+export interface LayoutIntentZoneScores {
+  inputZoneScore: number;
+  controlZoneScore: number;
+  auxZoneScore: number;
+  outputZoneScore: number;
+}
+
 export interface LayoutIntentModule {
   id: string;
   role: ModuleRole;
@@ -280,23 +304,38 @@ export interface LayoutIntent {
   edges: LayoutIntentEdge[];
   modules: LayoutIntentModule[];
   dominantSpine: string[];
+  spineSegments: string[][];
   branchRoots: string[];
+  branchAttachments: LayoutIntentBranchAttachment[];
   mergeNodes: string[];
+  mergeClusters: LayoutIntentMergeCluster[];
   feedbackEdges: string[];
+  statePairs: LayoutIntentStatePair[];
+  inputContainers: string[];
+  zoneScores: LayoutIntentZoneScores;
   layoutHints: string[];
 }
 
 export interface TemplateFitFeatures {
   spineLength: number;
+  spineSegmentCount: number;
   branchCount: number;
+  branchAttachmentCount: number;
   mergeCount: number;
+  mergeClusterCount: number;
   feedbackCount: number;
   inputContainerCount: number;
+  inputModuleCount: number;
   stateNodeCount: number;
+  statePairCount: number;
   simulatorNodeCount: number;
   topControlCount: number;
   bottomAuxCount: number;
   outputNodeCount: number;
+  inputZoneScore: number;
+  controlZoneScore: number;
+  auxZoneScore: number;
+  outputZoneScore: number;
 }
 
 export interface SkeletonLayout {
