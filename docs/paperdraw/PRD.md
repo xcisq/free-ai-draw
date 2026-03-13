@@ -331,6 +331,8 @@ export function basicLayout(
 > **触发方式**: 用户在初版流程图上手动点击"优化布局"按钮触发。
 > 优化器读取当前 Board 上的元素状态（用户可能已手动编辑过），进行增量优化。
 > 目标不是“再跑一次现有布局”，而是以**论文级流程图设计规范**为硬约束，生成更可读、更紧凑、更少冲突的排布与路由结果。
+> 论文 Pipeline 专用布局器的补充设计稿见：[pipeline-layout-synthesizer.md](/Users/bytedance/Documents/upc/draw_xcl/drawnix/docs/paperdraw/pipeline-layout-synthesizer.md)
+> 配套细化文档见：[pipeline-semantic-layout-schema.md](/Users/bytedance/Documents/upc/draw_xcl/drawnix/docs/paperdraw/pipeline-semantic-layout-schema.md)、[pipeline-layout-pattern-library.md](/Users/bytedance/Documents/upc/draw_xcl/drawnix/docs/paperdraw/pipeline-layout-pattern-library.md)、[pipeline-routing-v3.md](/Users/bytedance/Documents/upc/draw_xcl/drawnix/docs/paperdraw/pipeline-routing-v3.md)、[pipeline-layout-evaluation.md](/Users/bytedance/Documents/upc/draw_xcl/drawnix/docs/paperdraw/pipeline-layout-evaluation.md)
 
 当前状态与问题判断：
 

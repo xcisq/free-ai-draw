@@ -188,11 +188,15 @@ const enTranslations: Translations = {
   'dialog.paperdraw.error.analyzeFailed': 'Analysis failed, please try again',
   'dialog.paperdraw.error.invalidOptimizeSelection':
     'Select at least 2 rectangular nodes before optimizing a partial region',
+  'dialog.paperdraw.fallback.pipelineLayout':
+    'Pipeline template layout is unavailable, switched to compatibility layout automatically',
   'dialog.paperdraw.toggleSemantic': 'Semantic View',
   'dialog.paperdraw.qaTitle': 'Please confirm the following',
   'dialog.paperdraw.optimizeLayout': 'Optimize Layout',
   'dialog.paperdraw.optimizeSelection': 'Reflow Selected Region',
   'dialog.paperdraw.optimizeGlobal': 'Reflow Entire Diagram',
+  'dialog.paperdraw.engine.pipeline': 'Pipeline Template Layout',
+  'dialog.paperdraw.engine.legacy': 'Compatibility Layout',
 
   'tutorial.title': 'Drawnix',
   'tutorial.description':

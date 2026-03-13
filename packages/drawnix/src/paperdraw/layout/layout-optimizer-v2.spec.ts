@@ -1,6 +1,7 @@
 import type { AnalysisResult, PaperDrawSelectionState } from '../types/analyzer';
 import { basicLayout } from './basic-layout';
 import { computeOptimizedLayoutV2 } from './layout-optimizer-v2';
+import * as pipelineLayoutV1 from './pipeline-layout-v1';
 
 const analysis: AnalysisResult = {
   entities: [
@@ -107,11 +108,16 @@ function createDraftElementsFromLayout(layout: ReturnType<typeof basicLayout>) {
 }
 
 describe('layout-optimizer-v2', () => {
-  it('returns a globally optimized layout with metrics and routed edges', async () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('returns a globally optimized layout with the legacy engine and routed edges', async () => {
     const layout = basicLayout(simpleAnalysis);
     const draftElements = createDraftElementsFromLayout(layout);
 
     const optimized = await computeOptimizedLayoutV2(simpleAnalysis, draftElements, {
+      engine: 'legacy_v2',
       mode: 'global',
       profile: 'auto',
       quality: 'quality',
@@ -123,7 +129,24 @@ describe('layout-optimizer-v2', () => {
     expect(optimized.edges.some((edge) => (edge.routing?.length ?? 0) > 2)).toBe(true);
   });
 
-  it('keeps unselected nodes fixed during selection-only optimization', async () => {
+  it('returns a globally optimized layout with the pipeline template engine', async () => {
+    const layout = basicLayout(simpleAnalysis);
+    const draftElements = createDraftElementsFromLayout(layout);
+
+    const optimized = await computeOptimizedLayoutV2(simpleAnalysis, draftElements, {
+      engine: 'pipeline_v1',
+      mode: 'global',
+      profile: 'auto',
+      quality: 'quality',
+      timeoutMs: 3000,
+    });
+
+    expect(optimized.engine).toBe('pipeline_v1');
+    expect(optimized.templateId).toBeDefined();
+    expect(optimized.metrics).toBeDefined();
+  });
+
+  it('keeps unselected nodes fixed during pipeline selection-only optimization', async () => {
     const layout = basicLayout(analysis);
     const draftElements = createDraftElementsFromLayout(layout);
     const anchorNode = layout.nodes.find((node) => node.id === 'e5')!;
@@ -134,6 +157,7 @@ describe('layout-optimizer-v2', () => {
     };
 
     const optimized = await computeOptimizedLayoutV2(analysis, draftElements, {
+      engine: 'pipeline_v1',
       mode: 'selection',
       selection,
       profile: 'auto',
@@ -143,6 +167,26 @@ describe('layout-optimizer-v2', () => {
     const nextAnchorNode = optimized.nodes.find((node) => node.id === 'e5')!;
 
     expect([nextAnchorNode.x, nextAnchorNode.y]).toEqual([anchorNode.x, anchorNode.y]);
+    expect(optimized.metrics).toBeDefined();
+  });
+
+  it('falls back to the legacy engine when the pipeline template engine fails', async () => {
+    const layout = basicLayout(simpleAnalysis);
+    const draftElements = createDraftElementsFromLayout(layout);
+    jest
+      .spyOn(pipelineLayoutV1, 'computePipelineLayoutV1')
+      .mockRejectedValueOnce(new Error('PIPELINE_LAYOUT_FAILED'));
+
+    const optimized = await computeOptimizedLayoutV2(simpleAnalysis, draftElements, {
+      engine: 'pipeline_v1',
+      mode: 'global',
+      profile: 'auto',
+      quality: 'quality',
+      timeoutMs: 3000,
+    });
+
+    expect(optimized.engine).toBe('legacy_v2');
+    expect(optimized.fallbackFrom).toBe('pipeline_v1');
     expect(optimized.metrics).toBeDefined();
   });
 

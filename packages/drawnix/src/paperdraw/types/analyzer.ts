@@ -127,6 +127,67 @@ export interface PaperDrawPromptConfig {
 }
 
 export type LayoutDirection = 'LR' | 'TB';
+export type LayoutEngine = 'pipeline_v1' | 'legacy_v2';
+
+export type NodeRole =
+  | 'input'
+  | 'process'
+  | 'state'
+  | 'parameter'
+  | 'decoder'
+  | 'aggregator'
+  | 'simulator'
+  | 'output'
+  | 'annotation'
+  | 'media';
+
+export type EdgeRole =
+  | 'main'
+  | 'auxiliary'
+  | 'control'
+  | 'feedback'
+  | 'annotation';
+
+export type ModuleRole =
+  | 'input_stage'
+  | 'core_stage'
+  | 'auxiliary_stage'
+  | 'control_stage'
+  | 'output_stage';
+
+export type RailPreference =
+  | 'left_input_rail'
+  | 'main_rail'
+  | 'top_control_rail'
+  | 'bottom_aux_rail'
+  | 'right_output_rail'
+  | 'outer_feedback_rail';
+
+export type VisualPrimitive =
+  | 'container'
+  | 'block'
+  | 'small-block'
+  | 'state-card'
+  | 'media-card'
+  | 'aggregator'
+  | 'simulator';
+
+export type PipelineTemplateId =
+  | 'linear-spine'
+  | 'input-core-output'
+  | 'spine-lower-branch'
+  | 'split-merge'
+  | 'paired-state-simulator'
+  | 'outer-feedback-loop';
+
+export type PipelineLocalTemplateId =
+  | 'input-container-stack'
+  | 'horizontal-pair'
+  | 'vertical-pair'
+  | 'small-fan-out'
+  | 'small-fan-in'
+  | 'media-with-caption'
+  | 'state-before-after';
 
 export interface LayoutNode {
   id: string;
@@ -189,12 +250,78 @@ export interface LayoutMetrics {
   totalScore: number;
 }
 
+export interface LayoutIntentNode {
+  id: string;
+  role: NodeRole;
+  primitive: VisualPrimitive;
+  importance: number;
+  moduleId?: string;
+  preferredRail?: RailPreference;
+  isMainSpineCandidate: boolean;
+}
+
+export interface LayoutIntentEdge {
+  id: string;
+  role: EdgeRole;
+  sourceId: string;
+  targetId: string;
+  priority: number;
+}
+
+export interface LayoutIntentModule {
+  id: string;
+  role: ModuleRole;
+  preferredRail?: RailPreference;
+  members: string[];
+}
+
+export interface LayoutIntent {
+  nodes: LayoutIntentNode[];
+  edges: LayoutIntentEdge[];
+  modules: LayoutIntentModule[];
+  dominantSpine: string[];
+  branchRoots: string[];
+  mergeNodes: string[];
+  feedbackEdges: string[];
+  layoutHints: string[];
+}
+
+export interface TemplateFitFeatures {
+  spineLength: number;
+  branchCount: number;
+  mergeCount: number;
+  feedbackCount: number;
+  inputContainerCount: number;
+  stateNodeCount: number;
+  simulatorNodeCount: number;
+  topControlCount: number;
+  bottomAuxCount: number;
+  outputNodeCount: number;
+}
+
+export interface SkeletonLayout {
+  rootTemplateId: PipelineTemplateId;
+  localTemplateIds: PipelineLocalTemplateId[];
+  rails: Record<string, RailPreference>;
+  blockSequence: string[];
+  branchAttachments: Array<{
+    branchRootId: string;
+    attachToId: string;
+    side: 'top' | 'bottom' | 'left' | 'right';
+  }>;
+  mergeTargets: string[];
+  feedbackLoops: string[];
+}
+
 export interface LayoutResult {
   nodes: LayoutNode[];
   edges: LayoutEdge[];
   groups: LayoutGroup[];
   direction: LayoutDirection;
   metrics?: LayoutMetrics;
+  engine?: LayoutEngine;
+  fallbackFrom?: LayoutEngine;
+  templateId?: PipelineTemplateId;
 }
 
 export interface LayoutConstraintModel {
@@ -226,6 +353,7 @@ export interface PaperDrawSelectionState {
 
 export interface LayoutOptimizeOptions {
   mode: OptimizeMode;
+  engine?: LayoutEngine;
   selection?: PaperDrawSelectionState;
   profile?: LayoutProfileId;
   quality?: 'quality';

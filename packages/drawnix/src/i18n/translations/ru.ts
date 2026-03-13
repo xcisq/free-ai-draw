@@ -191,11 +191,15 @@ const ruTranslations: Translations = {
   'dialog.paperdraw.error.analyzeFailed': 'Анализ не удался, попробуйте снова',
   'dialog.paperdraw.error.invalidOptimizeSelection':
     'Перед локальной перестройкой выберите как минимум 2 прямоугольных узла',
+  'dialog.paperdraw.fallback.pipelineLayout':
+    'Шаблонный конвейерный макет недоступен, автоматически включён совместимый макет',
   'dialog.paperdraw.toggleSemantic': 'Семантический вид',
   'dialog.paperdraw.qaTitle': 'Пожалуйста, подтвердите следующее',
   'dialog.paperdraw.optimizeLayout': 'Оптимизировать макет',
   'dialog.paperdraw.optimizeSelection': 'Перестроить выбранную область',
   'dialog.paperdraw.optimizeGlobal': 'Перестроить всю диаграмму',
+  'dialog.paperdraw.engine.pipeline': 'Шаблонный конвейерный макет',
+  'dialog.paperdraw.engine.legacy': 'Совместимый макет',
 
   'tutorial.title': 'Drawnix',
   'tutorial.description':

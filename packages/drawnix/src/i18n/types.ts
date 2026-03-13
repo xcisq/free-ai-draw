@@ -171,11 +171,14 @@ export interface Translations {
   'dialog.paperdraw.error.noApiKey': string;
   'dialog.paperdraw.error.analyzeFailed': string;
   'dialog.paperdraw.error.invalidOptimizeSelection': string;
+  'dialog.paperdraw.fallback.pipelineLayout': string;
   'dialog.paperdraw.toggleSemantic': string;
   'dialog.paperdraw.qaTitle': string;
   'dialog.paperdraw.optimizeLayout': string;
   'dialog.paperdraw.optimizeSelection': string;
   'dialog.paperdraw.optimizeGlobal': string;
+  'dialog.paperdraw.engine.pipeline': string;
+  'dialog.paperdraw.engine.legacy': string;
 
   'tutorial.title': string;
   'tutorial.description': string;

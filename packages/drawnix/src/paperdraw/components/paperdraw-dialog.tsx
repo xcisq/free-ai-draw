@@ -17,6 +17,7 @@ import {
   type CRSQuestion,
   type ElkLayoutOptions,
   type ExtractionResult,
+  type LayoutEngine,
   type OptimizeMode,
   type PaperDrawPhase,
   type PaperDrawSelectionState,
@@ -203,7 +204,7 @@ const PaperDrawDialog = () => {
   }, [analysisResult, draftElements, selectionState]);
 
   const handleOptimizeLayout = useCallback(
-    async (mode: OptimizeMode) => {
+    async (engine: LayoutEngine, mode: OptimizeMode) => {
       if (!analysisResult) {
         return;
       }
@@ -218,6 +219,7 @@ const PaperDrawDialog = () => {
         setError(null);
         setPhase('optimizing');
         const options: ElkLayoutOptions = {
+          engine,
           mode,
           selection: selectionState,
           profile: 'auto',
@@ -233,6 +235,11 @@ const PaperDrawDialog = () => {
           options
         );
         setDraftElements(optimizedDraft.elements);
+        setError(
+          optimizedDraft.layout.fallbackFrom === 'pipeline_v1'
+            ? t('dialog.paperdraw.fallback.pipelineLayout')
+            : null
+        );
         setPhase('draft_flowchart');
       } catch (err: any) {
         console.error('PaperDraw ELK optimize failed, fallback to heuristic:', err);
@@ -306,20 +313,60 @@ const PaperDrawDialog = () => {
                     <PopoverContent>
                       <Menu onSelect={() => setOptimizeMenuOpen(false)}>
                         <MenuItem
-                          disabled={!canOptimizeSelection || phase === 'optimizing'}
-                          onSelect={() => {
-                            void handleOptimizeLayout('selection');
-                          }}
+                          disabled={phase === 'optimizing'}
+                          onSelect={() => {}}
+                          submenu={
+                            <Menu onSelect={() => setOptimizeMenuOpen(false)}>
+                              <MenuItem
+                                disabled={
+                                  !canOptimizeSelection || phase === 'optimizing'
+                                }
+                                onSelect={() => {
+                                  void handleOptimizeLayout('pipeline_v1', 'selection');
+                                }}
+                              >
+                                {t('dialog.paperdraw.optimizeSelection')}
+                              </MenuItem>
+                              <MenuItem
+                                disabled={phase === 'optimizing'}
+                                onSelect={() => {
+                                  void handleOptimizeLayout('pipeline_v1', 'global');
+                                }}
+                              >
+                                {t('dialog.paperdraw.optimizeGlobal')}
+                              </MenuItem>
+                            </Menu>
+                          }
                         >
-                          {t('dialog.paperdraw.optimizeSelection')}
+                          {t('dialog.paperdraw.engine.pipeline')}
                         </MenuItem>
                         <MenuItem
                           disabled={phase === 'optimizing'}
-                          onSelect={() => {
-                            void handleOptimizeLayout('global');
-                          }}
+                          onSelect={() => {}}
+                          submenu={
+                            <Menu onSelect={() => setOptimizeMenuOpen(false)}>
+                              <MenuItem
+                                disabled={
+                                  !canOptimizeSelection || phase === 'optimizing'
+                                }
+                                onSelect={() => {
+                                  void handleOptimizeLayout('legacy_v2', 'selection');
+                                }}
+                              >
+                                {t('dialog.paperdraw.optimizeSelection')}
+                              </MenuItem>
+                              <MenuItem
+                                disabled={phase === 'optimizing'}
+                                onSelect={() => {
+                                  void handleOptimizeLayout('legacy_v2', 'global');
+                                }}
+                              >
+                                {t('dialog.paperdraw.optimizeGlobal')}
+                              </MenuItem>
+                            </Menu>
+                          }
                         >
-                          {t('dialog.paperdraw.optimizeGlobal')}
+                          {t('dialog.paperdraw.engine.legacy')}
                         </MenuItem>
                       </Menu>
                     </PopoverContent>

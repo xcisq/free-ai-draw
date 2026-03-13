@@ -187,11 +187,15 @@ const arTranslations: Translations = {
     'dialog.paperdraw.error.analyzeFailed': 'فشل التحليل، يرجى المحاولة مرة أخرى',
     'dialog.paperdraw.error.invalidOptimizeSelection':
       'يرجى تحديد عقدتين مستطيلتين على الأقل قبل إعادة ترتيب الجزء المحدد',
+    'dialog.paperdraw.fallback.pipelineLayout':
+      'تخطيط قالب المسار غير متاح الآن، وتم التبديل تلقائيًا إلى التخطيط المتوافق',
     'dialog.paperdraw.toggleSemantic': 'عرض دلالي',
     'dialog.paperdraw.qaTitle': 'يرجى تأكيد ما يلي',
     'dialog.paperdraw.optimizeLayout': 'تحسين التخطيط',
     'dialog.paperdraw.optimizeSelection': 'إعادة ترتيب الجزء المحدد',
     'dialog.paperdraw.optimizeGlobal': 'إعادة ترتيب المخطط بالكامل',
+    'dialog.paperdraw.engine.pipeline': 'تخطيط قالب المسار',
+    'dialog.paperdraw.engine.legacy': 'تخطيط متوافق',
 
     'tutorial.title': 'Drawnix',
     'tutorial.description': 'سبورة شاملة تتضمن الخرائط الذهنية والمخططات الانسيابية والرسم الحر وغير ذلك',

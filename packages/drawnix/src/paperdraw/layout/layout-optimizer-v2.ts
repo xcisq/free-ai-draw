@@ -20,6 +20,7 @@ import { generateLayoutCandidates } from './candidate-generator';
 import { refineLayoutWithElk } from './elk-layout';
 import { withLayoutMetrics } from './layout-metrics';
 import { routeLayoutOrthogonally } from './orthogonal-router';
+import { computePipelineLayoutV1 } from './pipeline-layout-v1';
 
 function pickBestCandidate(candidates: LayoutCandidate[]) {
   return [...candidates].sort((left, right) => {
@@ -134,10 +135,15 @@ function mergeSelectionLayout(
 }
 
 async function runOptimizationPipeline(
+  analysis: AnalysisResult,
   layout: LayoutResult,
   options: LayoutOptimizeOptions,
   candidateLimit: number
 ) {
+  if (options.engine === 'pipeline_v1') {
+    return computePipelineLayoutV1(analysis, layout, options);
+  }
+
   const model = buildLayoutConstraintModel(layout, options);
   const candidates = generateLayoutCandidates(model, candidateLimit);
   const bestCandidate = pickBestCandidate(candidates);
@@ -147,7 +153,72 @@ async function runOptimizationPipeline(
 
   const refined = await refineLayoutWithElk(bestCandidate.layout, model);
   const routed = routeLayoutOrthogonally(refined, model);
-  return withLayoutMetrics(routed, model);
+  return withLayoutMetrics(
+    {
+      ...routed,
+      engine: 'legacy_v2',
+    },
+    model
+  );
+}
+
+async function runOptimizationPipelineWithFallback(
+  analysis: AnalysisResult,
+  layout: LayoutResult,
+  options: LayoutOptimizeOptions,
+  candidateLimit: number
+) {
+  try {
+    return await runOptimizationPipeline(analysis, layout, options, candidateLimit);
+  } catch (error: any) {
+    if (options.engine !== 'pipeline_v1' || error?.message === 'INVALID_SELECTION') {
+      throw error;
+    }
+
+    const fallbackLayout = await runOptimizationPipeline(
+      analysis,
+      layout,
+      {
+        ...options,
+        engine: 'legacy_v2',
+      },
+      candidateLimit
+    );
+
+    return {
+      ...fallbackLayout,
+      fallbackFrom: 'pipeline_v1' as const,
+    };
+  }
+}
+
+function buildSelectionSubAnalysis(
+  analysis: AnalysisResult,
+  movableNodeIds: Set<string>
+): AnalysisResult {
+  const entities = analysis.entities.filter((entity) => movableNodeIds.has(entity.id));
+  const entityIdSet = new Set(entities.map((entity) => entity.id));
+  const relations = analysis.relations.filter(
+    (relation) => entityIdSet.has(relation.source) && entityIdSet.has(relation.target)
+  );
+  const modules = analysis.modules
+    .map((moduleItem) => ({
+      ...moduleItem,
+      entityIds: moduleItem.entityIds.filter((entityId) => entityIdSet.has(entityId)),
+    }))
+    .filter((moduleItem) => moduleItem.entityIds.length > 0);
+
+  const weights = Object.fromEntries(
+    Object.entries(analysis.weights).filter(([entityId]) => entityIdSet.has(entityId))
+  );
+
+  return {
+    entities,
+    relations,
+    modules,
+    weights,
+    warnings: analysis.warnings,
+  };
 }
 
 export async function computeOptimizedLayoutV2(
@@ -157,6 +228,7 @@ export async function computeOptimizedLayoutV2(
 ): Promise<LayoutResult> {
   const snapshot = buildConstraintSnapshot(analysis, elements);
   const normalizedOptions: LayoutOptimizeOptions = {
+    engine: 'legacy_v2',
     profile: 'auto',
     quality: 'quality',
     timeoutMs:
@@ -182,10 +254,12 @@ export async function computeOptimizedLayoutV2(
       analysis,
       snapshot.layout
     );
+    const selectionAnalysis = buildSelectionSubAnalysis(analysis, movableNodeIds);
 
     const selectionLayout = buildSelectionSubLayout(snapshot.layout, movableNodeIds);
     const originalBounds = getBounds(selectionLayout.nodes);
-    const optimizedSelectionLayout = await runOptimizationPipeline(
+    const optimizedSelectionLayout = await runOptimizationPipelineWithFallback(
+      selectionAnalysis,
       selectionLayout,
       normalizedOptions,
       PAPERDRAW_LAYOUT_DEFAULTS.optimizerSelectionCandidateCount
@@ -212,10 +286,22 @@ export async function computeOptimizedLayoutV2(
       pinnedNodeIds,
       pinnedGroupIds
     );
-    return withLayoutMetrics(routeLayoutOrthogonally(merged, mergedModel), mergedModel);
+    return withLayoutMetrics(
+      routeLayoutOrthogonally(
+        {
+          ...merged,
+          engine: optimizedSelectionLayout.engine ?? normalizedOptions.engine,
+          templateId: optimizedSelectionLayout.templateId,
+          fallbackFrom: optimizedSelectionLayout.fallbackFrom,
+        },
+        mergedModel
+      ),
+      mergedModel
+    );
   }
 
-  return runOptimizationPipeline(
+  return runOptimizationPipelineWithFallback(
+    analysis,
     snapshot.layout,
     normalizedOptions,
     PAPERDRAW_LAYOUT_DEFAULTS.optimizerGlobalCandidateCount
