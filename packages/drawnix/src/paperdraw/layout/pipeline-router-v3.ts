@@ -90,6 +90,18 @@ interface RouteSegment {
   edgeId: string;
 }
 
+interface PreparedEdgeAssignment {
+  edge: LayoutEdge;
+  sourceNode: LayoutNode;
+  targetNode: LayoutNode;
+  base: {
+    sourceConnection: [number, number];
+    targetConnection: [number, number];
+  };
+  sourceSide: ConnectionSide;
+  targetSide: ConnectionSide;
+}
+
 interface RouteGuide {
   preferredXs: number[];
   preferredYs: number[];
@@ -191,6 +203,14 @@ function getConnectionSide(connection: [number, number]): ConnectionSide {
     return 'top';
   }
   return 'bottom';
+}
+
+function getNodeAxisCoordinate(node: LayoutNode, axis: 'x' | 'y') {
+  return axis === 'x' ? node.x + node.width / 2 : node.y + node.height / 2;
+}
+
+function getOrderingAxisForSide(side: ConnectionSide): 'x' | 'y' {
+  return side === 'left' || side === 'right' ? 'y' : 'x';
 }
 
 function pointInsideRect(point: Point, rect: Rectangle) {
@@ -834,11 +854,24 @@ function assignConnectionsByClass(
   edgeIdsToRoute?: Set<string>
 ) {
   const nodeMap = new Map(layout.nodes.map((node) => [node.id, node]));
-  const usage = new Map<string, number>();
+  const preparedEdges: PreparedEdgeAssignment[] = [];
+  const sourceSideOrders = new Map<string, Array<{ edgeId: string; anchor: number }>>();
+  const targetSideOrders = new Map<string, Array<{ edgeId: string; anchor: number }>>();
 
-  return sortEdgesForRouting(layout, routeIntent).map((edge) => {
+  sortEdgesForRouting(layout, routeIntent).forEach((edge) => {
     if (edgeIdsToRoute && !edgeIdsToRoute.has(edge.id)) {
-      return edge;
+      preparedEdges.push({
+        edge,
+        sourceNode: nodeMap.get(edge.sourceId)!,
+        targetNode: nodeMap.get(edge.targetId)!,
+        base: {
+          sourceConnection: edge.sourceConnection,
+          targetConnection: edge.targetConnection,
+        },
+        sourceSide: getConnectionSide(edge.sourceConnection),
+        targetSide: getConnectionSide(edge.targetConnection),
+      });
+      return;
     }
 
     const sourceNode = nodeMap.get(edge.sourceId)!;
@@ -853,13 +886,61 @@ function assignConnectionsByClass(
     );
     const sourceSide = getConnectionSide(base.sourceConnection);
     const targetSide = getConnectionSide(base.targetConnection);
+    preparedEdges.push({
+      edge,
+      sourceNode,
+      targetNode,
+      base,
+      sourceSide,
+      targetSide,
+    });
+
     const sourceUsageKey = `${sourceNode.id}:${sourceSide}`;
     const targetUsageKey = `${targetNode.id}:${targetSide}`;
-    const sourceIndex = usage.get(sourceUsageKey) ?? 0;
-    const targetIndex = usage.get(targetUsageKey) ?? 0;
-    usage.set(sourceUsageKey, sourceIndex + 1);
-    usage.set(targetUsageKey, targetIndex + 1);
+    sourceSideOrders.set(sourceUsageKey, [
+      ...(sourceSideOrders.get(sourceUsageKey) ?? []),
+      {
+        edgeId: edge.id,
+        anchor: getNodeAxisCoordinate(targetNode, getOrderingAxisForSide(sourceSide)),
+      },
+    ]);
+    targetSideOrders.set(targetUsageKey, [
+      ...(targetSideOrders.get(targetUsageKey) ?? []),
+      {
+        edgeId: edge.id,
+        anchor: getNodeAxisCoordinate(sourceNode, getOrderingAxisForSide(targetSide)),
+      },
+    ]);
+  });
 
+  const buildIndexMap = (orders: Map<string, Array<{ edgeId: string; anchor: number }>>) => {
+    const indexMap = new Map<string, Map<string, number>>();
+    orders.forEach((items, usageKey) => {
+      const sorted = [...items].sort((left, right) => {
+        if (left.anchor !== right.anchor) {
+          return left.anchor - right.anchor;
+        }
+        return left.edgeId.localeCompare(right.edgeId);
+      });
+      indexMap.set(
+        usageKey,
+        new Map(sorted.map((item, index) => [item.edgeId, index]))
+      );
+    });
+    return indexMap;
+  };
+
+  const sourceIndexMap = buildIndexMap(sourceSideOrders);
+  const targetIndexMap = buildIndexMap(targetSideOrders);
+
+  return preparedEdges.map(({ edge, sourceNode, targetNode, base, sourceSide, targetSide }) => {
+    if (edgeIdsToRoute && !edgeIdsToRoute.has(edge.id)) {
+      return edge;
+    }
+    const sourceUsageKey = `${sourceNode.id}:${sourceSide}`;
+    const targetUsageKey = `${targetNode.id}:${targetSide}`;
+    const sourceIndex = sourceIndexMap.get(sourceUsageKey)?.get(edge.id) ?? 0;
+    const targetIndex = targetIndexMap.get(targetUsageKey)?.get(edge.id) ?? 0;
     const sourceConnection =
       sourceSide === 'left' || sourceSide === 'right'
         ? [base.sourceConnection[0], SIDE_PORTS[sourceSide][sourceIndex % SIDE_PORTS[sourceSide].length]] as [number, number]
@@ -1290,6 +1371,60 @@ function computeGuidePenalty(
   return guide.classPenalty;
 }
 
+function segmentOverlapsRange(start: number, end: number, rangeStart: number, rangeEnd: number) {
+  return Math.max(Math.min(start, end), rangeStart) < Math.min(Math.max(start, end), rangeEnd);
+}
+
+function computeDenseBandPenalty(
+  from: Point,
+  to: Point,
+  edgeClass: RouteEdgeClass,
+  edgePriority: number,
+  frame: RouteFrame
+) {
+  if (edgeClass === 'spine' || edgeClass === 'merge' || edgeClass === 'control') {
+    return 0;
+  }
+
+  const normalizedPriority = normalizePriority(edgePriority);
+  const priorityWeight = 1 - normalizedPriority;
+  const mainBandHalf =
+    PAPERDRAW_LAYOUT_DEFAULTS.routePipelineCorridorOffset -
+    PAPERDRAW_LAYOUT_DEFAULTS.routePipelineLaneOffset;
+  const isHorizontal = Math.abs(from[1] - to[1]) < 1e-6;
+  const isVertical = Math.abs(from[0] - to[0]) < 1e-6;
+  let penalty = 0;
+
+  if (
+    isHorizontal &&
+    Math.abs(from[1] - frame.mainY) <= mainBandHalf &&
+    segmentOverlapsRange(from[0], to[0], frame.minX, frame.maxX)
+  ) {
+    penalty +=
+      edgeClass === 'annotation'
+        ? 44 + priorityWeight * 30
+        : edgeClass === 'feedback'
+          ? 34 + priorityWeight * 24
+          : 24 + priorityWeight * 20;
+  }
+
+  if (
+    isVertical &&
+    from[0] > frame.minX + PAPERDRAW_LAYOUT_DEFAULTS.routeInnerMargin &&
+    from[0] < frame.maxX - PAPERDRAW_LAYOUT_DEFAULTS.routeInnerMargin &&
+    segmentOverlapsRange(from[1], to[1], frame.minY, frame.maxY)
+  ) {
+    penalty +=
+      edgeClass === 'annotation'
+        ? 30 + priorityWeight * 20
+        : edgeClass === 'feedback'
+          ? 24 + priorityWeight * 18
+          : 16 + priorityWeight * 14;
+  }
+
+  return penalty;
+}
+
 function computeRouteCost(
   from: Point,
   to: Point,
@@ -1298,7 +1433,8 @@ function computeRouteCost(
   edgePriority: number,
   model: LayoutConstraintModel,
   routedSegments: RouteSegment[],
-  guide: RouteGuide
+  guide: RouteGuide,
+  frame: RouteFrame
 ) {
   const direction = getSegmentDirection(from, to);
   const length = Math.abs(to[0] - from[0]) + Math.abs(to[1] - from[1]);
@@ -1307,6 +1443,13 @@ function computeRouteCost(
   const crossings = countCrossingsWithExisting(from, to, routedSegments);
   const congestion = countCongestionWithExisting(from, to, routedSegments);
   const guidePenalty = computeGuidePenalty(from, to, guide, previousDirection);
+  const denseBandPenalty = computeDenseBandPenalty(
+    from,
+    to,
+    edgeClass,
+    edgePriority,
+    frame
+  );
   const isBundledSegment =
     (edgeClass === 'spine' || edgeClass === 'merge') &&
     isOnPreferredGuide(from, to, guide);
@@ -1337,7 +1480,8 @@ function computeRouteCost(
     crossings * 120 +
     reverseFlow +
     congestion * congestionPenaltyMultiplier +
-    guidePenalty
+    guidePenalty +
+    denseBandPenalty
   );
 }
 
@@ -1409,7 +1553,8 @@ function routeEdgeWithAStar(
           edgePriority,
           model,
           routedSegments,
-          guide
+          guide,
+          frame
         );
 
       if (tentativeG >= (gScore.get(nextStateKey) ?? Number.POSITIVE_INFINITY)) {

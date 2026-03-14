@@ -600,6 +600,105 @@ describe('pipeline-router-v3', () => {
     expect(sharedBusXs.length).toBeGreaterThan(0);
   });
 
+  it('orders merge target ports by source geometry instead of edge id order', () => {
+    const layout: LayoutResult = {
+      direction: 'LR',
+      templateId: 'split-merge',
+      engine: 'pipeline_v1',
+      nodes: [
+        {
+          id: 'z-top',
+          label: 'Top Branch',
+          x: 0,
+          y: 20,
+          width: 220,
+          height: 72,
+          weight: 0.8,
+          confidence: 0.9,
+        },
+        {
+          id: 'a-bottom',
+          label: 'Bottom Branch',
+          x: 0,
+          y: 320,
+          width: 220,
+          height: 72,
+          weight: 0.8,
+          confidence: 0.9,
+        },
+        {
+          id: 'merge',
+          label: 'Merge',
+          x: 620,
+          y: 170,
+          width: 220,
+          height: 72,
+          weight: 0.9,
+          confidence: 0.92,
+        },
+      ],
+      groups: [],
+      edges: [
+        {
+          id: 'zm',
+          type: 'sequential',
+          sourceId: 'z-top',
+          targetId: 'merge',
+          shape: 'straight',
+          sourceConnection: [1, 0.5],
+          targetConnection: [0, 0.5],
+          points: [
+            [220, 56],
+            [620, 206],
+          ],
+        },
+        {
+          id: 'am',
+          type: 'sequential',
+          sourceId: 'a-bottom',
+          targetId: 'merge',
+          shape: 'straight',
+          sourceConnection: [1, 0.5],
+          targetConnection: [0, 0.5],
+          points: [
+            [220, 356],
+            [620, 206],
+          ],
+        },
+      ],
+    };
+    const intent = createIntent(layout, {
+      dominantSpine: ['z-top', 'merge'],
+      mergeNodes: ['merge'],
+      mergeClusters: [
+        {
+          mergeNodeId: 'merge',
+          sourceIds: ['z-top', 'a-bottom'],
+        },
+      ],
+      edgeRoles: {
+        zm: 'main',
+        am: 'auxiliary',
+      },
+    });
+    const model = buildLayoutConstraintModel(layout, {
+      mode: 'global',
+      engine: 'pipeline_v1',
+      profile: 'double',
+      quality: 'quality',
+    });
+
+    const routed = routePipelineLayoutV3(layout, model, intent, {
+      templateId: 'split-merge',
+    });
+    const topMerge = routed.edges.find((edge) => edge.id === 'zm')!;
+    const bottomMerge = routed.edges.find((edge) => edge.id === 'am')!;
+
+    expect(topMerge.targetConnection[0]).toBe(0);
+    expect(bottomMerge.targetConnection[0]).toBe(0);
+    expect(topMerge.targetConnection[1]).toBeLessThan(bottomMerge.targetConnection[1]);
+  });
+
   it('uses blueprint edge policy to treat merge bundles as merge routes', () => {
     const layout: LayoutResult = {
       direction: 'LR',
