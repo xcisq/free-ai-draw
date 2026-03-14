@@ -151,4 +151,63 @@ describe('PaperDraw validator', () => {
       ])
     );
   });
+
+  it('uses spine candidates when sequential fallback is required', () => {
+    const result = validateExtractionResult({
+      entities: [
+        { id: 'e1', label: '输入' },
+        { id: 'e2', label: '条件分支' },
+        { id: 'e3', label: '主干编码' },
+        { id: 'e4', label: '输出' },
+      ],
+      modules: [],
+      relations: [],
+      spineCandidate: ['e1', 'e3', 'e4'],
+    });
+
+    expect(result.relations).toEqual([
+      expect.objectContaining({
+        type: 'sequential',
+        source: 'e1',
+        target: 'e3',
+      }),
+      expect.objectContaining({
+        type: 'sequential',
+        source: 'e3',
+        target: 'e4',
+      }),
+    ]);
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('已按主干候选自动补全主链'),
+      ])
+    );
+  });
+
+  it('skips automatic module rebuilding for branched flows', () => {
+    const result = validateExtractionResult({
+      entities: [
+        { id: 'e1', label: '输入' },
+        { id: 'e2', label: '主干编码' },
+        { id: 'e3', label: '辅助分支' },
+        { id: 'e4', label: '汇聚' },
+        { id: 'e5', label: '输出' },
+      ],
+      modules: [],
+      relations: [
+        { id: 'r1', type: 'sequential', source: 'e1', target: 'e2' },
+        { id: 'r2', type: 'sequential', source: 'e1', target: 'e3' },
+        { id: 'r3', type: 'sequential', source: 'e2', target: 'e4' },
+        { id: 'r4', type: 'sequential', source: 'e3', target: 'e4' },
+        { id: 'r5', type: 'sequential', source: 'e4', target: 'e5' },
+      ],
+    });
+
+    expect(result.modules).toEqual([]);
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('已跳过按主链自动重建模块结构'),
+      ])
+    );
+  });
 });

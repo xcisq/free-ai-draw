@@ -279,14 +279,23 @@ function getEntityIdAliases(entities: unknown, warnings: string[]): NormalizedEn
   };
 }
 
-function buildSequentialFallback(entities: Entity[]): SequentialRelation[] {
+function buildSequentialFallback(
+  entities: Entity[],
+  orderedEntityIds?: string[]
+): SequentialRelation[] {
+  const entityMap = new Map(entities.map((entity) => [entity.id, entity]));
+  const orderedEntities = orderedEntityIds?.length
+    ? orderedEntityIds
+        .map((entityId) => entityMap.get(entityId))
+        .filter((entity): entity is Entity => Boolean(entity))
+    : entities;
   const fallback: SequentialRelation[] = [];
-  for (let index = 0; index < entities.length - 1; index += 1) {
+  for (let index = 0; index < orderedEntities.length - 1; index += 1) {
     fallback.push({
       id: `r-fallback-${index + 1}`,
       type: 'sequential',
-      source: entities[index].id,
-      target: entities[index + 1].id,
+      source: orderedEntities[index].id,
+      target: orderedEntities[index + 1].id,
       confidence: DEFAULT_CONFIDENCE,
     });
   }
@@ -334,6 +343,25 @@ function topologicalSort(entities: Entity[], relations: FlowRelation[]) {
   return [...orderedIds, ...fallbackIds]
     .map((entityId) => entities.find((entity) => entity.id === entityId))
     .filter((entity): entity is Entity => Boolean(entity));
+}
+
+function hasSequentialBranching(relations: FlowRelation[]) {
+  const indegree = new Map<string, number>();
+  const outdegree = new Map<string, number>();
+
+  relations.forEach((relation) => {
+    if (relation.type !== 'sequential') {
+      return;
+    }
+
+    outdegree.set(relation.source, (outdegree.get(relation.source) ?? 0) + 1);
+    indegree.set(relation.target, (indegree.get(relation.target) ?? 0) + 1);
+  });
+
+  return (
+    Array.from(indegree.values()).some((value) => value > 1) ||
+    Array.from(outdegree.values()).some((value) => value > 1)
+  );
 }
 
 function normalizeRawFlowRelations(
@@ -672,15 +700,37 @@ function finalizeModules(
   entities: Entity[],
   relations: FlowRelation[],
   modules: ModuleGroup[],
+  spineCandidate: string[] | undefined,
   warnings: string[]
 ) {
   let normalizedModules = normalizeModuleOverlap(modules, warnings)
     .filter((moduleItem) => moduleItem.entityIds.length >= MODULE_SIZE_MIN);
 
+  const sequentialRelations = relations.filter(
+    (relation): relation is SequentialRelation => relation.type === 'sequential'
+  );
   if (
     entities.length >= COMPLEX_FLOW_ENTITY_THRESHOLD &&
     normalizedModules.length < MIN_COMPLEX_FLOW_MODULES
   ) {
+    if (hasSequentialBranching(relations)) {
+      warnings.push('检测到分支或汇聚结构，已跳过按主链自动重建模块结构');
+      return normalizedModules.map((moduleItem, index) => ({
+        ...moduleItem,
+        id: `m${index + 1}`,
+        order: moduleItem.order ?? index + 1,
+      }));
+    }
+
+    if (sequentialRelations.length < entities.length - 1 && !spineCandidate) {
+      warnings.push('顺序主链信息不足，已跳过按主链自动重建模块结构');
+      return normalizedModules.map((moduleItem, index) => ({
+        ...moduleItem,
+        id: `m${index + 1}`,
+        order: moduleItem.order ?? index + 1,
+      }));
+    }
+
     normalizedModules = rebuildModules(entities, relations, warnings);
   }
 
@@ -729,6 +779,7 @@ export function normalizeExtractionResult(data: unknown): ExtractionResult {
     entityIds,
     warnings
   );
+  const spineCandidate = normalizeSpineCandidate(data.spineCandidate, entityIds);
 
   let relations = dedupeFlowRelations(parsedRelations);
   relations = pruneRedundantSequentialRelations(
@@ -737,10 +788,14 @@ export function normalizeExtractionResult(data: unknown): ExtractionResult {
     warnings
   );
   if (!relations.some((relation) => relation.type === 'sequential') && entities.length > 1) {
-    warnings.push('未检测到顺序关系，已按实体顺序自动补全主链');
+    warnings.push(
+      spineCandidate
+        ? '未检测到顺序关系，已按主干候选自动补全主链'
+        : '未检测到顺序关系，已按实体顺序自动补全主链'
+    );
     relations = dedupeFlowRelations([
       ...relations,
-      ...buildSequentialFallback(entities),
+      ...buildSequentialFallback(entities, spineCandidate),
     ]);
   }
 
@@ -749,9 +804,9 @@ export function normalizeExtractionResult(data: unknown): ExtractionResult {
     entities,
     relations,
     mergeModules(explicitModules, legacyModules),
+    spineCandidate,
     warnings
   );
-  const spineCandidate = normalizeSpineCandidate(data.spineCandidate, entityIds);
 
   return {
     entities,
