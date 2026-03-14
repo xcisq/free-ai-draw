@@ -85,7 +85,9 @@ export interface CRSQuestion {
     | 'importance_ranking'
     | 'spine_selection'
     | 'relation_pruning'
-    | 'module_role_assignment';
+    | 'module_role_assignment'
+    | 'merge_node_selection'
+    | 'feedback_edge_selection';
   question: string;
   options: string[];
   multiSelect: boolean;

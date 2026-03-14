@@ -51,6 +51,7 @@ const structureExtraction: ExtractionResult = {
     { id: 'sr2', type: 'annotative', source: 's3', target: 's2', roleCandidate: 'control' },
     { id: 'sr3', type: 'sequential', source: 's2', target: 's5', roleCandidate: 'main' },
     { id: 'sr4', type: 'sequential', source: 's4', target: 's5', roleCandidate: 'auxiliary' },
+    { id: 'sr5', type: 'sequential', source: 's5', target: 's2' },
   ],
   modules: [
     {
@@ -139,6 +140,8 @@ describe('PaperDraw local QA agent', () => {
     const questions = generateQuestions(structureExtraction);
 
     expect(questions.some((question) => question.type === 'spine_selection')).toBe(true);
+    expect(questions.some((question) => question.type === 'merge_node_selection')).toBe(true);
+    expect(questions.some((question) => question.type === 'feedback_edge_selection')).toBe(true);
     expect(questions.some((question) => question.type === 'relation_pruning')).toBe(true);
     expect(
       questions.some(
@@ -161,6 +164,12 @@ describe('PaperDraw local QA agent', () => {
     const relationQuestion = questions.find(
       (question) => question.type === 'relation_pruning'
     )!;
+    const mergeQuestion = questions.find(
+      (question) => question.type === 'merge_node_selection'
+    )!;
+    const feedbackQuestion = questions.find(
+      (question) => question.type === 'feedback_edge_selection'
+    )!;
     const controlQuestion = questions.find(
       (question) =>
         question.type === 'module_role_assignment' &&
@@ -178,6 +187,14 @@ describe('PaperDraw local QA agent', () => {
         {
           questionId: 'q-spine-1',
           selectedOptions: ['输入图像', '编码特征', '汇聚输出'],
+        },
+        {
+          questionId: mergeQuestion.id,
+          selectedOptions: ['汇聚输出'],
+        },
+        {
+          questionId: feedbackQuestion.id,
+          selectedOptions: feedbackQuestion.options,
         },
         {
           questionId: relationQuestion.id,
@@ -202,7 +219,14 @@ describe('PaperDraw local QA agent', () => {
       'sr1',
       'sr3',
       'sr4',
+      'sr5',
     ]);
+    expect(
+      analysis.entities.find((entity) => entity.id === 's5')?.roleCandidate
+    ).toBe('aggregator');
+    expect(
+      analysis.relations.find((relation) => relation.id === 'sr5')?.roleCandidate
+    ).toBe('feedback');
     expect(
       analysis.modules.find((moduleItem) => moduleItem.label === '控制条件')?.roleCandidate
     ).toBe('control_stage');
@@ -213,6 +237,8 @@ describe('PaperDraw local QA agent', () => {
       expect.arrayContaining([
         expect.stringContaining('本地 QA 已移除 1 条说明性或辅助连线'),
         expect.stringContaining('本地 QA 已确认主干候选'),
+        expect.stringContaining('本地 QA 已确认 1 个汇聚节点'),
+        expect.stringContaining('本地 QA 已确认 1 条反馈边'),
         expect.stringContaining('本地 QA 已确认 2 个模块角色'),
       ])
     );

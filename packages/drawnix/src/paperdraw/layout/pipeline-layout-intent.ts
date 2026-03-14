@@ -849,16 +849,23 @@ export function buildLayoutIntent(
   });
 
   const resolvedModuleRoleMap = new Map(modules.map((moduleItem) => [moduleItem.id, moduleItem.role]));
-  const feedbackEdgeIds = new Set(
-    inferFeedbackEdges(
+  const explicitFeedbackEdgeIds = analysis.relations
+    .filter(
+      (relation) =>
+        relation.type === 'sequential' && relation.roleCandidate === 'feedback'
+    )
+    .map((relation) => relation.id);
+  const feedbackEdgeIds = new Set([
+    ...explicitFeedbackEdgeIds,
+    ...inferFeedbackEdges(
       analysis,
       nodeRoleMap,
       resolvedModuleRoleMap,
       nodeToModule,
       orderMap,
       moduleOrderMap
-    )
-  );
+    ),
+  ]);
   const dominantSpine = computeDominantSpine(
     analysis,
     nodeRoleMap,

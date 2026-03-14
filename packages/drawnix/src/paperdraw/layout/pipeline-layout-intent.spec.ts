@@ -188,4 +188,51 @@ describe('pipeline-layout-intent', () => {
     expect(edgeMap.get('sr1')?.role).toBe('control');
     expect(intent.dominantSpine).toEqual(['s2', 's3']);
   });
+
+  it('keeps explicit feedback edges in feedback sets even when topology is forward', () => {
+    const explicitFeedbackAnalysis: AnalysisResult = {
+      entities: [
+        { id: 'f1', label: 'Input' },
+        { id: 'f2', label: 'Current State', roleCandidate: 'state' },
+        { id: 'f3', label: 'Update Gate', roleCandidate: 'process' },
+      ],
+      relations: [
+        {
+          id: 'fr1',
+          type: 'sequential',
+          source: 'f1',
+          target: 'f2',
+          roleCandidate: 'main',
+        },
+        {
+          id: 'fr2',
+          type: 'sequential',
+          source: 'f2',
+          target: 'f3',
+          roleCandidate: 'feedback',
+        },
+      ],
+      weights: {
+        f1: 0.9,
+        f2: 0.85,
+        f3: 0.8,
+      },
+      modules: [
+        {
+          id: 'fm1',
+          label: 'State Update',
+          entityIds: ['f1', 'f2', 'f3'],
+          order: 1,
+        },
+      ],
+    };
+
+    const layout = basicLayout(explicitFeedbackAnalysis);
+    const intent = buildLayoutIntent(explicitFeedbackAnalysis, layout);
+    const edgeMap = new Map(intent.edges.map((edge) => [edge.id, edge]));
+
+    expect(intent.feedbackEdges).toContain('fr2');
+    expect(edgeMap.get('fr2')?.role).toBe('feedback');
+    expect(intent.layoutHints).toContain('has_feedback');
+  });
 });

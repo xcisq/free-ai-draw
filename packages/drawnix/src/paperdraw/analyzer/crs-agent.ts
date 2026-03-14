@@ -22,6 +22,8 @@ const ROOT_WEIGHT = 0.65;
 const MAX_LOW_CONFIDENCE_QUESTIONS = 2;
 const MAX_RELATION_PRUNING_OPTIONS = 6;
 const MAX_MODULE_ROLE_OPTIONS = 4;
+const MAX_MERGE_NODE_OPTIONS = 4;
+const MAX_FEEDBACK_EDGE_OPTIONS = 4;
 
 const CONTROL_MODULE_PATTERNS = [
   /control/i,
@@ -39,6 +41,17 @@ const AUXILIARY_MODULE_PATTERNS = [
   /辅助/,
   /分支/,
   /解码/,
+];
+const MERGE_NODE_PATTERNS = [
+  /merge/i,
+  /fusion/i,
+  /aggregate/i,
+  /concat/i,
+  /汇聚/,
+  /融合/,
+  /聚合/,
+  /合并/,
+  /拼接/,
 ];
 
 const getEntityById = (entities: Entity[], entityId: string) => {
@@ -75,6 +88,19 @@ const getSequentialStats = (relations: FlowRelation[]) => {
   }
 
   return { indegree, outdegree };
+};
+
+const buildEntityOrderMap = (extraction: ExtractionResult) => {
+  const orderedIds = extraction.spineCandidate?.length
+    ? [
+        ...extraction.spineCandidate,
+        ...extraction.entities
+          .map((entity) => entity.id)
+          .filter((entityId) => !extraction.spineCandidate?.includes(entityId)),
+      ]
+    : extraction.entities.map((entity) => entity.id);
+
+  return new Map(orderedIds.map((entityId, index) => [entityId, index]));
 };
 
 const getSelectedIds = (
@@ -139,6 +165,21 @@ const getSpineEdgeIds = (extraction: ExtractionResult) => {
     }
   }
   return edgeIds;
+};
+
+const getFeedbackRelationCandidates = (extraction: ExtractionResult) => {
+  const orderMap = buildEntityOrderMap(extraction);
+  return extraction.relations
+    .filter((relation) => relation.type === 'sequential')
+    .filter((relation) => relation.roleCandidate !== 'main' && relation.roleCandidate !== 'feedback')
+    .filter((relation) => {
+      const sourceOrder = orderMap.get(relation.source);
+      const targetOrder = orderMap.get(relation.target);
+      if (sourceOrder === undefined || targetOrder === undefined) {
+        return false;
+      }
+      return targetOrder < sourceOrder;
+    });
 };
 
 const buildDefaultWeights = (entities: Entity[], relations: FlowRelation[]) => {
@@ -254,14 +295,81 @@ const getSpineQuestion = (extraction: ExtractionResult): CRSQuestion[] => {
   ];
 };
 
+const getMergeNodeQuestion = (extraction: ExtractionResult): CRSQuestion[] => {
+  const { indegree } = getSequentialStats(extraction.relations);
+  const candidates = extraction.entities
+    .map((entity) => {
+      const indegreeScore = indegree.get(entity.id) ?? 0;
+      const patternScore = MERGE_NODE_PATTERNS.some((pattern) => pattern.test(entity.label)) ? 2 : 0;
+      const explicitScore = entity.roleCandidate === 'aggregator' ? 3 : 0;
+      return {
+        entity,
+        score: indegreeScore * 2 + patternScore + explicitScore,
+      };
+    })
+    .filter(({ score, entity }) => score > 0 || (indegree.get(entity.id) ?? 0) >= 2)
+    .sort((left, right) => {
+      if (right.score !== left.score) {
+        return right.score - left.score;
+      }
+      return (right.entity.confidence ?? DEFAULT_WEIGHT) - (left.entity.confidence ?? DEFAULT_WEIGHT);
+    })
+    .slice(0, MAX_MERGE_NODE_OPTIONS);
+
+  if (!candidates.length) {
+    return [];
+  }
+
+  return [
+    {
+      id: 'q-merge-node-1',
+      type: 'merge_node_selection',
+      question: '以下实体中，哪些更像汇聚或合并节点？',
+      options: ensureUniqueOptions(candidates.map(({ entity }) => entity.label)),
+      multiSelect: true,
+      relatedEntityIds: candidates.map(({ entity }) => entity.id),
+    },
+  ];
+};
+
+const getFeedbackQuestion = (extraction: ExtractionResult): CRSQuestion[] => {
+  const candidates = getFeedbackRelationCandidates(extraction).slice(
+    0,
+    MAX_FEEDBACK_EDGE_OPTIONS
+  );
+
+  if (!candidates.length) {
+    return [];
+  }
+
+  return [
+    {
+      id: 'q-feedback-edge-1',
+      type: 'feedback_edge_selection',
+      question: '以下连线中，哪些属于反馈回路？',
+      options: ensureUniqueOptions(
+        candidates.map((relation) => formatRelationOption(relation, extraction.entities))
+      ),
+      multiSelect: true,
+      relatedRelationIds: candidates.map((relation) => relation.id),
+    },
+  ];
+};
+
 const getRelationPruningQuestion = (extraction: ExtractionResult): CRSQuestion[] => {
   const spineEdgeIds = getSpineEdgeIds(extraction);
+  const feedbackCandidateIds = new Set(
+    getFeedbackRelationCandidates(extraction).map((relation) => relation.id)
+  );
   const candidates = extraction.relations
     .filter((relation) => {
       if (relation.type === 'annotative') {
         return true;
       }
       if (spineEdgeIds.has(relation.id)) {
+        return false;
+      }
+      if (feedbackCandidateIds.has(relation.id)) {
         return false;
       }
       return relation.roleCandidate !== 'main' && relation.roleCandidate !== 'feedback';
@@ -369,6 +477,8 @@ const getModuleRoleQuestions = (extraction: ExtractionResult): CRSQuestion[] => 
 export function generateQuestions(extraction: ExtractionResult, _config?: LLMConfig): CRSQuestion[] {
   return [
     ...getSpineQuestion(extraction),
+    ...getMergeNodeQuestion(extraction),
+    ...getFeedbackQuestion(extraction),
     ...getRelationPruningQuestion(extraction),
     ...getModuleRoleQuestions(extraction),
     ...getModuleQuestions(extraction),
@@ -397,6 +507,36 @@ function applyLowConfidenceAnswers(
   return {
     ignoredEntityIds,
     entities: entities.filter((entity) => !ignoredEntityIds.has(entity.id)),
+  };
+}
+
+function applyMergeNodeAnswers(
+  entities: Entity[],
+  answers: CRSAnswer[],
+  questions: CRSQuestion[]
+) {
+  const mergeEntityIds = new Set<string>();
+
+  for (const question of questions) {
+    if (question.type !== 'merge_node_selection') {
+      continue;
+    }
+    const answer = answers.find((item) => item.questionId === question.id);
+    getSelectedIds(answer, question.options, question.relatedEntityIds).forEach((entityId) => {
+      mergeEntityIds.add(entityId);
+    });
+  }
+
+  return {
+    mergeEntityIds,
+    entities: entities.map((entity) =>
+      mergeEntityIds.has(entity.id)
+        ? {
+            ...entity,
+            roleCandidate: 'aggregator',
+          }
+        : entity
+    ),
   };
 }
 
@@ -467,6 +607,36 @@ function filterRelations(relations: FlowRelation[], allowedEntityIds: Set<string
   });
 }
 
+function applyFeedbackEdgeAnswers(
+  relations: FlowRelation[],
+  answers: CRSAnswer[],
+  questions: CRSQuestion[]
+) {
+  const feedbackRelationIds = new Set<string>();
+
+  for (const question of questions) {
+    if (question.type !== 'feedback_edge_selection') {
+      continue;
+    }
+    const answer = answers.find((item) => item.questionId === question.id);
+    getSelectedIds(answer, question.options, question.relatedRelationIds).forEach((relationId) => {
+      feedbackRelationIds.add(relationId);
+    });
+  }
+
+  return {
+    feedbackRelationIds,
+    relations: relations.map((relation) =>
+      relation.type === 'sequential' && feedbackRelationIds.has(relation.id)
+        ? {
+            ...relation,
+            roleCandidate: 'feedback',
+          }
+        : relation
+    ),
+  };
+}
+
 function applyRelationPruningAnswers(
   relations: FlowRelation[],
   answers: CRSAnswer[],
@@ -519,11 +689,22 @@ export function refineWithAnswers(
   _config?: LLMConfig
 ): AnalysisResult {
   const warnings = [...(extraction.warnings ?? [])];
-  const { entities } = applyLowConfidenceAnswers(extraction.entities, answers, questions);
+  const lowConfidenceResult = applyLowConfidenceAnswers(extraction.entities, answers, questions);
+  const mergeNodeResult = applyMergeNodeAnswers(
+    lowConfidenceResult.entities,
+    answers,
+    questions
+  );
+  const entities = mergeNodeResult.entities;
   const allowedEntityIds = new Set(entities.map((entity) => entity.id));
   const filteredRelations = filterRelations(extraction.relations, allowedEntityIds);
-  const { relations, prunedRelationIds } = applyRelationPruningAnswers(
+  const feedbackResult = applyFeedbackEdgeAnswers(
     filteredRelations,
+    answers,
+    questions
+  );
+  const { relations, prunedRelationIds } = applyRelationPruningAnswers(
+    feedbackResult.relations,
     answers,
     questions
   );
@@ -553,6 +734,14 @@ export function refineWithAnswers(
 
   if (spineCandidate?.length && spineCandidate.join('|') !== extraction.spineCandidate?.join('|')) {
     warnings.push('本地 QA 已确认主干候选');
+  }
+
+  if (mergeNodeResult.mergeEntityIds.size > 0) {
+    warnings.push(`本地 QA 已确认 ${mergeNodeResult.mergeEntityIds.size} 个汇聚节点`);
+  }
+
+  if (feedbackResult.feedbackRelationIds.size > 0) {
+    warnings.push(`本地 QA 已确认 ${feedbackResult.feedbackRelationIds.size} 条反馈边`);
   }
 
   const assignedRoleCount = questions.filter(
