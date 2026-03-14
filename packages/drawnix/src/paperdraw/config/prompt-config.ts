@@ -32,7 +32,8 @@ ${PAPERDRAW_FINAL_JSON_END}
       "id": "e1",
       "label": "实体名称",
       "evidence": "原文片段",
-      "confidence": 0.0
+      "confidence": 0.0,
+      "roleCandidate": "input"
     }
   ],
   "modules": [
@@ -42,7 +43,8 @@ ${PAPERDRAW_FINAL_JSON_END}
       "entityIds": ["e1", "e2"],
       "order": 1,
       "evidence": "模块归纳依据",
-      "confidence": 0.0
+      "confidence": 0.0,
+      "roleCandidate": "input_stage"
     }
   ],
   "relations": [
@@ -53,7 +55,8 @@ ${PAPERDRAW_FINAL_JSON_END}
       "target": "e2",
       "label": "可选连接文字",
       "evidence": "原文片段",
-      "confidence": 0.0
+      "confidence": 0.0,
+      "roleCandidate": "main"
     },
     {
       "id": "r2",
@@ -62,9 +65,11 @@ ${PAPERDRAW_FINAL_JSON_END}
       "target": "e4",
       "label": "注释内容",
       "evidence": "原文片段",
-      "confidence": 0.0
+      "confidence": 0.0,
+      "roleCandidate": "annotation"
     }
-  ]
+  ],
+  "spineCandidate": ["e1", "e2", "e5"]
 }
 
 4. confidence 范围为 0 到 1。
@@ -73,8 +78,14 @@ ${PAPERDRAW_FINAL_JSON_END}
 7. 如果你提取出的实体数量大于等于 5，必须归纳出 2 到 5 个模块，即使原文没有直接出现“模块”或“阶段”字样。
 8. 模块应该优先体现阶段、子系统、输入输出簇、方法分段，而不是把所有实体塞进一个模块。
 9. 不要输出 modular relation；模块信息统一写进 modules 数组。
-10. label 保持和原文一致的语言。
-11. 除了 JSON 包裹标记，不要输出 Markdown code fence。`;
+10. roleCandidate 是可选字段，但只要能判断，请优先输出：
+   - entity: input/process/state/parameter/decoder/aggregator/simulator/output/annotation/media
+   - module: input_stage/core_stage/auxiliary_stage/control_stage/output_stage
+   - relation: main/auxiliary/control/feedback/annotation
+11. spineCandidate 是可选字段；如果你能判断主干步骤，请按阅读顺序输出主干实体 id 数组。
+12. 如果一条边只是补充说明、低价值旁路或不应该进入主干，请在 roleCandidate 中体现，不要把所有顺序边都视为主干。
+13. label 保持和原文一致的语言。
+14. 除了 JSON 包裹标记，不要输出 Markdown code fence。`;
 
 export const PAPERDRAW_PROMPT_CONFIG: PaperDrawPromptConfig = {
   finalJsonStart: PAPERDRAW_FINAL_JSON_START,
@@ -94,6 +105,9 @@ export const buildExtractionUserPrompt = (text: string) => {
 - 如果实体数不少于 5，必须归纳出 2-5 个模块
 - 模块优先体现阶段、子系统和子流程
 - relations 仅输出 sequential 和 annotative
+- 如果能判断，请给出 entity/module/relation 的 roleCandidate
+- 如果能判断，请给出 spineCandidate，表示主干步骤顺序
+- 不要把所有顺序边都当成主干边，辅助支路、控制边、反馈边请区分语义
 
 文本如下：
 ${text}`;
