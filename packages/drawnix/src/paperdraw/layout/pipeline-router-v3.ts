@@ -541,8 +541,8 @@ function assignConnectionsByClass(
     );
     const sourceSide = getConnectionSide(base.sourceConnection);
     const targetSide = getConnectionSide(base.targetConnection);
-    const sourceUsageKey = `${edge.id}:${sourceNode.id}:${sourceSide}`;
-    const targetUsageKey = `${edge.id}:${targetNode.id}:${targetSide}`;
+    const sourceUsageKey = `${sourceNode.id}:${sourceSide}`;
+    const targetUsageKey = `${targetNode.id}:${targetSide}`;
     const sourceIndex = usage.get(sourceUsageKey) ?? 0;
     const targetIndex = usage.get(targetUsageKey) ?? 0;
     usage.set(sourceUsageKey, sourceIndex + 1);

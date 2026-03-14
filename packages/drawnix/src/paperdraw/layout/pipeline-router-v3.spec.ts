@@ -239,6 +239,96 @@ describe('pipeline-router-v3', () => {
     expect(metrics.moduleCrossings).toBe(0);
   });
 
+  it('spreads multiple outgoing edges across distinct side ports', () => {
+    const layout: LayoutResult = {
+      direction: 'LR',
+      templateId: 'linear-spine',
+      engine: 'pipeline_v1',
+      nodes: [
+        {
+          id: 'a',
+          label: 'Source',
+          x: 0,
+          y: 120,
+          width: 220,
+          height: 72,
+          weight: 0.8,
+          confidence: 0.9,
+        },
+        {
+          id: 'b',
+          label: 'Main',
+          x: 420,
+          y: 120,
+          width: 220,
+          height: 72,
+          weight: 0.8,
+          confidence: 0.9,
+        },
+        {
+          id: 'c',
+          label: 'Branch',
+          x: 420,
+          y: 320,
+          width: 220,
+          height: 72,
+          weight: 0.8,
+          confidence: 0.9,
+        },
+      ],
+      groups: [],
+      edges: [
+        {
+          id: 'ab',
+          type: 'sequential',
+          sourceId: 'a',
+          targetId: 'b',
+          shape: 'straight',
+          sourceConnection: [1, 0.5],
+          targetConnection: [0, 0.5],
+          points: [
+            [220, 156],
+            [420, 156],
+          ],
+        },
+        {
+          id: 'ac',
+          type: 'sequential',
+          sourceId: 'a',
+          targetId: 'c',
+          shape: 'straight',
+          sourceConnection: [1, 0.5],
+          targetConnection: [0, 0.5],
+          points: [
+            [220, 156],
+            [420, 356],
+          ],
+        },
+      ],
+    };
+    const intent = createIntent(layout, {
+      dominantSpine: ['a', 'b'],
+    });
+    const model = buildLayoutConstraintModel(layout, {
+      mode: 'global',
+      engine: 'pipeline_v1',
+      profile: 'double',
+      quality: 'quality',
+    });
+
+    const routed = routePipelineLayoutV3(layout, model, intent, {
+      templateId: 'linear-spine',
+    });
+    const mainEdge = routed.edges.find((edge) => edge.id === 'ab')!;
+    const branchEdge = routed.edges.find((edge) => edge.id === 'ac')!;
+
+    expect(mainEdge.sourceConnection[0]).toBe(1);
+    expect(branchEdge.sourceConnection[0]).toBe(1);
+    expect(mainEdge.sourceConnection[1]).toBe(0.18);
+    expect(branchEdge.sourceConnection[1]).toBe(0.34);
+    expect(mainEdge.points[0][1]).not.toBe(branchEdge.points[0][1]);
+  });
+
   it('prefers the outer feedback corridor for feedback edges', () => {
     const layout: LayoutResult = {
       direction: 'LR',
