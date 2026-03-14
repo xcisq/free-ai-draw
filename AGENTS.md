@@ -20,3 +20,11 @@ Recent history shows a mix of Conventional Commit style (`feat(...)`, `fix(...)`
 
 ## Security & Configuration Tips
 Do not commit secrets, tokens, or local `.env` values. Use environment variables for sensitive configuration, and avoid adding new network calls or telemetry without explicit review.
+
+## PaperDraw Execution Baseline
+For PaperDraw work, use `docs/paperdraw/execution-plan.md` as the execution baseline.
+
+- Any new PaperDraw development, refactor, or bug fix should first align to that document's phases, tasks, and acceptance criteria.
+- If a PaperDraw requirement changes, update `docs/paperdraw/execution-plan.md` first, then implement the code change.
+- When a PaperDraw task conflicts with the current plan, resolve the conflict in the document before continuing implementation.
+- Prefer referencing the phase/task identifier from the execution plan in summaries, commits, and follow-up work.
