@@ -6,6 +6,7 @@ export {
 export {
   generateQuestions,
   generateDefaultAnalysis,
+  hasStructuralGuardQuestions,
   refineWithAnswers,
   mergeLocalAnswers,
 } from './crs-agent';

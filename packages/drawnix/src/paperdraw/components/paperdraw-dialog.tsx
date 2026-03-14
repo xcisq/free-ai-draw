@@ -27,6 +27,7 @@ import {
   extractFromText,
   generateDefaultAnalysis,
   generateQuestions,
+  hasStructuralGuardQuestions,
   mergeLocalAnswers,
   validateAnalysisResult,
   validateExtractionResult,
@@ -79,12 +80,17 @@ const PaperDrawDialog = () => {
     edgeIds: [],
   });
   const [optimizeMenuOpen, setOptimizeMenuOpen] = useState(false);
+  const hasSkipGuard = useMemo(
+    () => hasStructuralGuardQuestions(questions),
+    [questions]
+  );
 
   const closeDialog = useCallback(() => {
     setAppState({ ...appState, openDialogType: null });
   }, [appState, setAppState]);
 
   const buildDraft = useCallback((analysis: AnalysisResult) => {
+    setError(null);
     const draft = buildFlowchartState(analysis);
     setAnalysisResult(analysis);
     setDraftLayout(draft.layout);
@@ -168,6 +174,12 @@ const PaperDrawDialog = () => {
       return;
     }
 
+    if (hasSkipGuard) {
+      setError(t('dialog.paperdraw.error.structureConfirmationRequired'));
+      setPhase('qa');
+      return;
+    }
+
     try {
       const nextAnalysis = validateAnalysisResult(
         generateDefaultAnalysis(extraction)
@@ -178,7 +190,7 @@ const PaperDrawDialog = () => {
       setError(`${t('dialog.paperdraw.error.analyzeFailed')}: ${err.message}`);
       setPhase('qa');
     }
-  }, [buildDraft, extraction, t]);
+  }, [buildDraft, extraction, hasSkipGuard, t]);
 
   const insertToBoard = useCallback(() => {
     if (!draftElements.length) {
@@ -410,6 +422,10 @@ const PaperDrawDialog = () => {
               questions={questions}
               onComplete={handleQAComplete}
               onSkip={handleSkipQA}
+              skipDisabled={hasSkipGuard}
+              skipHint={
+                hasSkipGuard ? t('dialog.paperdraw.qaStructureGuard') : null
+              }
             />
           )}
 

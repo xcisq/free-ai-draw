@@ -1,6 +1,7 @@
 import {
   generateDefaultAnalysis,
   generateQuestions,
+  hasStructuralGuardQuestions,
   mergeLocalAnswers,
 } from './crs-agent';
 import { ExtractionResult } from '../types/analyzer';
@@ -390,6 +391,7 @@ describe('PaperDraw local QA agent', () => {
     expect(
       questions.some((question) => question.type === 'spine_selection')
     ).toBe(false);
+    expect(hasStructuralGuardQuestions(questions)).toBe(true);
   });
 
   it('moves unselected middle modules off the main spine after linear-flow confirmation', () => {
@@ -467,5 +469,11 @@ describe('PaperDraw local QA agent', () => {
         expect.stringContaining('当前文本更像单一路径流程'),
       ])
     );
+  });
+
+  it('does not mark ordinary structure questions as skip guards', () => {
+    const questions = generateQuestions(structureExtraction);
+
+    expect(hasStructuralGuardQuestions(questions)).toBe(false);
   });
 });

@@ -275,4 +275,48 @@ describe('pipeline-skeleton-generator', () => {
     expect(nodeMap.get('n4')!.y).toBeGreaterThan(nodeMap.get('n2')!.y);
     expect(Math.abs(nodeMap.get('n3')!.x - nodeMap.get('n2')!.x)).toBeLessThanOrEqual(40);
   });
+
+  it('fans out multiple generic branch blocks attached to the same spine node', () => {
+    const analysis: AnalysisResult = {
+      entities: [
+        { id: 'b1', label: 'Input' },
+        { id: 'b2', label: 'Core Parser' },
+        { id: 'b3', label: 'Branch Draft A' },
+        { id: 'b4', label: 'Branch Detail A' },
+        { id: 'b5', label: 'Branch Draft B' },
+        { id: 'b6', label: 'Branch Detail B' },
+        { id: 'b7', label: 'Output' },
+      ],
+      relations: [
+        { id: 'br1', type: 'sequential', source: 'b1', target: 'b2', roleCandidate: 'main' },
+        { id: 'br2', type: 'sequential', source: 'b2', target: 'b7', roleCandidate: 'main' },
+        { id: 'br3', type: 'sequential', source: 'b2', target: 'b3', roleCandidate: 'auxiliary' },
+        { id: 'br4', type: 'sequential', source: 'b3', target: 'b4', roleCandidate: 'auxiliary' },
+        { id: 'br5', type: 'sequential', source: 'b2', target: 'b5', roleCandidate: 'auxiliary' },
+        { id: 'br6', type: 'sequential', source: 'b5', target: 'b6', roleCandidate: 'auxiliary' },
+      ],
+      weights: { b1: 0.9, b2: 0.88, b3: 0.71, b4: 0.68, b5: 0.7, b6: 0.67, b7: 0.91 },
+      modules: [
+        { id: 'bm1', label: 'Input', entityIds: ['b1'], order: 1 },
+        { id: 'bm2', label: 'Core', entityIds: ['b2'], order: 2 },
+        { id: 'bm3', label: 'Branch A', entityIds: ['b3', 'b4'], order: 3 },
+        { id: 'bm4', label: 'Branch B', entityIds: ['b5', 'b6'], order: 4 },
+        { id: 'bm5', label: 'Output', entityIds: ['b7'], order: 5 },
+      ],
+      spineCandidate: ['b1', 'b2', 'b7'],
+    };
+
+    const baseLayout = basicLayout(analysis);
+    const intent = buildLayoutIntent(analysis, baseLayout);
+    const layout = generatePipelineSkeletonLayout(
+      baseLayout,
+      intent,
+      createTemplateMatch('spine-lower-branch')
+    );
+    const nodeMap = new Map(layout.nodes.map((node) => [node.id, node]));
+
+    expect(nodeMap.get('b3')!.y).toBeGreaterThan(nodeMap.get('b2')!.y);
+    expect(nodeMap.get('b5')!.y).toBeGreaterThan(nodeMap.get('b2')!.y);
+    expect(nodeMap.get('b3')!.x).not.toBe(nodeMap.get('b5')!.x);
+  });
 });

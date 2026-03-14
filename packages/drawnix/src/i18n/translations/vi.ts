@@ -189,10 +189,14 @@ const viTranslations: Translations = {
     'dialog.paperdraw.error.analyzeFailed': 'Phân tích thất bại, vui lòng thử lại',
     'dialog.paperdraw.error.invalidOptimizeSelection':
       'Vui lòng chọn ít nhất 2 nút hình chữ nhật trước khi sắp xếp lại cục bộ',
+    'dialog.paperdraw.error.structureConfirmationRequired':
+      'Kết quả hiện tại vẫn giống một luồng một nhánh. Hãy xác nhận trục chính trước khi tạo bản nháp.',
     'dialog.paperdraw.fallback.pipelineLayout':
       'Bố cục mẫu pipeline hiện chưa dùng được, đã tự động chuyển sang bố cục tương thích',
     'dialog.paperdraw.toggleSemantic': 'Chế độ ngữ nghĩa',
     'dialog.paperdraw.qaTitle': 'Vui lòng xác nhận các thông tin sau',
+    'dialog.paperdraw.qaStructureGuard':
+      'Đầu vào này vẫn thiếu đủ cấu trúc. Hãy xác nhận các mô-đun hoặc các liên kết chính trước khi tạo bản nháp.',
     'dialog.paperdraw.optimizeLayout': 'Tối ưu bố cục',
     'dialog.paperdraw.optimizeSelection': 'Sắp xếp lại vùng đã chọn',
     'dialog.paperdraw.optimizeGlobal': 'Sắp xếp lại toàn bộ sơ đồ',

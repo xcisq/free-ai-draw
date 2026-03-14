@@ -154,6 +154,10 @@ function placeStack(
   });
 }
 
+function getCenteredOffset(index: number, total: number, gap: number) {
+  return (index - (total - 1) / 2) * gap;
+}
+
 function placeAttachedBranchBlocks(
   branchBlocks: BlockLayout[],
   blockMap: Map<string, BlockLayout>,
@@ -165,45 +169,61 @@ function placeAttachedBranchBlocks(
   bottomY: number,
   rightBaseX: number
 ) {
-  const placementCountBySide = new Map<string, number>();
   const branchTopY = Math.max(topY + 24, mainY - 180);
   const branchBottomY = Math.min(bottomY - 120, mainY + 150);
+  const attachmentsByBlockId = new Map(
+    branchAttachments.map((attachment) => [
+      nodeToBlock.get(attachment.branchRootId) ?? attachment.branchRootId,
+      attachment,
+    ])
+  );
+  const groupedBranchBlocks = new Map<string, BlockLayout[]>();
 
-  branchBlocks.forEach((block) => {
-    const attachment = branchAttachments.find(
-      (item) => nodeToBlock.get(item.branchRootId) === block.id
-    );
-    const anchorBlock = attachment
-      ? blockMap.get(nodeToBlock.get(attachment.attachToId) ?? '')
-      : undefined;
-    const side = attachment?.side ?? 'bottom';
-    const key = `${attachment?.attachToId ?? block.id}:${side}`;
-    const siblingIndex = placementCountBySide.get(key) ?? 0;
-    placementCountBySide.set(key, siblingIndex + 1);
+  [...branchBlocks]
+    .sort((left, right) => left.order - right.order)
+    .forEach((block) => {
+      const attachment = attachmentsByBlockId.get(block.id);
+      const side = attachment?.side ?? 'bottom';
+      const key = `${attachment?.attachToId ?? block.id}:${side}`;
+      groupedBranchBlocks.set(key, [...(groupedBranchBlocks.get(key) ?? []), block]);
+    });
 
-    switch (side) {
-      case 'top':
-        block.x = anchorBlock ? anchorBlock.x : rightBaseX * 0.45;
-        block.y = branchTopY - siblingIndex * (block.height + 24);
-        break;
-      case 'left':
-        block.x = anchorBlock
-          ? anchorBlock.x - block.width - PAPERDRAW_LAYOUT_DEFAULTS.moduleGapX * 0.7 - siblingIndex * 48
-          : leftZoneX + 140 + siblingIndex * 32;
-        block.y = anchorBlock ? anchorBlock.y : mainY;
-        break;
-      case 'right':
-        block.x = anchorBlock
-          ? anchorBlock.x + anchorBlock.width + PAPERDRAW_LAYOUT_DEFAULTS.moduleGapX * 0.7 + siblingIndex * 48
-          : rightBaseX + siblingIndex * 48;
-        block.y = anchorBlock ? anchorBlock.y : mainY;
-        break;
-      case 'bottom':
-      default:
-        block.x = anchorBlock ? anchorBlock.x : 520;
-        block.y = branchBottomY + siblingIndex * (block.height + 28);
-        break;
-    }
+  groupedBranchBlocks.forEach((groupBlocks, key) => {
+    const [attachToId = '', side = 'bottom'] = key.split(':');
+    const anchorBlock = blockMap.get(nodeToBlock.get(attachToId) ?? '');
+    const horizontalGap = PAPERDRAW_LAYOUT_DEFAULTS.moduleGapX * 0.9;
+    const verticalGap = PAPERDRAW_LAYOUT_DEFAULTS.moduleGapY * 0.8;
+
+    groupBlocks.forEach((block, index) => {
+      const centeredOffset =
+        side === 'top' || side === 'bottom'
+          ? getCenteredOffset(index, groupBlocks.length, horizontalGap)
+          : getCenteredOffset(index, groupBlocks.length, verticalGap);
+
+      switch (side) {
+        case 'top':
+          block.x = anchorBlock ? anchorBlock.x + centeredOffset : rightBaseX * 0.45 + centeredOffset;
+          block.y = branchTopY;
+          break;
+        case 'left':
+          block.x = anchorBlock
+            ? anchorBlock.x - block.width - PAPERDRAW_LAYOUT_DEFAULTS.moduleGapX * 0.7
+            : leftZoneX + 140;
+          block.y = anchorBlock ? anchorBlock.y + centeredOffset : mainY + centeredOffset;
+          break;
+        case 'right':
+          block.x = anchorBlock
+            ? anchorBlock.x + anchorBlock.width + PAPERDRAW_LAYOUT_DEFAULTS.moduleGapX * 0.7
+            : rightBaseX;
+          block.y = anchorBlock ? anchorBlock.y + centeredOffset : mainY + centeredOffset;
+          break;
+        case 'bottom':
+        default:
+          block.x = anchorBlock ? anchorBlock.x + centeredOffset : 520 + centeredOffset;
+          block.y = branchBottomY;
+          break;
+      }
+    });
   });
 }
 

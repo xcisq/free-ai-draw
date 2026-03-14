@@ -188,10 +188,14 @@ const enTranslations: Translations = {
   'dialog.paperdraw.error.analyzeFailed': 'Analysis failed, please try again',
   'dialog.paperdraw.error.invalidOptimizeSelection':
     'Select at least 2 rectangular nodes before optimizing a partial region',
+  'dialog.paperdraw.error.structureConfirmationRequired':
+    'The current result still looks like a single-path flow. Confirm the main spine before generating a draft.',
   'dialog.paperdraw.fallback.pipelineLayout':
     'Pipeline template layout is unavailable, switched to compatibility layout automatically',
   'dialog.paperdraw.toggleSemantic': 'Semantic View',
   'dialog.paperdraw.qaTitle': 'Please confirm the following',
+  'dialog.paperdraw.qaStructureGuard':
+    'This input still lacks enough structure. Confirm the main modules or main relations before generating a draft.',
   'dialog.paperdraw.optimizeLayout': 'Optimize Layout',
   'dialog.paperdraw.optimizeSelection': 'Reflow Selected Region',
   'dialog.paperdraw.optimizeGlobal': 'Reflow Entire Diagram',

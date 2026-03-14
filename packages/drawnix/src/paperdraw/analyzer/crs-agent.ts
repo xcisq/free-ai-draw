@@ -320,6 +320,14 @@ const getMainRelationSelection = (
   return getSelectedIds(answer, question.options, question.relatedRelationIds);
 };
 
+export function hasStructuralGuardQuestions(questions: CRSQuestion[]) {
+  return questions.some(
+    (question) =>
+      question.type === 'main_module_selection' ||
+      question.type === 'main_relation_selection'
+  );
+}
+
 const getFeedbackRelationCandidates = (extraction: ExtractionResult) => {
   const orderMap = buildEntityOrderMap(extraction);
   return extraction.relations

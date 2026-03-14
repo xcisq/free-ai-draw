@@ -187,10 +187,14 @@ const arTranslations: Translations = {
     'dialog.paperdraw.error.analyzeFailed': 'فشل التحليل، يرجى المحاولة مرة أخرى',
     'dialog.paperdraw.error.invalidOptimizeSelection':
       'يرجى تحديد عقدتين مستطيلتين على الأقل قبل إعادة ترتيب الجزء المحدد',
+    'dialog.paperdraw.error.structureConfirmationRequired':
+      'النتيجة الحالية ما زالت تبدو كتدفق أحادي المسار. يرجى تأكيد العمود الفقري الرئيسي قبل إنشاء المسودة.',
     'dialog.paperdraw.fallback.pipelineLayout':
       'تخطيط قالب المسار غير متاح الآن، وتم التبديل تلقائيًا إلى التخطيط المتوافق',
     'dialog.paperdraw.toggleSemantic': 'عرض دلالي',
     'dialog.paperdraw.qaTitle': 'يرجى تأكيد ما يلي',
+    'dialog.paperdraw.qaStructureGuard':
+      'هذا الإدخال ما زال يفتقر إلى بنية كافية. يرجى تأكيد الوحدات الرئيسية أو الوصلات الرئيسية قبل إنشاء المسودة.',
     'dialog.paperdraw.optimizeLayout': 'تحسين التخطيط',
     'dialog.paperdraw.optimizeSelection': 'إعادة ترتيب الجزء المحدد',
     'dialog.paperdraw.optimizeGlobal': 'إعادة ترتيب المخطط بالكامل',

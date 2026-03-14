@@ -191,10 +191,14 @@ const ruTranslations: Translations = {
   'dialog.paperdraw.error.analyzeFailed': 'Анализ не удался, попробуйте снова',
   'dialog.paperdraw.error.invalidOptimizeSelection':
     'Перед локальной перестройкой выберите как минимум 2 прямоугольных узла',
+  'dialog.paperdraw.error.structureConfirmationRequired':
+    'Текущий результат всё ещё похож на однонаправленный поток. Сначала подтвердите основную магистраль, затем создавайте черновик.',
   'dialog.paperdraw.fallback.pipelineLayout':
     'Шаблонный конвейерный макет недоступен, автоматически включён совместимый макет',
   'dialog.paperdraw.toggleSemantic': 'Семантический вид',
   'dialog.paperdraw.qaTitle': 'Пожалуйста, подтвердите следующее',
+  'dialog.paperdraw.qaStructureGuard':
+    'Во входных данных всё ещё недостаточно структуры. Подтвердите основные модули или основные связи перед созданием черновика.',
   'dialog.paperdraw.optimizeLayout': 'Оптимизировать макет',
   'dialog.paperdraw.optimizeSelection': 'Перестроить выбранную область',
   'dialog.paperdraw.optimizeGlobal': 'Перестроить всю диаграмму',

@@ -11,9 +11,17 @@ interface CRSQAPanelProps {
   questions: CRSQuestion[];
   onComplete: (answers: CRSAnswer[]) => void;
   onSkip: () => void;
+  skipDisabled?: boolean;
+  skipHint?: string | null;
 }
 
-export const CRSQAPanel = ({ questions, onComplete, onSkip }: CRSQAPanelProps) => {
+export const CRSQAPanel = ({
+  questions,
+  onComplete,
+  onSkip,
+  skipDisabled = false,
+  skipHint = null,
+}: CRSQAPanelProps) => {
   const { t } = useI18n();
   const [answers, setAnswers] = useState<Record<string, string[]>>(() => {
     const initial: Record<string, string[]> = {};
@@ -53,6 +61,7 @@ export const CRSQAPanel = ({ questions, onComplete, onSkip }: CRSQAPanelProps) =
   return (
     <div className="paperdraw-qa-section">
       <h3 className="paperdraw-qa-title">{t('dialog.paperdraw.qaTitle')}</h3>
+      {skipHint ? <p className="paperdraw-qa-hint">{skipHint}</p> : null}
       {questions.map((q) => (
         <div key={q.id} className="paperdraw-qa-card">
           <p className="paperdraw-qa-question">{q.question}</p>
@@ -76,6 +85,7 @@ export const CRSQAPanel = ({ questions, onComplete, onSkip }: CRSQAPanelProps) =
         <button
           className="paperdraw-btn paperdraw-btn-secondary"
           onClick={onSkip}
+          disabled={skipDisabled}
         >
           {t('dialog.paperdraw.skip')}
         </button>

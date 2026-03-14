@@ -143,6 +143,17 @@
   color: var(--text-primary-color, #333);
 }
 
+.paperdraw-qa-hint {
+  margin: -4px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #f7d27a;
+  background: #fff8e6;
+  color: #8a6116;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .paperdraw-qa-card {
   background: var(--island-bg-color, #f7f7f7);
   border: 1px solid var(--default-border-color, #e0e0e0);
