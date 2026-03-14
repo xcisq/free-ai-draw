@@ -27,7 +27,7 @@ export const PaperDrawDebugPanel = ({
       <summary className="paperdraw-debug-summary">
         <span>开发态调试视图</span>
         <span className="paperdraw-debug-summary-meta">
-          {analysis ? 'extraction / analysis / intent / layout' : 'extraction'}
+          {analysis ? 'extraction / analysis / intent / blueprint / layout' : 'extraction'}
         </span>
       </summary>
 
@@ -82,6 +82,25 @@ export const PaperDrawDebugPanel = ({
               {viewModel.intent.layoutHints.map((hint) => (
                 <span key={hint} className="paperdraw-debug-chip">
                   {hint}
+                </span>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {viewModel.blueprint ? (
+          <section className="paperdraw-debug-card">
+            <h4>Blueprint</h4>
+            <p>主干: {viewModel.blueprint.spineNodeIds.join(' -> ') || '无'}</p>
+            <p>
+              分支组 {viewModel.blueprint.branchGroupCount} / 汇聚组 {viewModel.blueprint.mergeGroupCount} /
+              反馈环 {viewModel.blueprint.feedbackLoopCount}
+            </p>
+            <p>bundle 组数: {viewModel.blueprint.bundleGroupCount}</p>
+            <div className="paperdraw-debug-chip-list">
+              {viewModel.blueprint.laneKinds.map((item) => (
+                <span key={`blueprint-lane-${item.role}`} className="paperdraw-debug-chip">
+                  {item.role}: {item.count}
                 </span>
               ))}
             </div>

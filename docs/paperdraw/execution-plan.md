@@ -1,6 +1,6 @@
 # PaperDraw 优化执行计划
 
-> 版本：v1.13
+> 版本：v2.0
 > 日期：2026-03-14
 > 状态：执行中
 > 适用范围：`packages/drawnix/src/paperdraw/**` 及其相关文档、测试、评估链路
@@ -117,6 +117,32 @@ QA 当前也没有校正结构，只校正：
 4. 线条数量下降，主干边更清晰，辅助边更克制。
 5. 每一轮改动都能通过真实样例、指标和测试验证。
 
+## 4.1 架构重置
+
+从当前代码和近几轮问题看，PaperDraw 要达到“论文级 pipeline 图”的关键，不是继续把规则分散塞进 parser、intent、matcher、skeleton、router，而是补上一个统一的 **PipelineBlueprint** 中间层。
+
+新的全链路目标结构：
+
+1. `ExtractionResult`
+2. `AnalysisResult`
+3. `PipelineBlueprint`
+4. `SkeletonLayout`
+5. `RoutedLayout`
+
+各层职责重新定义如下：
+
+- `ExtractionResult`：原始实体、关系、模块、主干候选与 evidence，是“文本理解结果”，不是布局输入。
+- `AnalysisResult`：经过 validator 与本地 QA 修正后的稳定语义图，是“确认后的语义图”，仍不直接负责布局。
+- `PipelineBlueprint`：论文图语法层，负责确定主干、lane、branch group、merge group、feedback loop、edge policy、bundle key。这一层是后续 matcher / skeleton / router 的共同输入。
+- `SkeletonLayout`：只负责把 blueprint 翻译成几何骨架，不再重新推断语义。
+- `RoutedLayout`：只负责在 blueprint 提供的 lane / bundle / merge bus 约束上完成路由，不再重新决定哪些边应该显眼、哪些边应该合流。
+
+这次重排后，系统的核心原则变成：
+
+- 语义只在前半段确认一次
+- 论文图结构只在 blueprint 层编译一次
+- 骨架、模板、路由都消费同一份 blueprint，而不是各自重建一份“理解”
+
 ## 5. 分阶段执行计划
 
 ## 5.0 当前执行状态
@@ -139,16 +165,18 @@ QA 当前也没有校正结构，只校正：
 - `P3-5` 第一轮：修复 off-spine 普通块掉回主线的问题
 - `P3-5` 第二轮：增强多支路 generic branch 的分组与错位
 - `P4-1`：修复 `pipeline-router-v3` 端口槽位分配错误
+- `P3-0` 第一轮：定义 `PipelineBlueprint` 契约并接入调试链路
 
 ### 当前进行中
 
+- `P3-0`：让 matcher / skeleton / router 开始围绕同一份 blueprint 迁移
 - `P4-3`：增加 bundling 与 merge bus，继续压低箭头杂乱感
 
 ### 下一轮计划
 
+- `P3-0` 第二轮：模板匹配改为优先消费 blueprint 特征，而不是直接消费 intent
+- `P3-0` 第三轮：骨架布局改为优先消费 blueprint 的 branch group / lane / bundle key
 - `P4-3` 第二轮：继续增强 spine bundling 与分支汇入前对齐
-- `P4-4`：限制低价值边视觉权重，优先缩短说明性边
-- `P5-3`：把调试视图纳入固定回归口径
 
 ## 5.1 阶段 P0：建立可观测性与真实基线
 
@@ -356,6 +384,32 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 让布局器真正消费结构语义，而不是继续依赖关键词猜测。
 
 ### 任务
+
+#### P3-0 引入 PipelineBlueprint 中间层
+
+新增统一的论文图结构层，负责把 `AnalysisResult + LayoutIntent` 编译成稳定的 blueprint：
+
+- main spine
+- lane
+- branch group
+- merge group
+- feedback loop
+- edge policy
+- bundle key
+
+设计原则：
+
+- matcher 不再自己重建结构特征
+- skeleton 不再自己猜哪些块应该离开主线
+- router 不再自己决定哪些边该 bundling、该走哪条 corridor
+- 三者都从 blueprint 消费同一套结构语义
+
+当前进度：
+
+- 已完成第一轮：定义 `PipelineBlueprint` 契约
+- 已完成第一轮：实现 blueprint 编译器，产出 lane / branch group / merge group / edge policy / bundle key
+- 已完成第一轮：开发态调试视图已开始展示 blueprint 摘要，便于后续迁移验证
+- 下一轮补充：让 template matcher 和 skeleton layout 真正改用 blueprint，而不是只把 blueprint 当调试产物
 
 #### P3-1 重构 LayoutIntent 输入来源
 
@@ -715,3 +769,11 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - 记录 `P2-4` 第三轮完成：带结构保护问题的输入不再允许直接 skip QA，弹窗会提示先完成主干确认
 - 记录 `P3-5` 第二轮完成：同一锚点下的多支路 generic branch 已开始按组扇出，不再全部挤在同一列
 - 将当前进行中阶段切回 `P4-3`，下一步继续增强 spine bundling 与分支汇入前对齐
+
+### v2.0 - 2026-03-14
+
+- 重新回溯全链路目标，明确最终系统应围绕“论文 pipeline 图”而不是“普通流程图”来设计
+- 新增 `PipelineBlueprint` 中间层，正式把全链路目标重排为 `ExtractionResult -> AnalysisResult -> PipelineBlueprint -> SkeletonLayout -> RoutedLayout`
+- 明确后续迁移原则：matcher、skeleton、router 都要消费同一份 blueprint，不再各自重建结构语义
+- 已完成第一轮 blueprint 开发：新增 blueprint 契约、编译器、分支 lane / merge group / feedback loop / edge policy 产出，以及调试视图摘要
+- 将当前进行中阶段更新为 `P3-0`，下一步优先迁移模板匹配与骨架布局到 blueprint

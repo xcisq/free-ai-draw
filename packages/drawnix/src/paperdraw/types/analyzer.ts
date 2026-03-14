@@ -342,6 +342,65 @@ export interface LayoutIntent {
   layoutHints: string[];
 }
 
+export type PipelineBlueprintLaneKind =
+  | 'input'
+  | 'main'
+  | 'control'
+  | 'auxiliary'
+  | 'output'
+  | 'feedback'
+  | 'annotation'
+  | 'branch';
+
+export interface PipelineBlueprintLane {
+  id: string;
+  kind: PipelineBlueprintLaneKind;
+  nodeIds: string[];
+  moduleIds: string[];
+}
+
+export interface PipelineBlueprintBranchGroup {
+  id: string;
+  rootId: string;
+  attachToId: string;
+  side: LayoutIntentBranchAttachment['side'];
+  nodeIds: string[];
+  laneId: string;
+  laneKind: PipelineBlueprintLaneKind;
+}
+
+export interface PipelineBlueprintMergeGroup {
+  mergeNodeId: string;
+  sourceIds: string[];
+  bundleKey: string;
+}
+
+export interface PipelineBlueprintFeedbackLoop {
+  edgeId: string;
+  sourceId: string;
+  targetId: string;
+  laneId: string;
+}
+
+export interface PipelineBlueprintEdgePolicy {
+  edgeId: string;
+  role: EdgeRole;
+  priority: number;
+  routeLane: PipelineBlueprintLaneKind;
+  bundleKey: string;
+}
+
+export interface PipelineBlueprint {
+  lanes: PipelineBlueprintLane[];
+  spineNodeIds: string[];
+  branchGroups: PipelineBlueprintBranchGroup[];
+  mergeGroups: PipelineBlueprintMergeGroup[];
+  feedbackLoops: PipelineBlueprintFeedbackLoop[];
+  edgePolicies: PipelineBlueprintEdgePolicy[];
+  layoutHints: string[];
+  zoneScores: LayoutIntentZoneScores;
+}
+
 export interface TemplateFitFeatures {
   spineLength: number;
   spineSegmentCount: number;

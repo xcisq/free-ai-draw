@@ -118,6 +118,15 @@ describe('buildPaperDrawDebugViewModel', () => {
     expect(viewModel?.extraction?.entityCount).toBe(5);
     expect(viewModel?.analysis?.warningCount).toBe(1);
     expect(viewModel?.intent?.dominantSpine).toEqual(['n1', 'n2', 'n5']);
+    expect(viewModel?.blueprint).not.toBeNull();
+    expect(viewModel?.blueprint?.spineNodeIds).toEqual(['n1', 'n2', 'n5']);
+    expect(viewModel?.blueprint?.laneKinds).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ role: 'main' }),
+        expect.objectContaining({ role: 'control' }),
+        expect.objectContaining({ role: 'auxiliary' }),
+      ])
+    );
     expect(viewModel?.template).not.toBeNull();
     expect(viewModel?.template?.localTemplateIds).toEqual(
       expect.arrayContaining(['control-over-main', 'aux-under-main'])
@@ -181,6 +190,7 @@ describe('buildPaperDrawDebugViewModel', () => {
     expect(viewModel?.extraction?.entityCount).toBe(1);
     expect(viewModel?.analysis).toBeNull();
     expect(viewModel?.intent).toBeNull();
+    expect(viewModel?.blueprint).toBeNull();
     expect(viewModel?.template).toBeNull();
     expect(viewModel?.layout).toBeNull();
   });

@@ -6,9 +6,11 @@ import type {
   LayoutMetrics,
   LayoutResult,
   ModuleGroup,
+  PipelineBlueprint,
   TemplateFitFeatures,
 } from '../types/analyzer';
 import { basicLayout } from '../layout/basic-layout';
+import { buildPipelineBlueprint } from '../layout/pipeline-blueprint';
 import { buildLayoutIntent } from '../layout/pipeline-layout-intent';
 import { matchPipelineTemplates } from '../layout/pipeline-template-matcher';
 
@@ -68,6 +70,15 @@ export interface PaperDrawDebugIntentSummary {
   zoneScores: LayoutIntent['zoneScores'];
 }
 
+export interface PaperDrawDebugBlueprintSummary {
+  spineNodeIds: string[];
+  laneKinds: PaperDrawDebugRoleCount[];
+  branchGroupCount: number;
+  mergeGroupCount: number;
+  feedbackLoopCount: number;
+  bundleGroupCount: number;
+}
+
 export interface PaperDrawDebugTemplateSummary {
   rootTemplateId: string;
   localTemplateIds: string[];
@@ -98,6 +109,7 @@ export interface PaperDrawDebugViewModel {
   extraction: PaperDrawDebugStageSummary | null;
   analysis: PaperDrawDebugStageSummary | null;
   intent: PaperDrawDebugIntentSummary | null;
+  blueprint: PaperDrawDebugBlueprintSummary | null;
   template: PaperDrawDebugTemplateSummary | null;
   layout: PaperDrawDebugLayoutSummary | null;
   entityRoleChanges: PaperDrawDebugRoleChange[];
@@ -245,6 +257,17 @@ function summarizeIntent(intent: LayoutIntent): PaperDrawDebugIntentSummary {
   };
 }
 
+function summarizeBlueprint(blueprint: PipelineBlueprint): PaperDrawDebugBlueprintSummary {
+  return {
+    spineNodeIds: [...blueprint.spineNodeIds],
+    laneKinds: summarizeRoleCounts(blueprint.lanes.map((lane) => lane.kind)),
+    branchGroupCount: blueprint.branchGroups.length,
+    mergeGroupCount: blueprint.mergeGroups.length,
+    feedbackLoopCount: blueprint.feedbackLoops.length,
+    bundleGroupCount: new Set(blueprint.edgePolicies.map((policy) => policy.bundleKey)).size,
+  };
+}
+
 function summarizeTemplate(features: TemplateFitFeatures, rootTemplateId: string, localTemplateIds: string[]) {
   const featureHighlights = Object.entries(features)
     .filter(([, value]) => value > 0)
@@ -331,6 +354,7 @@ export function buildPaperDrawDebugViewModel(
       extraction: extractionSummary,
       analysis: null,
       intent: null,
+      blueprint: null,
       template: null,
       layout: null,
       entityRoleChanges: [],
@@ -341,12 +365,14 @@ export function buildPaperDrawDebugViewModel(
 
   const activeLayout = layout ?? basicLayout(analysis);
   const intent = buildLayoutIntent(analysis, activeLayout);
+  const blueprint = buildPipelineBlueprint(analysis, intent);
   const templateMatch = matchPipelineTemplates(intent);
 
   return {
     extraction: extractionSummary,
     analysis: analysisSummary,
     intent: summarizeIntent(intent),
+    blueprint: summarizeBlueprint(blueprint),
     template: summarizeTemplate(
       templateMatch.features,
       templateMatch.rootTemplateId,
