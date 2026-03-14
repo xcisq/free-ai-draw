@@ -236,4 +236,43 @@ describe('pipeline-skeleton-generator', () => {
     expect(nodeMap.get('n5')!.y).toBeLessThan(nodeMap.get('n4')!.y);
     expect(nodeMap.get('n5')!.x).toBe(nodeMap.get('n4')!.x);
   });
+
+  it('moves off-spine generic branch blocks away from the main rail', () => {
+    const analysis: AnalysisResult = {
+      entities: [
+        { id: 'n1', label: 'Input' },
+        { id: 'n2', label: 'Parser' },
+        { id: 'n3', label: 'Layout Draft' },
+        { id: 'n4', label: 'Route Cleanup' },
+        { id: 'n5', label: 'Output' },
+      ],
+      relations: [
+        { id: 'r1', type: 'sequential', source: 'n1', target: 'n2', roleCandidate: 'main' },
+        { id: 'r2', type: 'sequential', source: 'n2', target: 'n5', roleCandidate: 'main' },
+        { id: 'r3', type: 'sequential', source: 'n2', target: 'n3', roleCandidate: 'auxiliary' },
+        { id: 'r4', type: 'sequential', source: 'n3', target: 'n4', roleCandidate: 'auxiliary' },
+      ],
+      weights: { n1: 0.9, n2: 0.88, n3: 0.75, n4: 0.7, n5: 0.91 },
+      modules: [
+        { id: 'm1', label: 'Input', entityIds: ['n1'], order: 1 },
+        { id: 'm2', label: 'Core', entityIds: ['n2'], order: 2 },
+        { id: 'm3', label: 'Draft Branch', entityIds: ['n3', 'n4'], order: 3 },
+        { id: 'm4', label: 'Output', entityIds: ['n5'], order: 4 },
+      ],
+      spineCandidate: ['n1', 'n2', 'n5'],
+    };
+
+    const baseLayout = basicLayout(analysis);
+    const intent = buildLayoutIntent(analysis, baseLayout);
+    const layout = generatePipelineSkeletonLayout(
+      baseLayout,
+      intent,
+      createTemplateMatch('spine-lower-branch')
+    );
+    const nodeMap = new Map(layout.nodes.map((node) => [node.id, node]));
+
+    expect(nodeMap.get('n3')!.y).toBeGreaterThan(nodeMap.get('n2')!.y);
+    expect(nodeMap.get('n4')!.y).toBeGreaterThan(nodeMap.get('n2')!.y);
+    expect(Math.abs(nodeMap.get('n3')!.x - nodeMap.get('n2')!.x)).toBeLessThanOrEqual(40);
+  });
 });

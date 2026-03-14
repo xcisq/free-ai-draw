@@ -154,6 +154,59 @@ function placeStack(
   });
 }
 
+function placeAttachedBranchBlocks(
+  branchBlocks: BlockLayout[],
+  blockMap: Map<string, BlockLayout>,
+  nodeToBlock: Map<string, string>,
+  branchAttachments: LayoutIntent['branchAttachments'],
+  leftZoneX: number,
+  topY: number,
+  mainY: number,
+  bottomY: number,
+  rightBaseX: number
+) {
+  const placementCountBySide = new Map<string, number>();
+  const branchTopY = Math.max(topY + 24, mainY - 180);
+  const branchBottomY = Math.min(bottomY - 120, mainY + 150);
+
+  branchBlocks.forEach((block) => {
+    const attachment = branchAttachments.find(
+      (item) => nodeToBlock.get(item.branchRootId) === block.id
+    );
+    const anchorBlock = attachment
+      ? blockMap.get(nodeToBlock.get(attachment.attachToId) ?? '')
+      : undefined;
+    const side = attachment?.side ?? 'bottom';
+    const key = `${attachment?.attachToId ?? block.id}:${side}`;
+    const siblingIndex = placementCountBySide.get(key) ?? 0;
+    placementCountBySide.set(key, siblingIndex + 1);
+
+    switch (side) {
+      case 'top':
+        block.x = anchorBlock ? anchorBlock.x : rightBaseX * 0.45;
+        block.y = branchTopY - siblingIndex * (block.height + 24);
+        break;
+      case 'left':
+        block.x = anchorBlock
+          ? anchorBlock.x - block.width - PAPERDRAW_LAYOUT_DEFAULTS.moduleGapX * 0.7 - siblingIndex * 48
+          : leftZoneX + 140 + siblingIndex * 32;
+        block.y = anchorBlock ? anchorBlock.y : mainY;
+        break;
+      case 'right':
+        block.x = anchorBlock
+          ? anchorBlock.x + anchorBlock.width + PAPERDRAW_LAYOUT_DEFAULTS.moduleGapX * 0.7 + siblingIndex * 48
+          : rightBaseX + siblingIndex * 48;
+        block.y = anchorBlock ? anchorBlock.y : mainY;
+        break;
+      case 'bottom':
+      default:
+        block.x = anchorBlock ? anchorBlock.x : 520;
+        block.y = branchBottomY + siblingIndex * (block.height + 28);
+        break;
+    }
+  });
+}
+
 function positionMainSpine(
   blocks: BlockLayout[],
   spineBlockIds: string[],
@@ -303,6 +356,21 @@ function positionSpecialRails(
       block.preferredRail === 'right_output_rail' &&
       (!spineBlockSet.has(block.id) || templateId === 'input-core-output')
   );
+  const branchBlocks = blocks.filter((block) => {
+    const isAttachedBranch = intent.branchAttachments.some(
+      (item) => nodeToBlock.get(item.branchRootId) === block.id
+    );
+    return (
+      isAttachedBranch &&
+      !spineBlockSet.has(block.id) &&
+      !inputBlocks.includes(block) &&
+      !controlBlocks.includes(block) &&
+      !auxBlocks.includes(block) &&
+      !outputBlocks.includes(block) &&
+      !splitMergeBranchBlockIds.has(block.id) &&
+      !splitMergeMergeBlockIds.has(block.id)
+    );
+  });
   const freeBlocks = blocks.filter(
     (block) =>
       !spineBlockSet.has(block.id) &&
@@ -310,6 +378,7 @@ function positionSpecialRails(
       !controlBlocks.includes(block) &&
       !auxBlocks.includes(block) &&
       !outputBlocks.includes(block) &&
+      !branchBlocks.includes(block) &&
       !splitMergeBranchBlockIds.has(block.id) &&
       !splitMergeMergeBlockIds.has(block.id)
   );
@@ -338,6 +407,18 @@ function positionSpecialRails(
     block.x = anchorBlock ? anchorBlock.x : 520;
     block.y = bottomY + index * (block.height + (isTopControlMainBottomAux ? 32 : 28));
   });
+
+  placeAttachedBranchBlocks(
+    branchBlocks,
+    blockMap,
+    nodeToBlock,
+    intent.branchAttachments,
+    leftZoneX,
+    topY,
+    mainY,
+    bottomY,
+    rightBaseX
+  );
 
   freeBlocks.forEach((block, index) => {
     block.x = rightBaseX * 0.55 + index * (block.width + 24);

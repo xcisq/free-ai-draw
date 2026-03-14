@@ -385,6 +385,9 @@ describe('PaperDraw local QA agent', () => {
       questions.some((question) => question.type === 'main_module_selection')
     ).toBe(true);
     expect(
+      questions.some((question) => question.type === 'main_relation_selection')
+    ).toBe(true);
+    expect(
       questions.some((question) => question.type === 'spine_selection')
     ).toBe(false);
   });
@@ -419,6 +422,39 @@ describe('PaperDraw local QA agent', () => {
     expect(analysis.warnings).toEqual(
       expect.arrayContaining([
         expect.stringContaining('本地 QA 已确认主干模块'),
+      ])
+    );
+  });
+
+  it('marks deselected sequential edges as auxiliary after main-relation confirmation', () => {
+    const questions = generateQuestions(flattenedLinearExtraction);
+    const mainRelationQuestion = questions.find(
+      (question) => question.type === 'main_relation_selection'
+    )!;
+
+    const analysis = mergeLocalAnswers(
+      flattenedLinearExtraction,
+      [
+        {
+          questionId: mainRelationQuestion.id,
+          selectedOptions: mainRelationQuestion.options.filter((option) =>
+            ['原始文本', '文本解析', '关系抽取', '结果展示'].some((keyword) => option.includes(keyword))
+          ),
+        },
+      ],
+      questions
+    );
+
+    expect(
+      analysis.relations.find((relation) => relation.id === 'fr1')?.roleCandidate
+    ).toBe('main');
+    expect(
+      analysis.relations.find((relation) => relation.id === 'fr4')?.roleCandidate
+    ).toBe('auxiliary');
+    expect(analysis.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('本地 QA 已确认'),
+        expect.stringContaining('主干连线'),
       ])
     );
   });

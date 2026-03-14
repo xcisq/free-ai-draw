@@ -308,6 +308,18 @@ const getMainModuleSelection = (
   };
 };
 
+const getMainRelationSelection = (
+  answers: CRSAnswer[],
+  questions: CRSQuestion[]
+) => {
+  const question = questions.find((item) => item.type === 'main_relation_selection');
+  if (!question?.relatedRelationIds?.length) {
+    return [];
+  }
+  const answer = answers.find((item) => item.questionId === question.id);
+  return getSelectedIds(answer, question.options, question.relatedRelationIds);
+};
+
 const getFeedbackRelationCandidates = (extraction: ExtractionResult) => {
   const orderMap = buildEntityOrderMap(extraction);
   return extraction.relations
@@ -410,21 +422,44 @@ const getImportanceQuestion = (extraction: ExtractionResult): CRSQuestion[] => {
 
 const getSpineQuestion = (extraction: ExtractionResult): CRSQuestion[] => {
   const mainModuleCandidates = getOrderedModules(extraction).slice(1, -1);
+  const flattenedLinearFlow = isLikelyFlattenedLinearFlow(extraction);
+  const mainRelationCandidates = extraction.relations.filter(
+    (relation): relation is Extract<FlowRelation, { type: 'sequential' }> =>
+      relation.type === 'sequential'
+  );
+  const questions: CRSQuestion[] = [];
+
   if (
-    isLikelyFlattenedLinearFlow(extraction) &&
+    flattenedLinearFlow &&
     mainModuleCandidates.length >= 2
   ) {
-    return [
-      {
-        id: 'q-main-modules-1',
-        type: 'main_module_selection',
-        question:
-          '当前结果更像一条顺序流程。以下中间模块中，哪些应继续留在主干上？未选模块会优先作为辅助区处理。',
-        options: ensureUniqueOptions(mainModuleCandidates.map((moduleItem) => moduleItem.label)),
-        multiSelect: true,
-        relatedModuleIds: mainModuleCandidates.map((moduleItem) => moduleItem.id),
-      },
-    ];
+    questions.push({
+      id: 'q-main-modules-1',
+      type: 'main_module_selection',
+      question:
+        '当前结果更像一条顺序流程。以下中间模块中，哪些应继续留在主干上？未选模块会优先作为辅助区处理。',
+      options: ensureUniqueOptions(mainModuleCandidates.map((moduleItem) => moduleItem.label)),
+      multiSelect: true,
+      relatedModuleIds: mainModuleCandidates.map((moduleItem) => moduleItem.id),
+    });
+  }
+
+  if (flattenedLinearFlow && mainRelationCandidates.length >= 3) {
+    questions.push({
+      id: 'q-main-relations-1',
+      type: 'main_relation_selection',
+      question:
+        '以下顺序连线中，哪些应继续保留在主干上？未选连线会优先降为辅助连线。',
+      options: ensureUniqueOptions(
+        mainRelationCandidates.map((relation) => formatRelationOption(relation, extraction.entities))
+      ),
+      multiSelect: true,
+      relatedRelationIds: mainRelationCandidates.map((relation) => relation.id),
+    });
+  }
+
+  if (questions.length) {
+    return questions;
   }
 
   const candidateEntityIds =
@@ -686,49 +721,63 @@ function applyMainModuleSelectionAnswers(
     answers,
     questions
   );
-  if (!selectedMiddleModuleIds.length || !selectedMainModuleIds.size) {
-    return {
-      selectedMiddleModuleIds,
-      selectedMainModuleIds,
-      inferredSpineCandidate: undefined as string[] | undefined,
-      relations,
-    };
-  }
-
+  const selectedMainRelationIds = new Set(
+    getMainRelationSelection(answers, questions)
+  );
   const allowedEntityIds = new Set(entities.map((entity) => entity.id));
   const entityToModule = new Map<string, string>();
   extraction.modules.forEach((moduleItem) => {
     moduleItem.entityIds.forEach((entityId) => entityToModule.set(entityId, moduleItem.id));
   });
-  const inferredSpineCandidate = filterSpineCandidate(
+
+  let inferredSpineCandidate = filterSpineCandidate(
     getOrderedEntityIds(extraction, entities).filter((entityId) =>
       selectedMainModuleIds.has(entityToModule.get(entityId) ?? '')
     ),
     allowedEntityIds
   );
-  if (!inferredSpineCandidate?.length) {
-    return {
-      selectedMiddleModuleIds,
-      selectedMainModuleIds,
-      inferredSpineCandidate,
-      relations,
-    };
+
+  if (selectedMainRelationIds.size > 0) {
+    const selectedMainNodeIds = getOrderedEntityIds(extraction, entities).filter((entityId) =>
+      relations.some(
+        (relation) =>
+          relation.type === 'sequential' &&
+          selectedMainRelationIds.has(relation.id) &&
+          (relation.source === entityId || relation.target === entityId)
+      )
+    );
+    const inferredFromRelations = filterSpineCandidate(selectedMainNodeIds, allowedEntityIds);
+    if (inferredFromRelations?.length) {
+      inferredSpineCandidate = inferredFromRelations;
+    }
   }
 
   const spineEdgeKeys = new Set<string>();
-  for (let index = 0; index < inferredSpineCandidate.length - 1; index += 1) {
-    const sourceId = inferredSpineCandidate[index];
-    const targetId = inferredSpineCandidate[index + 1];
-    spineEdgeKeys.add(`${sourceId}->${targetId}`);
+  if (inferredSpineCandidate?.length) {
+    for (let index = 0; index < inferredSpineCandidate.length - 1; index += 1) {
+      const sourceId = inferredSpineCandidate[index];
+      const targetId = inferredSpineCandidate[index + 1];
+      spineEdgeKeys.add(`${sourceId}->${targetId}`);
+    }
   }
 
   return {
     selectedMiddleModuleIds,
     selectedMainModuleIds,
+    selectedMainRelationIds,
     inferredSpineCandidate,
     relations: relations.map((relation): FlowRelation => {
       if (relation.type !== 'sequential' || relation.roleCandidate === 'feedback') {
         return relation;
+      }
+
+      if (selectedMainRelationIds.has(relation.id)) {
+        return relation.roleCandidate === 'main'
+          ? relation
+          : {
+              ...relation,
+              roleCandidate: 'main',
+            };
       }
 
       if (spineEdgeKeys.has(`${relation.source}->${relation.target}`)) {
@@ -743,10 +792,14 @@ function applyMainModuleSelectionAnswers(
       const sourceModuleId = entityToModule.get(relation.source);
       const targetModuleId = entityToModule.get(relation.target);
       const isDetachedRelation =
-        !selectedMainModuleIds.has(sourceModuleId ?? '') ||
-        !selectedMainModuleIds.has(targetModuleId ?? '');
+        selectedMainModuleIds.size > 0 &&
+        (!selectedMainModuleIds.has(sourceModuleId ?? '') ||
+          !selectedMainModuleIds.has(targetModuleId ?? ''));
+      const isDeselectedMainRelation =
+        selectedMainRelationIds.size > 0 &&
+        !selectedMainRelationIds.has(relation.id);
 
-      if (!isDetachedRelation) {
+      if (!isDetachedRelation && !isDeselectedMainRelation) {
         return relation;
       }
 
@@ -1056,8 +1109,14 @@ export function refineWithAnswers(
   if (mainModuleSelectionResult.selectedMiddleModuleIds.length > 0) {
     warnings.push(
       `本地 QA 已确认主干模块，并将 ${
-        extraction.modules.length - mainModuleSelectionResult.selectedMainModuleIds.size
+    extraction.modules.length - mainModuleSelectionResult.selectedMainModuleIds.size
       } 个模块移出主干`
+    );
+  }
+
+  if (mainModuleSelectionResult.selectedMainRelationIds.size > 0) {
+    warnings.push(
+      `本地 QA 已确认 ${mainModuleSelectionResult.selectedMainRelationIds.size} 条主干连线`
     );
   }
 

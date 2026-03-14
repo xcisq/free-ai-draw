@@ -1,6 +1,6 @@
 # PaperDraw 优化执行计划
 
-> 版本：v1.11
+> 版本：v1.12
 > 日期：2026-03-14
 > 状态：执行中
 > 适用范围：`packages/drawnix/src/paperdraw/**` 及其相关文档、测试、评估链路
@@ -131,20 +131,22 @@ QA 当前也没有校正结构，只校正：
 - `P2-3` 第一轮：主干确认、可省略连线确认、模块角色确认
 - `P2-3` 第二轮：merge 节点确认、feedback 边确认
 - `P2-4` 第一轮：为疑似纯顺序输入增加结构保护与主干确认拦截
+- `P2-4` 第二轮：增加关系级主干确认，收紧纯顺序输入的边角色
 - `P3-1` 第二轮：增强 merge / aggregator 结果在 intent 中的消费强度
 - `P3-2` 第一轮：正式接入 `top-control-main-bottom-aux` 模板类型、matcher 与 skeleton
 - `P3-3` 第一轮：接入 `control-over-main / aux-under-main` 局部骨架
+- `P3-5` 第一轮：修复 off-spine 普通块掉回主线的问题
 - `P4-1`：修复 `pipeline-router-v3` 端口槽位分配错误
 
 ### 当前进行中
 
-- `P2-4`：继续收紧纯顺序输入保护，阻止静默退化为单条长链
+- `P3-5`：继续收紧 off-spine 普通块排布，减少“所有块都贴主线”的退化
 - `P4-3`：增加 bundling 与 merge bus，继续压低箭头杂乱感
 
 ### 下一轮计划
 
-- `P2-4` 第二轮：把结构保护从模块级确认扩展到关系级确认，并减少跳过 QA 后的误导输出
-- `P3-5`：让 off-spine 普通块不再掉回 `main_rail` 的 free block
+- `P2-4` 第三轮：加入 skip QA 保护，避免线性文本在跳过确认后直接产出误导草图
+- `P3-5` 第二轮：继续优化多支路 generic branch 的错位与分组
 - `P4-3` 第二轮：继续增强 spine bundling 与分支汇入前对齐
 
 ## 5.1 阶段 P0：建立可观测性与真实基线
@@ -324,7 +326,8 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - 已完成第一轮：疑似纯顺序输入会优先进入结构 QA，而不是直接静默出图
 - 已完成第一轮：当用户确认主干模块后，非主干模块会优先降到辅助区
 - 已完成第一轮：`pipeline-layout-intent` 已开始优先消费显式 `main / auxiliary` 关系
-- 下一轮补充：关系级主干确认、skip QA 保护、off-spine 普通块排布优化
+- 已完成第二轮：已增加关系级主干确认，未选顺序边会优先降为辅助边
+- 下一轮补充：skip QA 保护，避免线性文本在跳过确认后直接产出误导草图
 
 ### 交付物
 
@@ -412,6 +415,19 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - `spine-lower-branch` 开始优先消费 branch attachment 拓扑，不再轻易退化回 `input-core-output`
 - QA 会继续追问“已有 control / aux 候选但结构混合”的模块，并支持把错误角色迁移到用户确认的纯模块上
 - 下一轮补充：让调试视图直接展示这些 QA 纠偏前后的差异
+
+#### P3-5 收紧 off-spine 普通块排布
+
+针对“语义上已识别出支路，但骨架阶段仍把普通块贴回主线”的问题，新增：
+
+- generic branch block 排布
+- 按 attachment side 的上下左右错位
+- 将 off-spine 普通块从 `freeBlocks` 主线布局中移出
+
+当前进度：
+
+- 已完成第一轮：带 branch attachment 的普通块开始按 attachment side 离开主线
+- 下一轮补充：多支路 generic branch 的分组、错位与更稳定的对齐
 
 ### 交付物
 
@@ -684,3 +700,9 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - 记录默认分析保护：当 extraction 仍明显像单一路径流程时，会追加风险 warning，提醒先做结构确认
 - 记录主干消费收紧：`pipeline-layout-intent` 开始优先消费显式 `main / auxiliary` 关系，避免回答 QA 后又被重新拉成长条
 - 将当前进行中阶段补充为 `P2-4`，下一步继续做关系级确认、skip QA 保护和 off-spine 排布优化
+
+### v1.12 - 2026-03-14
+
+- 记录 `P2-4` 第二轮完成：本地 QA 已增加关系级主干确认，未选顺序边会优先降为辅助边
+- 记录 `P3-5` 第一轮完成：off-spine 普通块开始按 branch attachment 侧向离开主线，不再全部掉回 `freeBlocks`
+- 将当前进行中阶段切换到 `P3-5`，下一步继续做 generic branch 的错位分组，并补 skip QA 保护
