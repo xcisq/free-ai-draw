@@ -79,6 +79,48 @@ const structureExtraction: ExtractionResult = {
   spineCandidate: ['s1', 's2', 's4', 's5'],
 };
 
+const ambiguousModuleRoleExtraction: ExtractionResult = {
+  entities: [
+    { id: 'a1', label: '输入图像', confidence: 0.95, roleCandidate: 'media' },
+    { id: 'a2', label: '主干特征', confidence: 0.91 },
+    { id: 'a3', label: '控制参数', confidence: 0.84, roleCandidate: 'parameter' },
+    { id: 'a4', label: '控制提示', confidence: 0.8, roleCandidate: 'parameter' },
+    { id: 'a5', label: '辅助解码', confidence: 0.78, roleCandidate: 'decoder' },
+    { id: 'a6', label: '辅助预测', confidence: 0.74, roleCandidate: 'decoder' },
+    { id: 'a7', label: '输出结果', confidence: 0.92, roleCandidate: 'output' },
+  ],
+  relations: [
+    { id: 'ar1', type: 'sequential', source: 'a1', target: 'a2', roleCandidate: 'main' },
+    { id: 'ar2', type: 'annotative', source: 'a3', target: 'a2', roleCandidate: 'control' },
+    { id: 'ar3', type: 'annotative', source: 'a4', target: 'a2', roleCandidate: 'control' },
+    { id: 'ar4', type: 'sequential', source: 'a2', target: 'a5', roleCandidate: 'auxiliary' },
+    { id: 'ar5', type: 'sequential', source: 'a2', target: 'a7', roleCandidate: 'main' },
+    { id: 'ar6', type: 'sequential', source: 'a2', target: 'a6', roleCandidate: 'auxiliary' },
+  ],
+  modules: [
+    { id: 'am1', label: '输入编码', entityIds: ['a1', 'a2'], order: 1, confidence: 0.9 },
+    {
+      id: 'am2',
+      label: '控制条件',
+      entityIds: ['a2', 'a3'],
+      order: 2,
+      confidence: 0.83,
+      roleCandidate: 'control_stage',
+    },
+    { id: 'am3', label: '控制提示', entityIds: ['a3', 'a4'], order: 3, confidence: 0.82 },
+    {
+      id: 'am4',
+      label: '辅助分支',
+      entityIds: ['a2', 'a5'],
+      order: 4,
+      confidence: 0.8,
+      roleCandidate: 'auxiliary_stage',
+    },
+    { id: 'am5', label: '辅助解码', entityIds: ['a5', 'a6'], order: 5, confidence: 0.79 },
+  ],
+  spineCandidate: ['a1', 'a2', 'a7'],
+};
+
 describe('PaperDraw local QA agent', () => {
   it('generates questions from modules, low confidence items and importance candidates', () => {
     const questions = generateQuestions(extraction);
@@ -241,6 +283,70 @@ describe('PaperDraw local QA agent', () => {
         expect.stringContaining('本地 QA 已确认 1 条反馈边'),
         expect.stringContaining('本地 QA 已确认 2 个模块角色'),
       ])
+    );
+  });
+
+  it('keeps asking module role questions when existing control or auxiliary roles are structurally ambiguous', () => {
+    const questions = generateQuestions(ambiguousModuleRoleExtraction);
+
+    expect(
+      questions.some(
+        (question) =>
+          question.type === 'module_role_assignment' &&
+          question.targetRoleCandidate === 'control_stage'
+      )
+    ).toBe(true);
+    expect(
+      questions.some(
+        (question) =>
+          question.type === 'module_role_assignment' &&
+          question.targetRoleCandidate === 'auxiliary_stage'
+      )
+    ).toBe(true);
+  });
+
+  it('reassigns module roles from mixed modules to QA-confirmed pure modules', () => {
+    const questions = generateQuestions(ambiguousModuleRoleExtraction);
+    const controlQuestion = questions.find(
+      (question) =>
+        question.type === 'module_role_assignment' &&
+        question.targetRoleCandidate === 'control_stage'
+    )!;
+    const auxiliaryQuestion = questions.find(
+      (question) =>
+        question.type === 'module_role_assignment' &&
+        question.targetRoleCandidate === 'auxiliary_stage'
+    )!;
+
+    const analysis = mergeLocalAnswers(
+      ambiguousModuleRoleExtraction,
+      [
+        {
+          questionId: controlQuestion.id,
+          selectedOptions: ['控制提示'],
+        },
+        {
+          questionId: auxiliaryQuestion.id,
+          selectedOptions: ['辅助解码'],
+        },
+      ],
+      questions
+    );
+
+    expect(
+      analysis.modules.find((moduleItem) => moduleItem.label === '控制条件')?.roleCandidate
+    ).toBeUndefined();
+    expect(
+      analysis.modules.find((moduleItem) => moduleItem.label === '辅助分支')?.roleCandidate
+    ).toBeUndefined();
+    expect(
+      analysis.modules.find((moduleItem) => moduleItem.label === '控制提示')?.roleCandidate
+    ).toBe('control_stage');
+    expect(
+      analysis.modules.find((moduleItem) => moduleItem.label === '辅助解码')?.roleCandidate
+    ).toBe('auxiliary_stage');
+    expect(analysis.warnings).toEqual(
+      expect.arrayContaining([expect.stringContaining('本地 QA 已确认 2 个模块角色')])
     );
   });
 });

@@ -1,6 +1,6 @@
 # PaperDraw 优化执行计划
 
-> 版本：v1.6
+> 版本：v1.7
 > 日期：2026-03-14
 > 状态：执行中
 > 适用范围：`packages/drawnix/src/paperdraw/**` 及其相关文档、测试、评估链路
@@ -137,12 +137,12 @@ QA 当前也没有校正结构，只校正：
 
 ### 当前进行中
 
-- `P3-4` 第二轮：继续让 control / aux 模块更多依赖显式角色与 QA 结果
+- `P5-2`：为开发态补一个最小调试视图，方便查看 extraction / analysis / intent 差异
 
 ### 下一轮计划
 
-- `P5-2`：为开发态补一个最小调试视图，方便查看 extraction / analysis / intent 差异
 - `P4-2`：让 corridor 从概念走向真实 lane reservation 与合流 bundling
+- `P5-2` 第二轮：把 trace 数据挂到最小调试视图里，方便直接定位 parser / intent / template 断层
 
 ## 5.1 阶段 P0：建立可观测性与真实基线
 
@@ -391,7 +391,8 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - 混合 `decoder + core` 模块会优先保留为 `core_stage`，不再被 aux 类标签直接推到底部辅助区
 - 显式节点 `roleCandidate` 不再被 `control_stage / auxiliary_stage` 的模块兜底逻辑静默覆盖
 - `spine-lower-branch` 开始优先消费 branch attachment 拓扑，不再轻易退化回 `input-core-output`
-- 下一轮补充：把 QA 返回的模块角色确认也并入这套优先级里
+- QA 会继续追问“已有 control / aux 候选但结构混合”的模块，并支持把错误角色迁移到用户确认的纯模块上
+- 下一轮补充：让调试视图直接展示这些 QA 纠偏前后的差异
 
 ### 交付物
 
@@ -617,3 +618,9 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - 记录显式节点角色优先级提升：`roleCandidate` 不再被模块级 control / aux 兜底逻辑静默改写
 - 记录模板匹配收口：单分支拓扑开始优先保留 `spine-lower-branch`，不再被 `input-core-output` 轻易吞掉
 - 将当前进行中阶段更新为 `P3-4` 第二轮，下一步接入更多 QA 结果并补调试视图
+
+### v1.7 - 2026-03-14
+
+- 记录 `P3-4` 第二轮完成：模块角色 QA 开始支持纠正已有的错误 `control_stage / auxiliary_stage` 候选
+- 记录本地 QA 合并增强：当用户确认新的 control / aux 模块后，旧的同角色错误模块会被清空，避免继续污染 intent
+- 将当前进行中阶段切换到 `P5-2`，下一步开始补最小开发态调试视图

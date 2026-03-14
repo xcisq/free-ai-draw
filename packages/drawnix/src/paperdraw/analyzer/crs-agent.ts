@@ -42,6 +42,40 @@ const AUXILIARY_MODULE_PATTERNS = [
   /分支/,
   /解码/,
 ];
+
+const isCoreLikeRole = (role: Entity['roleCandidate']) => {
+  return role === 'process' || role === 'aggregator' || role === 'simulator';
+};
+
+const getModuleRoleSignals = (
+  extraction: ExtractionResult,
+  moduleItem: ModuleGroup,
+  targetRole: ModuleRole
+) => {
+  const members = moduleItem.entityIds
+    .map((entityId) => getEntityById(extraction.entities, entityId))
+    .filter((entity): entity is Entity => Boolean(entity));
+
+  const targetCount = members.filter((entity) =>
+    targetRole === 'control_stage'
+      ? entity.roleCandidate === 'parameter'
+      : entity.roleCandidate === 'decoder'
+  ).length;
+  const coreCount = members.filter((entity) => isCoreLikeRole(entity.roleCandidate)).length;
+  const patternHit =
+    targetRole === 'control_stage'
+      ? CONTROL_MODULE_PATTERNS.some((pattern) => pattern.test(`${moduleItem.label} ${moduleItem.evidence ?? ''}`))
+      : AUXILIARY_MODULE_PATTERNS.some((pattern) => pattern.test(`${moduleItem.label} ${moduleItem.evidence ?? ''}`));
+
+  return {
+    members,
+    targetCount,
+    coreCount,
+    patternHit,
+    isPureTarget: targetCount > 0 && coreCount === 0,
+    isMixedWithCore: targetCount > 0 && coreCount > 0,
+  };
+};
 const MERGE_NODE_PATTERNS = [
   /merge/i,
   /fusion/i,
@@ -405,22 +439,18 @@ const getModuleRoleScore = (
   moduleItem: ModuleGroup,
   targetRole: ModuleRole
 ) => {
-  const sourceText = `${moduleItem.label} ${moduleItem.evidence ?? ''}`;
-  const members = moduleItem.entityIds
-    .map((entityId) => getEntityById(extraction.entities, entityId))
-    .filter((entity): entity is Entity => Boolean(entity));
+  const signals = getModuleRoleSignals(extraction, moduleItem, targetRole);
+  const explicitScore = moduleItem.roleCandidate === targetRole ? 1 : 0;
+  const purityScore = signals.isPureTarget ? 2 : 0;
+  const mixedPenalty = signals.isMixedWithCore ? -2 : 0;
 
-  const patternScore =
-    targetRole === 'control_stage'
-      ? CONTROL_MODULE_PATTERNS.some((pattern) => pattern.test(sourceText))
-      : AUXILIARY_MODULE_PATTERNS.some((pattern) => pattern.test(sourceText));
-  const roleScore = members.filter((entity) =>
-    targetRole === 'control_stage'
-      ? entity.roleCandidate === 'parameter'
-      : entity.roleCandidate === 'decoder'
-  ).length;
-
-  return (patternScore ? 3 : 0) + roleScore;
+  return (
+    (signals.patternHit ? 3 : 0) +
+    signals.targetCount +
+    explicitScore +
+    purityScore +
+    mixedPenalty
+  );
 };
 
 const getModuleRoleQuestions = (extraction: ExtractionResult): CRSQuestion[] => {
@@ -439,10 +469,9 @@ const getModuleRoleQuestions = (extraction: ExtractionResult): CRSQuestion[] => 
   ];
 
   for (const roleConfig of roleConfigs) {
-    if (extraction.modules.some((moduleItem) => moduleItem.roleCandidate === roleConfig.targetRole)) {
-      continue;
-    }
-
+    const currentAssignedModules = extraction.modules.filter(
+      (moduleItem) => moduleItem.roleCandidate === roleConfig.targetRole
+    );
     const rankedModules = [...extraction.modules]
       .map((moduleItem) => ({
         moduleItem,
@@ -453,10 +482,39 @@ const getModuleRoleQuestions = (extraction: ExtractionResult): CRSQuestion[] => 
           return right.score - left.score;
         }
         return (right.moduleItem.confidence ?? DEFAULT_WEIGHT) - (left.moduleItem.confidence ?? DEFAULT_WEIGHT);
-      })
-      .slice(0, MAX_MODULE_ROLE_OPTIONS);
+      });
 
-    if (rankedModules.length < 2 || rankedModules[0].score <= 0) {
+    const prioritizedCandidates = rankedModules.filter(
+      ({ moduleItem, score }) =>
+        score > 0 || currentAssignedModules.some((assignedModule) => assignedModule.id === moduleItem.id)
+    );
+    const topCandidates = [...prioritizedCandidates];
+    for (const rankedModule of rankedModules) {
+      if (topCandidates.length >= MAX_MODULE_ROLE_OPTIONS) {
+        break;
+      }
+      if (topCandidates.some(({ moduleItem }) => moduleItem.id === rankedModule.moduleItem.id)) {
+        continue;
+      }
+      topCandidates.push(rankedModule);
+    }
+
+    const currentAssignedIsMixed = currentAssignedModules.some((moduleItem) =>
+      getModuleRoleSignals(extraction, moduleItem, roleConfig.targetRole).isMixedWithCore
+    );
+    const bestCandidate = topCandidates[0];
+    const shouldAsk =
+      (!currentAssignedModules.length && topCandidates.length >= 2 && (bestCandidate?.score ?? 0) > 0) ||
+      (currentAssignedModules.length > 0 &&
+        topCandidates.length >= 2 &&
+        (currentAssignedIsMixed ||
+          topCandidates.some(
+            ({ moduleItem, score }) =>
+              !currentAssignedModules.some((assignedModule) => assignedModule.id === moduleItem.id) &&
+              score >= (bestCandidate?.score ?? 0)
+          )));
+
+    if (!shouldAsk) {
       continue;
     }
 
@@ -464,9 +522,9 @@ const getModuleRoleQuestions = (extraction: ExtractionResult): CRSQuestion[] => 
       id: roleConfig.id,
       type: 'module_role_assignment',
       question: roleConfig.question,
-      options: ensureUniqueOptions(rankedModules.map(({ moduleItem }) => moduleItem.label)),
+      options: ensureUniqueOptions(topCandidates.map(({ moduleItem }) => moduleItem.label)),
       multiSelect: false,
-      relatedModuleIds: rankedModules.map(({ moduleItem }) => moduleItem.id),
+      relatedModuleIds: topCandidates.map(({ moduleItem }) => moduleItem.id),
       targetRoleCandidate: roleConfig.targetRole,
     });
   }
@@ -548,6 +606,7 @@ function updateModules(
 ) {
   const allowedEntityIds = new Set(entities.map((entity) => entity.id));
   const moduleRoleAssignments = new Map<string, ModuleRole>();
+  const clearedRoleAssignments = new Set<ModuleRole>();
 
   for (const question of questions) {
     if (
@@ -566,6 +625,7 @@ function updateModules(
     if (!selectedModuleId) {
       continue;
     }
+    clearedRoleAssignments.add(question.targetRoleCandidate);
     moduleRoleAssignments.set(selectedModuleId, question.targetRoleCandidate);
   }
 
@@ -588,8 +648,12 @@ function updateModules(
       return {
         ...moduleItem,
         entityIds: Array.from(new Set(entityIds)),
-        roleCandidate:
-          moduleRoleAssignments.get(moduleItem.id) ?? moduleItem.roleCandidate,
+        roleCandidate: moduleRoleAssignments.has(moduleItem.id)
+          ? moduleRoleAssignments.get(moduleItem.id)
+          : moduleItem.roleCandidate &&
+              clearedRoleAssignments.has(moduleItem.roleCandidate)
+              ? undefined
+              : moduleItem.roleCandidate,
       };
     })
     .filter((moduleItem) => moduleItem.entityIds.length >= 2);
