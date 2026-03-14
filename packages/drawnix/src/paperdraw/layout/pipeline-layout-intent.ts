@@ -652,10 +652,16 @@ function computeMergeClusters(
   nodes: LayoutIntentNode[],
   incoming: Map<string, string[]>,
   feedbackEdgeIds: Set<string>,
-  analysis: AnalysisResult
+  analysis: AnalysisResult,
+  branchAttachments: LayoutIntentBranchAttachment[]
 ) {
   const feedbackEdgeSet = new Set(feedbackEdgeIds);
   const incomingMap = new Map<string, string[]>();
+  const explicitMergeNodeIds = new Set(
+    analysis.entities
+      .filter((entity) => entity.roleCandidate === 'aggregator')
+      .map((entity) => entity.id)
+  );
   analysis.relations
     .filter((relation) => relation.type === 'sequential' && !feedbackEdgeSet.has(relation.id))
     .forEach((relation) => {
@@ -666,9 +672,19 @@ function computeMergeClusters(
   const mergeNodes: string[] = [];
 
   nodes.forEach((node) => {
-    const sources = unique(incomingMap.get(node.id) ?? incoming.get(node.id) ?? []);
+    const directSources = unique(incomingMap.get(node.id) ?? incoming.get(node.id) ?? []);
+    const sources = explicitMergeNodeIds.has(node.id)
+      ? unique([
+          ...directSources,
+          ...branchAttachments
+            .filter((attachment) => directSources.includes(attachment.attachToId))
+            .map((attachment) => attachment.branchRootId),
+        ])
+      : directSources;
     const isMergeLike =
-      sources.length >= 2 || (node.role === 'simulator' && sources.length >= 1);
+      sources.length >= 2 ||
+      (node.role === 'simulator' && directSources.length >= 1) ||
+      (explicitMergeNodeIds.has(node.id) && sources.length >= 2);
     if (!isMergeLike || sources.length === 0) {
       return;
     }
@@ -888,7 +904,8 @@ export function buildLayoutIntent(
     nodes,
     graphWithoutFeedback.incoming,
     feedbackEdgeIds,
-    analysis
+    analysis,
+    branchAttachments
   );
   const statePairs = computeStatePairs(
     nodes,

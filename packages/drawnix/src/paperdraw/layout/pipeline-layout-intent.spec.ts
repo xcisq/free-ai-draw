@@ -235,4 +235,51 @@ describe('pipeline-layout-intent', () => {
     expect(edgeMap.get('fr2')?.role).toBe('feedback');
     expect(intent.layoutHints).toContain('has_feedback');
   });
+
+  it('promotes explicit aggregator nodes into merge clusters using attached branch roots', () => {
+    const aggregatorAnalysis: AnalysisResult = {
+      entities: [
+        { id: 'a1', label: 'Input' },
+        { id: 'a2', label: 'Main Stage' },
+        { id: 'a3', label: 'Aux Branch' },
+        { id: 'a4', label: 'Fusion Node', roleCandidate: 'aggregator' },
+        { id: 'a5', label: 'Output' },
+      ],
+      relations: [
+        { id: 'ar1', type: 'sequential', source: 'a1', target: 'a2' },
+        { id: 'ar2', type: 'sequential', source: 'a2', target: 'a3' },
+        { id: 'ar3', type: 'sequential', source: 'a2', target: 'a4' },
+        { id: 'ar4', type: 'sequential', source: 'a4', target: 'a5' },
+      ],
+      weights: {
+        a1: 0.9,
+        a2: 0.88,
+        a3: 0.62,
+        a4: 0.91,
+        a5: 0.86,
+      },
+      modules: [
+        { id: 'am1', label: 'Input', entityIds: ['a1'], order: 1 },
+        { id: 'am2', label: 'Core', entityIds: ['a2', 'a4'], order: 2 },
+        { id: 'am3', label: 'Aux Branch', entityIds: ['a3'], order: 3 },
+        { id: 'am4', label: 'Output', entityIds: ['a5'], order: 4 },
+      ],
+      spineCandidate: ['a1', 'a2', 'a4', 'a5'],
+    };
+
+    const layout = basicLayout(aggregatorAnalysis);
+    const intent = buildLayoutIntent(aggregatorAnalysis, layout);
+
+    expect(intent.branchRoots).toContain('a3');
+    expect(intent.mergeNodes).toContain('a4');
+    expect(intent.mergeClusters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          mergeNodeId: 'a4',
+          sourceIds: expect.arrayContaining(['a2', 'a3']),
+        }),
+      ])
+    );
+    expect(intent.layoutHints).toContain('has_merge_cluster');
+  });
 });

@@ -1,6 +1,6 @@
 # PaperDraw 优化执行计划
 
-> 版本：v1.2
+> 版本：v1.3
 > 日期：2026-03-14
 > 状态：执行中
 > 适用范围：`packages/drawnix/src/paperdraw/**` 及其相关文档、测试、评估链路
@@ -130,16 +130,17 @@ QA 当前也没有校正结构，只校正：
 - `P2-2`：收紧自动补主链和自动重建模块的 fallback
 - `P2-3` 第一轮：主干确认、可省略连线确认、模块角色确认
 - `P2-3` 第二轮：merge 节点确认、feedback 边确认
+- `P3-1` 第二轮：增强 merge / aggregator 结果在 intent 中的消费强度
 - `P4-1`：修复 `pipeline-router-v3` 端口槽位分配错误
 
 ### 当前进行中
 
-- `P3-1`：让 `pipeline-layout-intent` 更强地消费 QA 产出的主干、模块角色和 feedback 结果
+- `P3-2`：开始补正式模板 `top-control-main-bottom-aux`
 
 ### 下一轮计划
 
-- `P3-1` 第二轮：增强 merge / aggregator 结果在 intent 中的消费强度
-- `P3-2`：开始补正式模板 `top-control-main-bottom-aux`
+- `P3-2` 第二轮：补模板 matcher 与 skeleton 对 `top-control-main-bottom-aux` 的正式支持
+- `P3-3`：增加 control-over-main / aux-under-main 局部骨架
 - `P5-2`：为开发态补一个最小调试视图，方便查看 extraction / analysis / intent 差异
 
 ## 5.1 阶段 P0：建立可观测性与真实基线
@@ -334,6 +335,12 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 #### P3-1 重构 LayoutIntent 输入来源
 
 优先使用解析阶段产出的显式语义字段，只把关键词推断作为兜底。
+
+当前进度：
+
+- 已消费显式 `spineCandidate / moduleRoleCandidate / feedback edge`
+- 已增强显式 `aggregator` 对 merge cluster 的影响，允许分支挂载结果参与 merge 结构识别
+- 下一轮补充：继续减少纯关键词推断在 control / aux 模块上的权重
 
 #### P3-2 补齐模板族
 
@@ -563,3 +570,9 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - 记录 `P2-3` 第二轮完成：本地 QA 增加 merge 节点确认和 feedback 边确认
 - 将当前进行中阶段切换到 `P3-1`，开始加强 `pipeline-layout-intent` 对显式 feedback 结果的消费
 - 更新下一轮计划：继续增强 merge 结果消费，并开始补正式模板 `top-control-main-bottom-aux`
+
+### v1.3 - 2026-03-14
+
+- 记录 `P3-1` 第二轮完成：显式 `aggregator` 结果开始参与 merge cluster 构建
+- 将当前进行中阶段切换到 `P3-2`，开始补正式模板 `top-control-main-bottom-aux`
+- 更新下一轮计划：先补模板 matcher 和 skeleton，再补 control-over-main / aux-under-main 局部骨架

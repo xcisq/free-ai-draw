@@ -120,4 +120,35 @@ describe('pipeline-template-matcher', () => {
 
     expect(matchTemplate(analysis).rootTemplateId).toBe('input-core-output');
   });
+
+  it('matches split-merge when an explicit aggregator augments a branch merge cluster', () => {
+    const analysis: AnalysisResult = {
+      entities: [
+        { id: 'n1', label: 'Input' },
+        { id: 'n2', label: 'Main Stage' },
+        { id: 'n3', label: 'Aux Branch' },
+        { id: 'n4', label: 'Fusion Node', roleCandidate: 'aggregator' },
+        { id: 'n5', label: 'Output' },
+      ],
+      relations: [
+        { id: 'r1', type: 'sequential', source: 'n1', target: 'n2' },
+        { id: 'r2', type: 'sequential', source: 'n2', target: 'n3' },
+        { id: 'r3', type: 'sequential', source: 'n2', target: 'n4' },
+        { id: 'r4', type: 'sequential', source: 'n4', target: 'n5' },
+      ],
+      weights: { n1: 0.9, n2: 0.86, n3: 0.62, n4: 0.94, n5: 0.88 },
+      modules: [
+        { id: 'm1', label: 'Input', entityIds: ['n1'], order: 1 },
+        { id: 'm2', label: 'Core', entityIds: ['n2', 'n4'], order: 2 },
+        { id: 'm3', label: 'Aux Branch', entityIds: ['n3'], order: 3 },
+        { id: 'm4', label: 'Output', entityIds: ['n5'], order: 4 },
+      ],
+      spineCandidate: ['n1', 'n2', 'n4', 'n5'],
+    };
+
+    const match = matchTemplate(analysis);
+
+    expect(match.rootTemplateId).toBe('split-merge');
+    expect(match.features.mergeClusterCount).toBeGreaterThan(0);
+  });
 });
