@@ -21,6 +21,7 @@ import { refineLayoutWithElk } from './elk-layout';
 import { withLayoutMetrics } from './layout-metrics';
 import { routeLayoutOrthogonally } from './orthogonal-router';
 import { buildLayoutIntent } from './pipeline-layout-intent';
+import { buildPipelineBlueprint } from './pipeline-blueprint';
 import { computePipelineLayoutV1 } from './pipeline-layout-v1';
 import { routePipelineLayoutV3 } from './pipeline-router-v3';
 
@@ -306,6 +307,7 @@ export async function computeOptimizedLayoutV2(
 
     if ((optimizedSelectionLayout.engine ?? normalizedOptions.engine) === 'pipeline_v1') {
       const mergedIntent = buildLayoutIntent(analysis, merged);
+      const mergedBlueprint = buildPipelineBlueprint(analysis, mergedIntent);
       return withLayoutMetrics(
         routePipelineLayoutV3(
           {
@@ -318,6 +320,7 @@ export async function computeOptimizedLayoutV2(
           mergedIntent,
           {
             edgeIdsToRoute: mergedEdgeIdsToRoute,
+            blueprint: mergedBlueprint,
             templateId: optimizedSelectionLayout.templateId,
           }
         ),

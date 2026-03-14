@@ -1,4 +1,4 @@
-import type { LayoutIntent, LayoutResult } from '../types/analyzer';
+import type { LayoutIntent, LayoutResult, PipelineBlueprint } from '../types/analyzer';
 import { buildLayoutConstraintModel } from './constraint-model';
 import { computeLayoutMetrics } from './layout-metrics';
 import { routePipelineLayoutV3 } from './pipeline-router-v3';
@@ -54,6 +54,27 @@ function createIntent(
       outputZoneScore: 0,
     },
     layoutHints: [],
+  };
+}
+
+function createBlueprint(
+  partial: Partial<PipelineBlueprint> = {}
+): PipelineBlueprint {
+  return {
+    lanes: [],
+    spineNodeIds: [],
+    branchGroups: [],
+    mergeGroups: [],
+    feedbackLoops: [],
+    edgePolicies: [],
+    layoutHints: [],
+    zoneScores: {
+      inputZoneScore: 0,
+      controlZoneScore: 0,
+      auxZoneScore: 0,
+      outputZoneScore: 0,
+    },
+    ...partial,
   };
 }
 
@@ -569,7 +590,7 @@ describe('pipeline-router-v3', () => {
           if (!next || point[0] !== next[0]) {
             return [];
           }
-          return point[0] < 620 ? [point[0]] : [];
+          return [point[0]];
         });
 
     const mergeABusXs = getVerticalBusXs(mergeA as number[][]);
@@ -577,5 +598,129 @@ describe('pipeline-router-v3', () => {
     const sharedBusXs = mergeABusXs.filter((x) => mergeBBusXs.includes(x));
 
     expect(sharedBusXs.length).toBeGreaterThan(0);
+  });
+
+  it('uses blueprint edge policy to treat merge bundles as merge routes', () => {
+    const layout: LayoutResult = {
+      direction: 'LR',
+      templateId: 'split-merge',
+      engine: 'pipeline_v1',
+      nodes: [
+        {
+          id: 'a',
+          label: 'Branch A',
+          x: 0,
+          y: 20,
+          width: 220,
+          height: 72,
+          weight: 0.8,
+          confidence: 0.9,
+        },
+        {
+          id: 'b',
+          label: 'Branch B',
+          x: 0,
+          y: 300,
+          width: 220,
+          height: 72,
+          weight: 0.8,
+          confidence: 0.9,
+        },
+        {
+          id: 'm',
+          label: 'Merge',
+          x: 620,
+          y: 160,
+          width: 220,
+          height: 72,
+          weight: 0.9,
+          confidence: 0.92,
+        },
+      ],
+      groups: [],
+      edges: [
+        {
+          id: 'am',
+          type: 'sequential',
+          sourceId: 'a',
+          targetId: 'm',
+          shape: 'straight',
+          sourceConnection: [1, 0.5],
+          targetConnection: [0, 0.5],
+          points: [
+            [220, 56],
+            [620, 196],
+          ],
+        },
+        {
+          id: 'bm',
+          type: 'sequential',
+          sourceId: 'b',
+          targetId: 'm',
+          shape: 'straight',
+          sourceConnection: [1, 0.5],
+          targetConnection: [0, 0.5],
+          points: [
+            [220, 336],
+            [620, 196],
+          ],
+        },
+      ],
+    };
+    const intent = createIntent(layout, {
+      dominantSpine: ['a', 'm'],
+      edgeRoles: {
+        am: 'main',
+        bm: 'main',
+      },
+    });
+    const blueprint = createBlueprint({
+      spineNodeIds: ['a', 'm'],
+      mergeGroups: [
+        {
+          mergeNodeId: 'm',
+          sourceIds: ['a', 'b'],
+          bundleKey: 'merge:m',
+        },
+      ],
+      edgePolicies: [
+        {
+          edgeId: 'am',
+          role: 'main',
+          priority: 1,
+          routeLane: 'auxiliary',
+          bundleKey: 'merge:m',
+        },
+        {
+          edgeId: 'bm',
+          role: 'auxiliary',
+          priority: 0.9,
+          routeLane: 'auxiliary',
+          bundleKey: 'merge:m',
+        },
+      ],
+    });
+    const model = buildLayoutConstraintModel(layout, {
+      mode: 'global',
+      engine: 'pipeline_v1',
+      profile: 'double',
+      quality: 'quality',
+    });
+
+    const routedWithoutBlueprint = routePipelineLayoutV3(layout, model, intent, {
+      templateId: 'split-merge',
+    });
+    const routed = routePipelineLayoutV3(layout, model, intent, {
+      templateId: 'split-merge',
+      blueprint,
+    });
+    const mergeBWithoutBlueprint = routedWithoutBlueprint.edges.find((edge) => edge.id === 'bm')!;
+    const mergeA = routed.edges.find((edge) => edge.id === 'am')!;
+    const mergeB = routed.edges.find((edge) => edge.id === 'bm')!;
+
+    expect(mergeA.targetConnection[0]).toBe(0);
+    expect(mergeB.targetConnection[0]).toBe(0);
+    expect(mergeBWithoutBlueprint.targetConnection[0]).not.toBe(0);
+    expect(mergeB.points[0][0]).toBeGreaterThan(mergeBWithoutBlueprint.points[0][0]);
   });
 });

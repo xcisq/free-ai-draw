@@ -45,6 +45,7 @@ export async function computePipelineLayoutV1(
       model,
       intent,
       {
+        blueprint,
         templateId: templateMatch.rootTemplateId,
       }
     );

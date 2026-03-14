@@ -7,6 +7,8 @@ import type {
   LayoutIntent,
   LayoutNode,
   LayoutResult,
+  PipelineBlueprint,
+  PipelineBlueprintLaneKind,
   PipelineTemplateId,
   RailPreference,
 } from '../types/analyzer';
@@ -56,11 +58,15 @@ export interface RouteDebugMetrics {
 export interface RouteIntent {
   edgeClasses: Map<string, RouteEdgeClass>;
   nodeRails: Map<string, RailPreference | undefined>;
+  nodeLaneKinds: Map<string, PipelineBlueprintLaneKind | undefined>;
   nodeRoles: Map<string, string>;
   nodeToGroup: Map<string, string>;
   corridors: RouteCorridor[];
   spineEdgeIds: Set<string>;
   mergeTargetIds: Set<string>;
+  edgeBundleKeys: Map<string, string>;
+  edgeRouteLanes: Map<string, PipelineBlueprintLaneKind>;
+  edgePriorities: Map<string, number>;
   templateId?: PipelineTemplateId;
 }
 
@@ -104,6 +110,7 @@ interface RouteFrame {
 interface PipelineRouteV3Options {
   edgeIdsToRoute?: Set<string>;
   templateId?: PipelineTemplateId;
+  blueprint?: PipelineBlueprint;
 }
 
 type ConnectionSide = 'left' | 'right' | 'top' | 'bottom';
@@ -250,7 +257,51 @@ function getRoutePoints(edge: LayoutEdge): Point[] {
   return edge.routing && edge.routing.length > 1 ? edge.routing : edge.points;
 }
 
-function buildRouteFrame(layout: LayoutResult, intent: LayoutIntent): RouteFrame {
+function laneKindToRail(
+  laneKind: PipelineBlueprintLaneKind
+): RailPreference | undefined {
+  switch (laneKind) {
+    case 'input':
+      return 'left_input_rail';
+    case 'control':
+      return 'top_control_rail';
+    case 'auxiliary':
+      return 'bottom_aux_rail';
+    case 'output':
+      return 'right_output_rail';
+    default:
+      return undefined;
+  }
+}
+
+function getEdgeClassFromBlueprintPolicy(
+  routeLane: PipelineBlueprintLaneKind,
+  bundleKey: string,
+  role: LayoutIntent['edges'][number]['role']
+): RouteEdgeClass {
+  if (bundleKey.startsWith('merge:')) {
+    return 'merge';
+  }
+  if (routeLane === 'feedback' || role === 'feedback') {
+    return 'feedback';
+  }
+  if (routeLane === 'annotation' || role === 'annotation') {
+    return 'annotation';
+  }
+  if (routeLane === 'control' || role === 'control') {
+    return 'control';
+  }
+  if (bundleKey === 'spine' || routeLane === 'main') {
+    return 'spine';
+  }
+  return 'aux';
+}
+
+function buildRouteFrame(
+  layout: LayoutResult,
+  intent: LayoutIntent,
+  blueprint?: PipelineBlueprint
+): RouteFrame {
   const allRects = [
     ...layout.nodes.map(getNodeRect),
     ...layout.groups.map(getGroupRect),
@@ -259,7 +310,7 @@ function buildRouteFrame(layout: LayoutResult, intent: LayoutIntent): RouteFrame
   const minY = Math.min(...allRects.map((rect) => rect.y));
   const maxX = Math.max(...allRects.map((rect) => rect.x + rect.width));
   const maxY = Math.max(...allRects.map((rect) => rect.y + rect.height));
-  const spineNodeIds = new Set(intent.dominantSpine);
+  const spineNodeIds = new Set(blueprint?.spineNodeIds ?? intent.dominantSpine);
   const spineNodes = layout.nodes.filter((node) => spineNodeIds.has(node.id));
   const spineCentersY = spineNodes.length
     ? spineNodes.reduce((sum, node) => sum + node.y + node.height / 2, 0) /
@@ -298,9 +349,20 @@ function buildRouteFrame(layout: LayoutResult, intent: LayoutIntent): RouteFrame
 function buildPipelineRouteIntent(
   layout: LayoutResult,
   intent: LayoutIntent,
+  blueprint?: PipelineBlueprint,
   templateId?: PipelineTemplateId
 ): RouteIntent {
   const nodeRails = new Map(intent.nodes.map((node) => [node.id, node.preferredRail]));
+  const nodeLaneKinds = new Map<string, PipelineBlueprintLaneKind | undefined>();
+  blueprint?.lanes.forEach((lane) => {
+    lane.nodeIds.forEach((nodeId) => {
+      nodeLaneKinds.set(nodeId, lane.kind);
+      const mappedRail = laneKindToRail(lane.kind);
+      if (mappedRail) {
+        nodeRails.set(nodeId, mappedRail);
+      }
+    });
+  });
   const nodeRoles = new Map(intent.nodes.map((node) => [node.id, node.role]));
   const nodeToGroup = new Map<string, string>();
   layout.groups.forEach((group) => {
@@ -311,20 +373,41 @@ function buildPipelineRouteIntent(
     mergeClusterSourceIds.set(cluster.mergeNodeId, new Set(cluster.sourceIds));
   });
   const spineEdgeIds = new Set<string>();
-  for (let index = 0; index < intent.dominantSpine.length - 1; index += 1) {
-    const sourceId = intent.dominantSpine[index];
-    const targetId = intent.dominantSpine[index + 1];
-    const edge = intent.edges.find(
-      (candidate) =>
-        candidate.sourceId === sourceId && candidate.targetId === targetId
-    );
-    if (edge) {
-      spineEdgeIds.add(edge.id);
+  const edgeBundleKeys = new Map<string, string>();
+  const edgeRouteLanes = new Map<string, PipelineBlueprintLaneKind>();
+  const edgePriorities = new Map<string, number>();
+  blueprint?.edgePolicies.forEach((policy) => {
+    edgeBundleKeys.set(policy.edgeId, policy.bundleKey);
+    edgeRouteLanes.set(policy.edgeId, policy.routeLane);
+    edgePriorities.set(policy.edgeId, policy.priority);
+    if (policy.bundleKey === 'spine') {
+      spineEdgeIds.add(policy.edgeId);
+    }
+  });
+  if (!spineEdgeIds.size) {
+    for (let index = 0; index < intent.dominantSpine.length - 1; index += 1) {
+      const sourceId = intent.dominantSpine[index];
+      const targetId = intent.dominantSpine[index + 1];
+      const edge = intent.edges.find(
+        (candidate) =>
+          candidate.sourceId === sourceId && candidate.targetId === targetId
+      );
+      if (edge) {
+        spineEdgeIds.add(edge.id);
+      }
     }
   }
-
   const edgeClasses = new Map<string, RouteEdgeClass>();
   intent.edges.forEach((edge) => {
+    const policyLane = edgeRouteLanes.get(edge.id);
+    const policyBundleKey = edgeBundleKeys.get(edge.id);
+    if (policyLane && policyBundleKey) {
+      edgeClasses.set(
+        edge.id,
+        getEdgeClassFromBlueprintPolicy(policyLane, policyBundleKey, edge.role)
+      );
+      return;
+    }
     if (edge.role === 'feedback' || intent.feedbackEdges.includes(edge.id)) {
       edgeClasses.set(edge.id, 'feedback');
       return;
@@ -369,11 +452,17 @@ function buildPipelineRouteIntent(
   return {
     edgeClasses,
     nodeRails,
+    nodeLaneKinds,
     nodeRoles,
     nodeToGroup,
     corridors,
     spineEdgeIds,
-    mergeTargetIds: new Set(intent.mergeNodes),
+    mergeTargetIds: new Set(
+      blueprint?.mergeGroups.map((group) => group.mergeNodeId) ?? intent.mergeNodes
+    ),
+    edgeBundleKeys,
+    edgeRouteLanes,
+    edgePriorities,
     templateId,
   };
 }
@@ -388,6 +477,16 @@ function sortEdgesForRouting(layout: LayoutResult, routeIntent: RouteIntent) {
     const rightClass = getEdgeClass(routeIntent, right.id);
     if (EDGE_PRIORITY[leftClass] !== EDGE_PRIORITY[rightClass]) {
       return EDGE_PRIORITY[leftClass] - EDGE_PRIORITY[rightClass];
+    }
+    const leftPriority = routeIntent.edgePriorities.get(left.id) ?? 0;
+    const rightPriority = routeIntent.edgePriorities.get(right.id) ?? 0;
+    if (leftPriority !== rightPriority) {
+      return rightPriority - leftPriority;
+    }
+    const leftBundle = routeIntent.edgeBundleKeys.get(left.id) ?? '';
+    const rightBundle = routeIntent.edgeBundleKeys.get(right.id) ?? '';
+    if (leftBundle !== rightBundle) {
+      return leftBundle.localeCompare(rightBundle);
     }
     return left.id.localeCompare(right.id);
   });
@@ -405,6 +504,7 @@ function resolveConnectionsForClass(
   const dy = targetNode.y - sourceNode.y;
   const sourceRail = routeIntent.nodeRails.get(edge.sourceId);
   const targetRail = routeIntent.nodeRails.get(edge.targetId);
+  const edgeLane = routeIntent.edgeRouteLanes.get(edge.id);
 
   if (edgeClass === 'feedback') {
     return {
@@ -437,6 +537,7 @@ function resolveConnectionsForClass(
 
   if (
     edgeClass === 'control' ||
+    edgeLane === 'control' ||
     sourceRail === 'top_control_rail' ||
     targetRail === 'top_control_rail'
   ) {
@@ -448,12 +549,50 @@ function resolveConnectionsForClass(
 
   if (
     edgeClass === 'aux' &&
-    (sourceRail === 'bottom_aux_rail' || targetRail === 'bottom_aux_rail' || dy < 0)
+    (
+      edgeLane === 'auxiliary' ||
+      edgeLane === 'branch' ||
+      sourceRail === 'bottom_aux_rail' ||
+      targetRail === 'bottom_aux_rail' ||
+      dy < 0
+    )
   ) {
     return {
       sourceConnection: [0.5, 0] as [number, number],
       targetConnection: [0.5, 1] as [number, number],
     };
+  }
+
+  if (
+    edgeLane === 'input' ||
+    sourceRail === 'left_input_rail' ||
+    targetRail === 'left_input_rail'
+  ) {
+    return dx >= 0
+      ? {
+          sourceConnection: [1, 0.5] as [number, number],
+          targetConnection: [0, 0.5] as [number, number],
+        }
+      : {
+          sourceConnection: [0, 0.5] as [number, number],
+          targetConnection: [1, 0.5] as [number, number],
+        };
+  }
+
+  if (
+    edgeLane === 'output' ||
+    sourceRail === 'right_output_rail' ||
+    targetRail === 'right_output_rail'
+  ) {
+    return dx >= 0
+      ? {
+          sourceConnection: [1, 0.5] as [number, number],
+          targetConnection: [0, 0.5] as [number, number],
+        }
+      : {
+          sourceConnection: [0, 0.5] as [number, number],
+          targetConnection: [1, 0.5] as [number, number],
+        };
   }
 
   if (edgeClass === 'merge') {
@@ -678,6 +817,8 @@ function buildRouteGuide(
   const feedbackXCorridors = getCorridorValues(routeIntent, 'feedback_outer_corridor', 'x');
   const feedbackYCorridors = getCorridorValues(routeIntent, 'feedback_outer_corridor', 'y');
   const annotationCorridors = getCorridorValues(routeIntent, 'annotation_side_corridor', 'x');
+  const edgeLane = routeIntent.edgeRouteLanes.get(edge.id);
+  const bundleKey = routeIntent.edgeBundleKeys.get(edge.id);
   switch (edgeClass) {
     case 'spine':
       return {
@@ -692,6 +833,27 @@ function buildRouteGuide(
         classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty,
       };
     case 'aux':
+      if (edgeLane === 'input' || edgeLane === 'output') {
+        return {
+          preferredXs: [],
+          preferredYs: spineCorridors.length ? spineCorridors : [frame.mainY],
+          classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuideLoosePenalty,
+        };
+      }
+      if (bundleKey?.startsWith('lane:control')) {
+        return {
+          preferredXs: [],
+          preferredYs: controlCorridors.length ? controlCorridors : [frame.topControlY],
+          classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty,
+        };
+      }
+      if (bundleKey?.startsWith('lane:auxiliary')) {
+        return {
+          preferredXs: [],
+          preferredYs: auxCorridors.length ? auxCorridors : [frame.bottomAuxY],
+          classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty,
+        };
+      }
       return {
         preferredXs: [],
         preferredYs: auxCorridors.length ? auxCorridors : [frame.bottomAuxY],
@@ -1082,9 +1244,10 @@ export function routePipelineLayoutV3(
   const routeIntent = buildPipelineRouteIntent(
     layout,
     intent,
+    options.blueprint,
     options.templateId ?? layout.templateId
   );
-  const frame = buildRouteFrame(layout, intent);
+  const frame = buildRouteFrame(layout, intent, options.blueprint);
   const assignedEdges = assignConnectionsByClass(
     layout,
     routeIntent,

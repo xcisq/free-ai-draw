@@ -1,6 +1,6 @@
 # PaperDraw 优化执行计划
 
-> 版本：v2.2
+> 版本：v2.3
 > 日期：2026-03-14
 > 状态：执行中
 > 适用范围：`packages/drawnix/src/paperdraw/**` 及其相关文档、测试、评估链路
@@ -168,17 +168,19 @@ QA 当前也没有校正结构，只校正：
 - `P3-0` 第一轮：定义 `PipelineBlueprint` 契约并接入调试链路
 - `P3-0` 第二轮：模板匹配开始优先消费 blueprint 的 lane / branch group / merge group / feedback / bundle 特征
 - `P3-0` 第三轮：骨架布局开始优先消费 blueprint 的 spine / branch group / lane / merge group
+- `P3-0` 第四轮：路由开始优先消费 blueprint 的 edge policy / bundle key / lane 语义
 
 ### 当前进行中
 
-- `P3-0`：router 开始围绕 blueprint 迁移
-- `P4-3`：增加 bundling 与 merge bus，继续压低箭头杂乱感
+- `P4-3`：继续增强 bundling 与 merge bus，压低箭头杂乱感
+- `P4-4`：限制低价值边视觉权重，继续压低说明性边和反馈边的存在感
 
 ### 下一轮计划
 
 - `P3-0` 第四轮：router 开始直接消费 blueprint 的 edge policy / bundle key，而不是局部再推断
-- `P4-4`：限制低价值边视觉权重，继续压低说明性边和反馈边的存在感
 - `P4-3` 第二轮：继续增强 spine bundling 与分支汇入前对齐
+- `P4-4` 第二轮：降低 annotation / feedback / low-priority auxiliary 边的 guide 权重
+- `P5-3`：把 blueprint / matcher / skeleton / router 的差异纳入固定调试与验收面板
 
 ## 5.1 阶段 P0：建立可观测性与真实基线
 
@@ -794,3 +796,10 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - 记录真实接线完成：`pipeline-layout-v1` 已把 blueprint 显式传入 skeleton，branch block 排布与 merge 收口开始围绕 blueprint 执行
 - 记录验收口径同步：布局评估中的结构检查已开始消费 blueprint 的 lane / spine / branch group / merge group，避免新旧语义口径不一致
 - 将当前进行中阶段推进到 `P3-0` 第四轮，下一步优先让 router 直接消费 blueprint 的 edge policy / bundle key
+
+### v2.3 - 2026-03-14
+
+- 记录 `P3-0` 第四轮完成：`pipeline-router-v3` 已开始优先消费 blueprint 的 edge policy、bundle key、lane 语义，不再只靠 intent 临时分类边
+- 记录真实接线完成：`pipeline-layout-v1` 与 `layout-optimizer-v2` 的 pipeline 路由链路都已显式传入 blueprint
+- 记录回归增强：router 单测已覆盖 blueprint 覆盖 merge bundling 的场景，布局评估继续保持通过
+- 将当前进行中阶段切到 `P4-3 / P4-4`，下一步继续做 spine bundling、低价值边降权和更克制的反馈/注释路由
