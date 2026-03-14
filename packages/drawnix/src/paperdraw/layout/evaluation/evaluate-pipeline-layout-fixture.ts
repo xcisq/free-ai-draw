@@ -1,8 +1,14 @@
 import type { PlaitElement } from '@plait/core';
-import type { LayoutIntent, LayoutNode, RailPreference } from '../../types/analyzer';
+import type {
+  LayoutIntent,
+  LayoutNode,
+  PipelineBlueprint,
+  PipelineBlueprintLaneKind,
+} from '../../types/analyzer';
 import { basicLayout } from '../basic-layout';
 import { computeOptimizedLayoutV2 } from '../layout-optimizer-v2';
 import { buildLayoutIntent } from '../pipeline-layout-intent';
+import { buildPipelineBlueprint } from '../pipeline-blueprint';
 import type {
   PipelineLayoutEvaluationResult,
   PipelineLayoutFixture,
@@ -51,22 +57,50 @@ function getAverageCenter(nodes: LayoutNode[]) {
   return [sum[0] / nodes.length, sum[1] / nodes.length] as const;
 }
 
-function getNodesByRail(
-  intent: LayoutIntent,
+function getNodesByLaneKind(
+  blueprint: PipelineBlueprint,
   layoutNodes: LayoutNode[],
-  rail: RailPreference
+  laneKind: PipelineBlueprintLaneKind
 ) {
   const nodeIds = new Set(
-    intent.nodes
-      .filter((node) => node.preferredRail === rail)
-      .map((node) => node.id)
+    blueprint.lanes
+      .filter((lane) => lane.kind === laneKind)
+      .flatMap((lane) => lane.nodeIds)
   );
   return layoutNodes.filter((node) => nodeIds.has(node.id));
 }
 
-function getSpineNodes(intent: LayoutIntent, layoutNodes: LayoutNode[]) {
-  const spineIdSet = new Set(intent.dominantSpine);
+function getSpineNodes(blueprint: PipelineBlueprint, layoutNodes: LayoutNode[]) {
+  const spineIdSet = new Set(blueprint.spineNodeIds);
   return layoutNodes.filter((node) => spineIdSet.has(node.id));
+}
+
+function getSpineEndpointNodes(
+  blueprint: PipelineBlueprint,
+  layoutNodes: LayoutNode[],
+  side: 'start' | 'end'
+) {
+  const nodeId =
+    side === 'start'
+      ? blueprint.spineNodeIds[0]
+      : blueprint.spineNodeIds[blueprint.spineNodeIds.length - 1];
+  if (!nodeId) {
+    return [];
+  }
+  return layoutNodes.filter((node) => node.id === nodeId);
+}
+
+function mergeLayoutNodes(...groups: LayoutNode[][]) {
+  const seen = new Set<string>();
+  const merged: LayoutNode[] = [];
+  groups.flat().forEach((node) => {
+    if (seen.has(node.id)) {
+      return;
+    }
+    seen.add(node.id);
+    merged.push(node);
+  });
+  return merged;
 }
 
 function hasRelativeZonePosition(
@@ -96,16 +130,20 @@ function hasZonePresence(zoneNodes: LayoutNode[]) {
   return zoneNodes.length > 0;
 }
 
-function hasSeparatedNonSpine(intent: LayoutIntent, layoutNodes: LayoutNode[]) {
-  const spineNodes = getSpineNodes(intent, layoutNodes);
+function hasSeparatedNonSpine(
+  intent: LayoutIntent,
+  blueprint: PipelineBlueprint,
+  layoutNodes: LayoutNode[]
+) {
+  const spineNodes = getSpineNodes(blueprint, layoutNodes);
   const nonSpineNodes = layoutNodes.filter(
-    (node) => !intent.dominantSpine.includes(node.id)
+    (node) => !blueprint.spineNodeIds.includes(node.id)
   );
   const spineCenter = getAverageCenter(spineNodes);
   if (
-    intent.branchRoots.length > 0 ||
-    intent.mergeNodes.length > 0 ||
-    intent.feedbackEdges.length > 0
+    blueprint.branchGroups.length > 0 ||
+    blueprint.mergeGroups.length > 0 ||
+    blueprint.feedbackLoops.length > 0
   ) {
     return true;
   }
@@ -146,20 +184,27 @@ function hasOuterFeedback(intent: LayoutIntent, optimizedLayout: PipelineLayoutE
 function computeStructureChecks(
   fixture: PipelineLayoutFixture,
   intent: LayoutIntent,
+  blueprint: PipelineBlueprint,
   optimizedLayout: PipelineLayoutEvaluationResult['optimizedLayout']
 ): PipelineLayoutStructureChecks {
-  const spineNodes = getSpineNodes(intent, optimizedLayout.nodes);
-  const inputNodes = getNodesByRail(intent, optimizedLayout.nodes, 'left_input_rail');
-  const outputNodes = getNodesByRail(intent, optimizedLayout.nodes, 'right_output_rail');
-  const auxNodes = getNodesByRail(intent, optimizedLayout.nodes, 'bottom_aux_rail');
-  const controlNodes = getNodesByRail(intent, optimizedLayout.nodes, 'top_control_rail');
+  const spineNodes = getSpineNodes(blueprint, optimizedLayout.nodes);
+  const inputNodes = mergeLayoutNodes(
+    getNodesByLaneKind(blueprint, optimizedLayout.nodes, 'input'),
+    getSpineEndpointNodes(blueprint, optimizedLayout.nodes, 'start')
+  );
+  const outputNodes = mergeLayoutNodes(
+    getNodesByLaneKind(blueprint, optimizedLayout.nodes, 'output'),
+    getSpineEndpointNodes(blueprint, optimizedLayout.nodes, 'end')
+  );
+  const auxNodes = getNodesByLaneKind(blueprint, optimizedLayout.nodes, 'auxiliary');
+  const controlNodes = getNodesByLaneKind(blueprint, optimizedLayout.nodes, 'control');
 
   return {
     templateMatched: optimizedLayout.templateId === fixture.expectation.expectedTemplateId,
-    spineLength: intent.dominantSpine.length,
-    branchCount: intent.branchRoots.length,
-    mergeCount: intent.mergeNodes.length,
-    feedbackCount: intent.feedbackEdges.length,
+    spineLength: blueprint.spineNodeIds.length,
+    branchCount: blueprint.branchGroups.length,
+    mergeCount: blueprint.mergeGroups.length,
+    feedbackCount: blueprint.feedbackLoops.length,
     hasInputLeft:
       hasRelativeZonePosition(inputNodes, spineNodes, 'left') ||
       hasZonePresence(inputNodes),
@@ -173,7 +218,7 @@ function computeStructureChecks(
       hasRelativeZonePosition(controlNodes, spineNodes, 'top') ||
       hasZonePresence(controlNodes),
     hasOuterFeedback: hasOuterFeedback(intent, optimizedLayout),
-    hasSeparatedNonSpine: hasSeparatedNonSpine(intent, optimizedLayout.nodes),
+    hasSeparatedNonSpine: hasSeparatedNonSpine(intent, blueprint, optimizedLayout.nodes),
   };
 }
 
@@ -230,6 +275,7 @@ export async function evaluatePipelineLayoutFixture(
     }
   );
   const intent = buildLayoutIntent(fixture.analysis, optimizedLayout);
+  const blueprint = buildPipelineBlueprint(fixture.analysis, intent);
   const metrics = optimizedLayout.metrics!;
   const trace = buildTrace(
     fixture,
@@ -245,7 +291,7 @@ export async function evaluatePipelineLayoutFixture(
     optimizedLayout,
     intent,
     metrics,
-    structure: computeStructureChecks(fixture, intent, optimizedLayout),
+    structure: computeStructureChecks(fixture, intent, blueprint, optimizedLayout),
     trace,
   };
 }

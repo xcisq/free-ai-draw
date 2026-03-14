@@ -93,6 +93,11 @@ function buildLanes(
 ): PipelineBlueprintLane[] {
   const nodeMap = new Map(intent.nodes.map((node) => [node.id, node]));
   const branchNodeIds = new Set(branchGroups.flatMap((group) => group.nodeIds));
+  const feedbackSourceIds = new Set(
+    intent.feedbackEdges
+      .map((edgeId) => intent.edges.find((edge) => edge.id === edgeId)?.sourceId)
+      .filter((nodeId): nodeId is string => Boolean(nodeId))
+  );
   const lanes: PipelineBlueprintLane[] = [];
 
   const buildLane = (id: string, kind: PipelineBlueprintLaneKind, nodeIds: string[]) => {
@@ -120,7 +125,10 @@ function buildLanes(
     'lane:input',
     'input',
     offSpineNodes
-      .filter((node) => node.preferredRail === 'left_input_rail')
+      .filter(
+        (node) =>
+          node.preferredRail === 'left_input_rail' || feedbackSourceIds.has(node.id)
+      )
       .map((node) => node.id)
   );
   buildLane(
@@ -141,7 +149,10 @@ function buildLanes(
     'lane:output',
     'output',
     offSpineNodes
-      .filter((node) => node.preferredRail === 'right_output_rail')
+      .filter(
+        (node) =>
+          node.preferredRail === 'right_output_rail' && !feedbackSourceIds.has(node.id)
+      )
       .map((node) => node.id)
   );
 

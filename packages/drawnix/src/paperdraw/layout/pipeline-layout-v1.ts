@@ -28,6 +28,7 @@ export async function computePipelineLayoutV1(
   const skeletonLayout = generatePipelineSkeletonLayout(
     layout,
     intent,
+    blueprint,
     templateMatch
   );
   const model = buildLayoutConstraintModel(skeletonLayout, options);

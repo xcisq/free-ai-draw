@@ -1,6 +1,6 @@
 # PaperDraw 优化执行计划
 
-> 版本：v2.1
+> 版本：v2.2
 > 日期：2026-03-14
 > 状态：执行中
 > 适用范围：`packages/drawnix/src/paperdraw/**` 及其相关文档、测试、评估链路
@@ -167,16 +167,17 @@ QA 当前也没有校正结构，只校正：
 - `P4-1`：修复 `pipeline-router-v3` 端口槽位分配错误
 - `P3-0` 第一轮：定义 `PipelineBlueprint` 契约并接入调试链路
 - `P3-0` 第二轮：模板匹配开始优先消费 blueprint 的 lane / branch group / merge group / feedback / bundle 特征
+- `P3-0` 第三轮：骨架布局开始优先消费 blueprint 的 spine / branch group / lane / merge group
 
 ### 当前进行中
 
-- `P3-0`：骨架布局开始围绕 blueprint 迁移
+- `P3-0`：router 开始围绕 blueprint 迁移
 - `P4-3`：增加 bundling 与 merge bus，继续压低箭头杂乱感
 
 ### 下一轮计划
 
-- `P3-0` 第三轮：骨架布局改为优先消费 blueprint 的 branch group / lane / bundle key
 - `P3-0` 第四轮：router 开始直接消费 blueprint 的 edge policy / bundle key，而不是局部再推断
+- `P4-4`：限制低价值边视觉权重，继续压低说明性边和反馈边的存在感
 - `P4-3` 第二轮：继续增强 spine bundling 与分支汇入前对齐
 
 ## 5.1 阶段 P0：建立可观测性与真实基线
@@ -411,7 +412,8 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - 已完成第一轮：实现 blueprint 编译器，产出 lane / branch group / merge group / edge policy / bundle key
 - 已完成第一轮：开发态调试视图已开始展示 blueprint 摘要，便于后续迁移验证
 - 已完成第二轮：template matcher 已开始优先消费 blueprint 的结构特征，不再主要依赖 intent 零散统计
-- 下一轮补充：让 skeleton layout 真正改用 blueprint，而不是继续从 intent 层自己猜 branch / rail
+- 已完成第三轮：skeleton layout 已开始优先消费 blueprint 的主干、分支组、lane 和 merge group
+- 下一轮补充：让 router 直接消费 blueprint 的 edge policy / bundle key，并逐步减少 intent 层的局部再推断
 
 #### P3-1 重构 LayoutIntent 输入来源
 
@@ -785,3 +787,10 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - 记录 `P3-0` 第二轮完成：模板匹配已开始优先消费 blueprint 的 lane、branch group、merge group、feedback loop 与 merge bundle 特征
 - 记录真实接线完成：`pipeline-layout-v1` 与开发态调试链路已显式传入 blueprint，不再让 matcher 单独重建结构统计
 - 将当前进行中阶段收口到 `P3-0` 第三轮，下一步优先迁移 skeleton layout 到 blueprint
+
+### v2.2 - 2026-03-14
+
+- 记录 `P3-0` 第三轮完成：骨架布局已开始优先消费 blueprint 的 spine、branch group、lane 与 merge group，不再主要依赖 intent 的 branch root 推断
+- 记录真实接线完成：`pipeline-layout-v1` 已把 blueprint 显式传入 skeleton，branch block 排布与 merge 收口开始围绕 blueprint 执行
+- 记录验收口径同步：布局评估中的结构检查已开始消费 blueprint 的 lane / spine / branch group / merge group，避免新旧语义口径不一致
+- 将当前进行中阶段推进到 `P3-0` 第四轮，下一步优先让 router 直接消费 blueprint 的 edge policy / bundle key

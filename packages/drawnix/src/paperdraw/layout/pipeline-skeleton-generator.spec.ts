@@ -6,6 +6,7 @@ import type {
 } from '../types/analyzer';
 import { basicLayout } from './basic-layout';
 import { buildLayoutIntent } from './pipeline-layout-intent';
+import { buildPipelineBlueprint } from './pipeline-blueprint';
 import { generatePipelineSkeletonLayout } from './pipeline-skeleton-generator';
 
 const EMPTY_FEATURES: TemplateFitFeatures = {
@@ -50,6 +51,22 @@ function createTemplateMatch(
   };
 }
 
+function buildSkeletonLayout(
+  analysis: AnalysisResult,
+  rootTemplateId: PipelineTemplateId,
+  localTemplateIds: PipelineLocalTemplateId[] = []
+) {
+  const baseLayout = basicLayout(analysis);
+  const intent = buildLayoutIntent(analysis, baseLayout);
+  const blueprint = buildPipelineBlueprint(analysis, intent);
+  return generatePipelineSkeletonLayout(
+    baseLayout,
+    intent,
+    blueprint,
+    createTemplateMatch(rootTemplateId, localTemplateIds)
+  );
+}
+
 describe('pipeline-skeleton-generator', () => {
   it('builds an input-core-output skeleton with left, center, and right regions', () => {
     const analysis: AnalysisResult = {
@@ -72,13 +89,7 @@ describe('pipeline-skeleton-generator', () => {
       ],
     };
 
-    const baseLayout = basicLayout(analysis);
-    const intent = buildLayoutIntent(analysis, baseLayout);
-    const layout = generatePipelineSkeletonLayout(
-      baseLayout,
-      intent,
-      createTemplateMatch('input-core-output')
-    );
+    const layout = buildSkeletonLayout(analysis, 'input-core-output');
     const nodeMap = new Map(layout.nodes.map((node) => [node.id, node]));
 
     expect(nodeMap.get('n1')!.x).toBeLessThan(nodeMap.get('n2')!.x);
@@ -109,13 +120,7 @@ describe('pipeline-skeleton-generator', () => {
       ],
     };
 
-    const baseLayout = basicLayout(analysis);
-    const intent = buildLayoutIntent(analysis, baseLayout);
-    const layout = generatePipelineSkeletonLayout(
-      baseLayout,
-      intent,
-      createTemplateMatch('spine-lower-branch')
-    );
+    const layout = buildSkeletonLayout(analysis, 'spine-lower-branch');
     const nodeMap = new Map(layout.nodes.map((node) => [node.id, node]));
 
     expect(nodeMap.get('n3')!.y).toBeGreaterThan(nodeMap.get('n2')!.y);
@@ -148,13 +153,7 @@ describe('pipeline-skeleton-generator', () => {
       ],
     };
 
-    const baseLayout = basicLayout(analysis);
-    const intent = buildLayoutIntent(analysis, baseLayout);
-    const layout = generatePipelineSkeletonLayout(
-      baseLayout,
-      intent,
-      createTemplateMatch('split-merge')
-    );
+    const layout = buildSkeletonLayout(analysis, 'split-merge');
     const nodeMap = new Map(layout.nodes.map((node) => [node.id, node]));
 
     expect(nodeMap.get('n2')!.y).not.toBe(nodeMap.get('n3')!.y);
@@ -189,13 +188,7 @@ describe('pipeline-skeleton-generator', () => {
       spineCandidate: ['n1', 'n2', 'n5'],
     };
 
-    const baseLayout = basicLayout(analysis);
-    const intent = buildLayoutIntent(analysis, baseLayout);
-    const layout = generatePipelineSkeletonLayout(
-      baseLayout,
-      intent,
-      createTemplateMatch('top-control-main-bottom-aux')
-    );
+    const layout = buildSkeletonLayout(analysis, 'top-control-main-bottom-aux');
     const nodeMap = new Map(layout.nodes.map((node) => [node.id, node]));
 
     expect(nodeMap.get('n3')!.y).toBeLessThan(nodeMap.get('n2')!.y);
@@ -228,16 +221,10 @@ describe('pipeline-skeleton-generator', () => {
       spineCandidate: ['n1', 'n2', 'n5'],
     };
 
-    const baseLayout = basicLayout(analysis);
-    const intent = buildLayoutIntent(analysis, baseLayout);
-    const layout = generatePipelineSkeletonLayout(
-      baseLayout,
-      intent,
-      createTemplateMatch('top-control-main-bottom-aux', [
-        'control-over-main',
-        'aux-under-main',
-      ])
-    );
+    const layout = buildSkeletonLayout(analysis, 'top-control-main-bottom-aux', [
+      'control-over-main',
+      'aux-under-main',
+    ]);
     const nodeMap = new Map(layout.nodes.map((node) => [node.id, node]));
 
     expect(nodeMap.get('n3')!.y).toBeLessThan(nodeMap.get('n2')!.y);
@@ -271,13 +258,7 @@ describe('pipeline-skeleton-generator', () => {
       spineCandidate: ['n1', 'n2', 'n5'],
     };
 
-    const baseLayout = basicLayout(analysis);
-    const intent = buildLayoutIntent(analysis, baseLayout);
-    const layout = generatePipelineSkeletonLayout(
-      baseLayout,
-      intent,
-      createTemplateMatch('spine-lower-branch')
-    );
+    const layout = buildSkeletonLayout(analysis, 'spine-lower-branch');
     const nodeMap = new Map(layout.nodes.map((node) => [node.id, node]));
 
     expect(nodeMap.get('n3')!.y).toBeGreaterThan(nodeMap.get('n2')!.y);
@@ -315,13 +296,7 @@ describe('pipeline-skeleton-generator', () => {
       spineCandidate: ['b1', 'b2', 'b7'],
     };
 
-    const baseLayout = basicLayout(analysis);
-    const intent = buildLayoutIntent(analysis, baseLayout);
-    const layout = generatePipelineSkeletonLayout(
-      baseLayout,
-      intent,
-      createTemplateMatch('spine-lower-branch')
-    );
+    const layout = buildSkeletonLayout(analysis, 'spine-lower-branch');
     const nodeMap = new Map(layout.nodes.map((node) => [node.id, node]));
 
     expect(nodeMap.get('b3')!.y).toBeGreaterThan(nodeMap.get('b2')!.y);

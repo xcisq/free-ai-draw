@@ -120,6 +120,7 @@ function scoreTemplate(
           ? 0.16
           : 0) +
         features.auxZoneScore * 0.24 +
+        (features.bottomAuxCount > 1 ? 0.08 : 0) +
         Math.min(features.branchCount / 4, 0.1) +
         Math.min(features.branchGroupCount / 3, 0.08) +
         Math.min(features.mergeGroupCount / 2, 0.08) +
@@ -135,7 +136,9 @@ function scoreTemplate(
         features.controlZoneScore * 0.14 +
         features.auxZoneScore * 0.14 +
         Math.min(features.branchGroupCount / 3, 0.06) +
-        Math.min(features.spineLength / 8, 0.06)
+        Math.min(features.spineLength / 8, 0.06) -
+        (features.bottomAuxCount > 1 ? 0.08 : 0) -
+        (features.branchCount > 1 ? 0.06 : 0)
       );
     case 'split-merge':
       return (
@@ -156,7 +159,8 @@ function scoreTemplate(
         Math.min(features.stateNodeCount / 4, 0.12) +
         features.outputZoneScore * 0.08 +
         features.inputZoneScore * 0.06 +
-        (features.branchAttachmentCount > 0 ? 0.04 : 0)
+        (features.branchAttachmentCount > 0 ? 0.04 : 0) -
+        (features.inputContainerCount === 0 && features.inputLaneCount === 0 ? 0.14 : 0)
       );
     case 'outer-feedback-loop':
       return (
@@ -266,10 +270,26 @@ export function matchPipelineTemplates(
 
   let rootTemplateId = sortedTemplates[0];
   const rootScore = scoreTemplate(rootTemplateId, features);
+  const prefersSplitMerge =
+    features.branchGroupCount > 0 && features.mergeGroupCount > 0;
+  const prefersLinearStateFlow =
+    rootTemplateId === 'paired-state-simulator' &&
+    features.simulatorNodeCount > 0 &&
+    features.statePairCount > 0 &&
+    features.inputContainerCount === 0 &&
+    features.branchGroupCount === 0;
+
+  if (prefersSplitMerge) {
+    rootTemplateId = 'split-merge';
+  } else if (prefersLinearStateFlow) {
+    rootTemplateId = 'input-core-output';
+  }
 
   if (rootScore < 0.58) {
     rootTemplateId =
-      features.controlLaneCount > 0 && features.auxiliaryLaneCount > 0
+      prefersSplitMerge
+        ? 'split-merge'
+        : features.controlLaneCount > 0 && features.auxiliaryLaneCount > 0
         ? 'top-control-main-bottom-aux'
         : features.branchGroupCount > 0 &&
             features.mergeGroupCount === 0 &&

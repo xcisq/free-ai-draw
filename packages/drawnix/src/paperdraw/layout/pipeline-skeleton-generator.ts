@@ -6,6 +6,8 @@ import type {
   LayoutNode,
   LayoutResult,
   ModuleRole,
+  PipelineBlueprint,
+  PipelineBlueprintLaneKind,
   PipelineTemplateId,
   RailPreference,
 } from '../types/analyzer';
@@ -17,12 +19,20 @@ interface BlockLayout {
   type: 'module' | 'standalone';
   role: ModuleRole | 'standalone';
   preferredRail: RailPreference;
+  laneKind: PipelineBlueprintLaneKind;
   members: string[];
   x: number;
   y: number;
   width: number;
   height: number;
   order: number;
+}
+
+interface BranchBlockAttachment {
+  blockId: string;
+  groupId: string;
+  attachToId: string;
+  side: 'top' | 'bottom' | 'left' | 'right';
 }
 
 function isMainStructureRole(role: string | undefined) {
@@ -49,9 +59,103 @@ function getConnectionPoint(node: LayoutNode, connection: [number, number]): Poi
   ];
 }
 
-function createBlockLayouts(baseLayout: LayoutResult, intent: LayoutIntent) {
+function getLaneKindPriority(laneKind: PipelineBlueprintLaneKind) {
+  switch (laneKind) {
+    case 'control':
+      return 0;
+    case 'auxiliary':
+      return 1;
+    case 'input':
+      return 2;
+    case 'output':
+      return 3;
+    case 'branch':
+      return 4;
+    case 'feedback':
+      return 5;
+    case 'annotation':
+      return 6;
+    case 'main':
+    default:
+      return 7;
+  }
+}
+
+function getPreferredRailFromLaneKind(
+  laneKind: PipelineBlueprintLaneKind,
+  fallback: RailPreference
+): RailPreference {
+  switch (laneKind) {
+    case 'input':
+      return 'left_input_rail';
+    case 'control':
+      return 'top_control_rail';
+    case 'auxiliary':
+      return 'bottom_aux_rail';
+    case 'output':
+      return 'right_output_rail';
+    default:
+      return fallback;
+  }
+}
+
+function getFallbackLaneKind(
+  role: ModuleRole | 'standalone',
+  preferredRail?: RailPreference
+): PipelineBlueprintLaneKind | null {
+  if (role === 'input_stage' || preferredRail === 'left_input_rail') {
+    return 'input';
+  }
+  if (role === 'control_stage' || preferredRail === 'top_control_rail') {
+    return 'control';
+  }
+  if (role === 'auxiliary_stage' || preferredRail === 'bottom_aux_rail') {
+    return 'auxiliary';
+  }
+  if (role === 'output_stage' || preferredRail === 'right_output_rail') {
+    return 'output';
+  }
+  return null;
+}
+
+function buildNodeLaneKinds(blueprint: PipelineBlueprint) {
+  const nodeLaneKinds = new Map<string, PipelineBlueprintLaneKind[]>();
+  blueprint.lanes.forEach((lane) => {
+    lane.nodeIds.forEach((nodeId) => {
+      nodeLaneKinds.set(nodeId, [...(nodeLaneKinds.get(nodeId) ?? []), lane.kind]);
+    });
+  });
+  return nodeLaneKinds;
+}
+
+function resolvePrimaryLaneKind(
+  memberIds: string[],
+  nodeLaneKinds: Map<string, PipelineBlueprintLaneKind[]>,
+  role: ModuleRole | 'standalone',
+  preferredRail?: RailPreference
+): PipelineBlueprintLaneKind {
+  const explicitRoleLaneKind = getFallbackLaneKind(role, preferredRail);
+  const laneKinds = memberIds.flatMap((memberId) => nodeLaneKinds.get(memberId) ?? []);
+  if (!laneKinds.length) {
+    return explicitRoleLaneKind ?? 'main';
+  }
+  const primaryLaneKind = [...laneKinds].sort(
+    (left, right) => getLaneKindPriority(left) - getLaneKindPriority(right)
+  )[0];
+  if (primaryLaneKind === 'main') {
+    return explicitRoleLaneKind ?? primaryLaneKind;
+  }
+  return primaryLaneKind;
+}
+
+function createBlockLayouts(
+  baseLayout: LayoutResult,
+  intent: LayoutIntent,
+  blueprint: PipelineBlueprint
+) {
   const baseNodeMap = new Map(baseLayout.nodes.map((node) => [node.id, node]));
   const intentNodeMap = new Map(intent.nodes.map((node) => [node.id, node]));
+  const nodeLaneKinds = buildNodeLaneKinds(blueprint);
   const groupedNodeIds = new Set(intent.modules.flatMap((moduleItem) => moduleItem.members));
 
   const blocks: BlockLayout[] = intent.modules.map((moduleItem, index) => {
@@ -76,12 +180,22 @@ function createBlockLayouts(baseLayout: LayoutResult, intent: LayoutIntent) {
       Math.max(memberNodes.length - 1, 0) * PAPERDRAW_LAYOUT_DEFAULTS.nodeGapY * 0.85 +
       PAPERDRAW_LAYOUT_DEFAULTS.modulePaddingY * 2 +
       PAPERDRAW_LAYOUT_DEFAULTS.moduleTitleHeight;
+    const laneKind = resolvePrimaryLaneKind(
+      moduleItem.members,
+      nodeLaneKinds,
+      moduleItem.role,
+      moduleItem.preferredRail
+    );
 
     return {
       id: moduleItem.id,
       type: 'module',
       role: moduleItem.role,
-      preferredRail: moduleItem.preferredRail ?? 'main_rail',
+      preferredRail: getPreferredRailFromLaneKind(
+        laneKind,
+        moduleItem.preferredRail ?? 'main_rail'
+      ),
+      laneKind,
       members: [...moduleItem.members],
       x: 0,
       y: 0,
@@ -95,11 +209,21 @@ function createBlockLayouts(baseLayout: LayoutResult, intent: LayoutIntent) {
     .filter((node) => !groupedNodeIds.has(node.id))
     .forEach((node, index) => {
       const intentNode = intentNodeMap.get(node.id);
+      const laneKind = resolvePrimaryLaneKind(
+        [node.id],
+        nodeLaneKinds,
+        'standalone',
+        intentNode?.preferredRail
+      );
       blocks.push({
         id: node.id,
         type: 'standalone',
         role: 'standalone',
-        preferredRail: intentNode?.preferredRail ?? 'main_rail',
+        preferredRail: getPreferredRailFromLaneKind(
+          laneKind,
+          intentNode?.preferredRail ?? 'main_rail'
+        ),
+        laneKind,
         members: [node.id],
         x: 0,
         y: 0,
@@ -121,10 +245,10 @@ function buildBlockMaps(blocks: BlockLayout[]) {
   return { nodeToBlock, blockMap };
 }
 
-function getSpineBlockIds(intent: LayoutIntent, nodeToBlock: Map<string, string>) {
+function getSpineBlockIds(blueprint: PipelineBlueprint, nodeToBlock: Map<string, string>) {
   const seen = new Set<string>();
   const spineBlockIds: string[] = [];
-  intent.dominantSpine.forEach((nodeId) => {
+  blueprint.spineNodeIds.forEach((nodeId) => {
     const blockId = nodeToBlock.get(nodeId) ?? nodeId;
     if (!seen.has(blockId)) {
       seen.add(blockId);
@@ -134,12 +258,44 @@ function getSpineBlockIds(intent: LayoutIntent, nodeToBlock: Map<string, string>
   return spineBlockIds;
 }
 
-function getBranchBlockIds(intent: LayoutIntent, nodeToBlock: Map<string, string>) {
-  return [...new Set(intent.branchAttachments.map((item) => nodeToBlock.get(item.branchRootId)).filter(Boolean))] as string[];
+function getBranchBlockIds(blueprint: PipelineBlueprint, nodeToBlock: Map<string, string>) {
+  return [
+    ...new Set(
+      blueprint.branchGroups
+        .flatMap((group) => group.nodeIds.map((nodeId) => nodeToBlock.get(nodeId)))
+        .filter(Boolean)
+    ),
+  ] as string[];
 }
 
-function getMergeBlockIds(intent: LayoutIntent, nodeToBlock: Map<string, string>) {
-  return [...new Set(intent.mergeClusters.map((item) => nodeToBlock.get(item.mergeNodeId)).filter(Boolean))] as string[];
+function getMergeBlockIds(blueprint: PipelineBlueprint, nodeToBlock: Map<string, string>) {
+  return [
+    ...new Set(
+      blueprint.mergeGroups.map((item) => nodeToBlock.get(item.mergeNodeId)).filter(Boolean)
+    ),
+  ] as string[];
+}
+
+function buildBranchBlockAttachments(
+  blueprint: PipelineBlueprint,
+  nodeToBlock: Map<string, string>
+) {
+  const attachments: BranchBlockAttachment[] = [];
+  blueprint.branchGroups.forEach((group) => {
+    const blockIds = [
+      ...new Set(group.nodeIds.map((nodeId) => nodeToBlock.get(nodeId)).filter(Boolean)),
+    ] as string[];
+    const attachToId = nodeToBlock.get(group.attachToId) ?? group.attachToId;
+    blockIds.forEach((blockId) => {
+      attachments.push({
+        blockId,
+        groupId: group.id,
+        attachToId,
+        side: group.side,
+      });
+    });
+  });
+  return attachments;
 }
 
 function placeStack(
@@ -161,8 +317,7 @@ function getCenteredOffset(index: number, total: number, gap: number) {
 function placeAttachedBranchBlocks(
   branchBlocks: BlockLayout[],
   blockMap: Map<string, BlockLayout>,
-  nodeToBlock: Map<string, string>,
-  branchAttachments: LayoutIntent['branchAttachments'],
+  branchAttachments: BranchBlockAttachment[],
   leftZoneX: number,
   topY: number,
   mainY: number,
@@ -173,11 +328,11 @@ function placeAttachedBranchBlocks(
   const branchBottomY = Math.min(bottomY - 120, mainY + 150);
   const attachmentsByBlockId = new Map(
     branchAttachments.map((attachment) => [
-      nodeToBlock.get(attachment.branchRootId) ?? attachment.branchRootId,
+      attachment.blockId,
       attachment,
     ])
   );
-  const groupedBranchBlocks = new Map<string, BlockLayout[]>();
+  const groupedBranchBlocks = new Map<string, Map<string, BlockLayout[]>>();
 
   [...branchBlocks]
     .sort((left, right) => left.order - right.order)
@@ -185,45 +340,91 @@ function placeAttachedBranchBlocks(
       const attachment = attachmentsByBlockId.get(block.id);
       const side = attachment?.side ?? 'bottom';
       const key = `${attachment?.attachToId ?? block.id}:${side}`;
-      groupedBranchBlocks.set(key, [...(groupedBranchBlocks.get(key) ?? []), block]);
+      const groupId = attachment?.groupId ?? block.id;
+      const branchGroups = groupedBranchBlocks.get(key) ?? new Map<string, BlockLayout[]>();
+      branchGroups.set(groupId, [...(branchGroups.get(groupId) ?? []), block]);
+      groupedBranchBlocks.set(key, branchGroups);
     });
 
-  groupedBranchBlocks.forEach((groupBlocks, key) => {
+  groupedBranchBlocks.forEach((branchGroups, key) => {
     const [attachToId = '', side = 'bottom'] = key.split(':');
-    const anchorBlock = blockMap.get(nodeToBlock.get(attachToId) ?? '');
+    const anchorBlock = blockMap.get(attachToId);
     const horizontalGap = PAPERDRAW_LAYOUT_DEFAULTS.moduleGapX * 0.9;
     const verticalGap = PAPERDRAW_LAYOUT_DEFAULTS.moduleGapY * 0.8;
 
-    groupBlocks.forEach((block, index) => {
+    [...branchGroups.values()].forEach((groupBlocks, groupIndex) => {
       const centeredOffset =
         side === 'top' || side === 'bottom'
-          ? getCenteredOffset(index, groupBlocks.length, horizontalGap)
-          : getCenteredOffset(index, groupBlocks.length, verticalGap);
+          ? getCenteredOffset(groupIndex, branchGroups.size, horizontalGap)
+          : getCenteredOffset(groupIndex, branchGroups.size, verticalGap);
 
-      switch (side) {
-        case 'top':
-          block.x = anchorBlock ? anchorBlock.x + centeredOffset : rightBaseX * 0.45 + centeredOffset;
-          block.y = branchTopY;
-          break;
-        case 'left':
-          block.x = anchorBlock
-            ? anchorBlock.x - block.width - PAPERDRAW_LAYOUT_DEFAULTS.moduleGapX * 0.7
-            : leftZoneX + 140;
-          block.y = anchorBlock ? anchorBlock.y + centeredOffset : mainY + centeredOffset;
-          break;
-        case 'right':
-          block.x = anchorBlock
-            ? anchorBlock.x + anchorBlock.width + PAPERDRAW_LAYOUT_DEFAULTS.moduleGapX * 0.7
-            : rightBaseX;
-          block.y = anchorBlock ? anchorBlock.y + centeredOffset : mainY + centeredOffset;
-          break;
-        case 'bottom':
-        default:
-          block.x = anchorBlock ? anchorBlock.x + centeredOffset : 520 + centeredOffset;
-          block.y = branchBottomY;
-          break;
-      }
+      groupBlocks.forEach((block, index) => {
+        switch (side) {
+          case 'top':
+            block.x = anchorBlock ? anchorBlock.x + centeredOffset : rightBaseX * 0.45 + centeredOffset;
+            block.y = branchTopY + index * (block.height + PAPERDRAW_LAYOUT_DEFAULTS.moduleGapY * 0.45);
+            break;
+          case 'left':
+            block.x = anchorBlock
+              ? anchorBlock.x - block.width - PAPERDRAW_LAYOUT_DEFAULTS.moduleGapX * 0.7 - index * (block.width + 20)
+              : leftZoneX + 140 - index * (block.width + 20);
+            block.y = anchorBlock ? anchorBlock.y + centeredOffset : mainY + centeredOffset;
+            break;
+          case 'right':
+            block.x = anchorBlock
+              ? anchorBlock.x + anchorBlock.width + PAPERDRAW_LAYOUT_DEFAULTS.moduleGapX * 0.7 + index * (block.width + 20)
+              : rightBaseX + index * (block.width + 20);
+            block.y = anchorBlock ? anchorBlock.y + centeredOffset : mainY + centeredOffset;
+            break;
+          case 'bottom':
+          default:
+            block.x = anchorBlock ? anchorBlock.x + centeredOffset : 520 + centeredOffset;
+            block.y = branchBottomY + index * (block.height + PAPERDRAW_LAYOUT_DEFAULTS.moduleGapY * 0.45);
+            break;
+        }
+      });
     });
+  });
+}
+
+function positionMergeBundles(
+  blocks: BlockLayout[],
+  blueprint: PipelineBlueprint,
+  nodeToBlock: Map<string, string>,
+  mainY: number
+) {
+  const blockMap = new Map(blocks.map((block) => [block.id, block]));
+
+  blueprint.mergeGroups.forEach((mergeGroup, index) => {
+    const mergeBlockId = nodeToBlock.get(mergeGroup.mergeNodeId);
+    const mergeBlock = mergeBlockId ? blockMap.get(mergeBlockId) : undefined;
+    if (!mergeBlock) {
+      return;
+    }
+
+    const sourceBlockIds = [
+      ...new Set(
+        mergeGroup.sourceIds
+          .map((sourceId) => nodeToBlock.get(sourceId))
+          .filter((blockId): blockId is string => Boolean(blockId) && blockId !== mergeBlock.id)
+      ),
+    ];
+    if (!sourceBlockIds.length) {
+      return;
+    }
+
+    const maxSourceX = Math.max(
+      ...sourceBlockIds.map((blockId) => {
+        const sourceBlock = blockMap.get(blockId);
+        return sourceBlock ? sourceBlock.x + sourceBlock.width : 0;
+      }),
+      mergeBlock.x
+    );
+    mergeBlock.x = Math.max(
+      mergeBlock.x,
+      maxSourceX + PAPERDRAW_LAYOUT_DEFAULTS.moduleGapX * 0.9 + index * 24
+    );
+    mergeBlock.y = mainY;
   });
 }
 
@@ -232,17 +433,20 @@ function positionMainSpine(
   spineBlockIds: string[],
   templateId: PipelineTemplateId,
   nodeToBlock: Map<string, string>,
-  intent: LayoutIntent
+  intent: LayoutIntent,
+  blueprint: PipelineBlueprint
 ) {
   const blockMap = new Map(blocks.map((block) => [block.id, block]));
-  const branchBlockIds = new Set(getBranchBlockIds(intent, nodeToBlock));
-  const mergeBlockIds = new Set(getMergeBlockIds(intent, nodeToBlock));
+  const branchBlockIds = new Set(getBranchBlockIds(blueprint, nodeToBlock));
+  const mergeBlockIds = new Set(getMergeBlockIds(blueprint, nodeToBlock));
   const mainY = 250;
   const splitAttachBlockId =
-    templateId === 'split-merge' ? nodeToBlock.get(intent.branchAttachments[0]?.attachToId ?? '') : undefined;
+    templateId === 'split-merge'
+      ? nodeToBlock.get(blueprint.branchGroups[0]?.attachToId ?? '')
+      : undefined;
   const mergeBlockId =
     templateId === 'split-merge'
-      ? nodeToBlock.get(intent.mergeClusters[0]?.mergeNodeId ?? '')
+      ? nodeToBlock.get(blueprint.mergeGroups[0]?.mergeNodeId ?? '')
       : undefined;
   const splitAnchorIndex = splitAttachBlockId ? spineBlockIds.indexOf(splitAttachBlockId) : -1;
   const mergeBlockIndex = mergeBlockId ? spineBlockIds.indexOf(mergeBlockId) : -1;
@@ -318,21 +522,24 @@ function positionMainSpine(
 function positionSpecialRails(
   blocks: BlockLayout[],
   intent: LayoutIntent,
-  templateId: PipelineTemplateId
+  templateId: PipelineTemplateId,
+  blueprint: PipelineBlueprint
 ) {
   const isTopControlMainBottomAux = templateId === 'top-control-main-bottom-aux';
   const blockMap = new Map(blocks.map((block) => [block.id, block]));
   const { nodeToBlock } = buildBlockMaps(blocks);
-  const spineBlockIds = getSpineBlockIds(intent, nodeToBlock);
+  const spineBlockIds = getSpineBlockIds(blueprint, nodeToBlock);
+  const branchBlockAttachments = buildBranchBlockAttachments(blueprint, nodeToBlock);
+  const attachedBranchBlockIds = new Set(branchBlockAttachments.map((attachment) => attachment.blockId));
   const splitMergeBranchBlockIds =
     templateId === 'split-merge'
-      ? new Set(getBranchBlockIds(intent, nodeToBlock))
+      ? new Set(getBranchBlockIds(blueprint, nodeToBlock))
       : new Set<string>();
   const splitMergeMergeBlockIds =
     templateId === 'split-merge'
-      ? new Set(getMergeBlockIds(intent, nodeToBlock))
+      ? new Set(getMergeBlockIds(blueprint, nodeToBlock))
       : new Set<string>();
-  positionMainSpine(blocks, spineBlockIds, templateId, nodeToBlock, intent);
+  positionMainSpine(blocks, spineBlockIds, templateId, nodeToBlock, intent, blueprint);
 
   const spineBlockSet = new Set(spineBlockIds);
   const mainBlocks = spineBlockIds.map((blockId) => blockMap.get(blockId)).filter(Boolean) as BlockLayout[];
@@ -358,28 +565,32 @@ function positionSpecialRails(
 
   const inputBlocks = blocks.filter(
     (block) =>
-      block.preferredRail === 'left_input_rail' &&
+      block.laneKind === 'input' &&
+      !attachedBranchBlockIds.has(block.id) &&
       (!spineBlockSet.has(block.id) || block.role === 'input_stage')
   );
   const controlBlocks = blocks.filter(
-    (block) => block.preferredRail === 'top_control_rail' && !spineBlockSet.has(block.id)
+    (block) =>
+      block.laneKind === 'control' &&
+      !attachedBranchBlockIds.has(block.id) &&
+      !spineBlockSet.has(block.id)
   );
   const auxBlocks = blocks.filter(
     (block) =>
-      block.preferredRail === 'bottom_aux_rail' &&
+      block.laneKind === 'auxiliary' &&
+      !attachedBranchBlockIds.has(block.id) &&
       !spineBlockSet.has(block.id) &&
       !splitMergeBranchBlockIds.has(block.id) &&
       !splitMergeMergeBlockIds.has(block.id)
   );
   const outputBlocks = blocks.filter(
     (block) =>
-      block.preferredRail === 'right_output_rail' &&
+      block.laneKind === 'output' &&
+      !attachedBranchBlockIds.has(block.id) &&
       (!spineBlockSet.has(block.id) || templateId === 'input-core-output')
   );
   const branchBlocks = blocks.filter((block) => {
-    const isAttachedBranch = intent.branchAttachments.some(
-      (item) => nodeToBlock.get(item.branchRootId) === block.id
-    );
+    const isAttachedBranch = attachedBranchBlockIds.has(block.id);
     return (
       isAttachedBranch &&
       !spineBlockSet.has(block.id) &&
@@ -431,8 +642,7 @@ function positionSpecialRails(
   placeAttachedBranchBlocks(
     branchBlocks,
     blockMap,
-    nodeToBlock,
-    intent.branchAttachments,
+    branchBlockAttachments,
     leftZoneX,
     topY,
     mainY,
@@ -446,8 +656,8 @@ function positionSpecialRails(
   });
 
   if (templateId === 'split-merge') {
-    const branchBlockIds = new Set(getBranchBlockIds(intent, nodeToBlock));
-    const mergeBlockIds = new Set(getMergeBlockIds(intent, nodeToBlock));
+    const branchBlockIds = new Set(getBranchBlockIds(blueprint, nodeToBlock));
+    const mergeBlockIds = new Set(getMergeBlockIds(blueprint, nodeToBlock));
     const maxBranchX = Math.max(
       ...blocks
         .filter((block) => branchBlockIds.has(block.id))
@@ -497,6 +707,8 @@ function positionSpecialRails(
       });
     }
   }
+
+  positionMergeBundles(blocks, blueprint, nodeToBlock, mainY);
 }
 
 function placeNodesInsideBlocks(
@@ -625,10 +837,11 @@ function createEdgeSkeleton(
 export function generatePipelineSkeletonLayout(
   baseLayout: LayoutResult,
   intent: LayoutIntent,
+  blueprint: PipelineBlueprint,
   templateMatch: PipelineTemplateMatch
 ): LayoutResult {
-  const blocks = createBlockLayouts(baseLayout, intent);
-  positionSpecialRails(blocks, intent, templateMatch.rootTemplateId);
+  const blocks = createBlockLayouts(baseLayout, intent, blueprint);
+  positionSpecialRails(blocks, intent, templateMatch.rootTemplateId, blueprint);
   const nodes = placeNodesInsideBlocks(baseLayout, blocks, intent, templateMatch);
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const groups = recomputeLayoutGroups(baseLayout.groups, nodeMap);
