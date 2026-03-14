@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useI18n } from "../i18n";
+import { AppLogo } from "./app-logo/app-logo";
 import "./tutorial.scss";
 
 export const Tutorial: React.FC = () => {
@@ -9,7 +10,10 @@ export const Tutorial: React.FC = () => {
     <div className="drawnix-tutorial">
       <div className="tutorial-overlay">
         <div className="tutorial-content">
-          
+          <div className="tutorial-logo">
+            <AppLogo size="large" />
+          </div>
+
           <h1 className="brand-title">{t('tutorial.title')}</h1>
           <p className="brand-description">{t('tutorial.description')}</p>
           <p className="brand-tooltip">{t('tutorial.dataDescription')}</p>

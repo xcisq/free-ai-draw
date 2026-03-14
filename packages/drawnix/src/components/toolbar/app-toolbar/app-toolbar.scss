@@ -1,0 +1,18 @@
+// App Toolbar Styles
+
+.app-logo-corner {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  width: 32px;
+  height: 32px;
+  pointer-events: none;
+  opacity: 0.85;
+  z-index: 100;
+
+  // 深色主题下不显示，避免干扰
+  .PlaitBoard-theme-dark &,
+  .PlaitBoard-theme-starry & {
+    opacity: 0.6;
+  }
+}

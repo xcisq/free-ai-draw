@@ -1,0 +1,49 @@
+.app-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  &--small {
+    width: 24px;
+    height: 24px;
+  }
+
+  &--medium {
+    width: 48px;
+    height: 48px;
+  }
+
+  &--large {
+    width: 80px;
+    height: 80px;
+  }
+
+  &--light {
+    opacity: 0.85;
+  }
+
+  &--dark {
+    opacity: 1;
+  }
+
+  // 深色主题下的适配
+  .PlaitBoard-theme-dark &,
+  .PlaitBoard-theme-starry & {
+    img {
+      filter: brightness(0) invert(1);
+    }
+  }
+
+  .PlaitBoard-theme-dark &--dark,
+  .PlaitBoard-theme-starry &--dark {
+    img {
+      filter: none;
+    }
+  }
+}

@@ -25,6 +25,8 @@ import { useContext } from 'react';
 import { MenuContentPropsContext } from '../../menu/common';
 import { EVENT } from '../../../constants';
 import { getShortcutKey } from '../../../utils/common';
+import { AppLogo } from '../../app-logo';
+import './app-menu-items.scss';
 
 export const SaveToFile = () => {
   const board = useBoard();
@@ -154,6 +156,19 @@ export const CleanBoard = () => {
   );
 };
 CleanBoard.displayName = 'CleanBoard';
+
+export const MenuBrandHeader = () => {
+  return (
+    <div className="menu-brand-header">
+      <AppLogo size="medium" />
+      <div className="brand-info">
+        <div className="brand-name">XAI Board</div>
+        <div className="brand-subtitle">XAI 课题组</div>
+      </div>
+    </div>
+  );
+};
+MenuBrandHeader.displayName = 'MenuBrandHeader';
 
 export const Socials = () => {
   return (

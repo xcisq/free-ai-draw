@@ -12,8 +12,8 @@ type AppValue = {
 const MAIN_BOARD_CONTENT_KEY = 'main_board_content';
 
 localforage.config({
-  name: 'Drawnix',
-  storeName: 'drawnix_store',
+  name: 'XAIBoard',
+  storeName: 'xai_board_store',
   driver: [localforage.INDEXEDDB, localforage.LOCALSTORAGE],
 });
 
