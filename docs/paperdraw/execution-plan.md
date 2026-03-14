@@ -1,6 +1,6 @@
 # PaperDraw 优化执行计划
 
-> 版本：v2.3
+> 版本：v2.4
 > 日期：2026-03-14
 > 状态：执行中
 > 适用范围：`packages/drawnix/src/paperdraw/**` 及其相关文档、测试、评估链路
@@ -169,18 +169,23 @@ QA 当前也没有校正结构，只校正：
 - `P3-0` 第二轮：模板匹配开始优先消费 blueprint 的 lane / branch group / merge group / feedback / bundle 特征
 - `P3-0` 第三轮：骨架布局开始优先消费 blueprint 的 spine / branch group / lane / merge group
 - `P3-0` 第四轮：路由开始优先消费 blueprint 的 edge policy / bundle key / lane 语义
+- `P4-3` 第二轮：router 开始为 control / auxiliary / merge bundle 分配稳定 guide offset
+- `P4-4` 第二轮：低优先级 auxiliary / annotation / feedback 边开始提升拥塞惩罚并远离主 corridor
+- `P5-3` 第一轮：调试面板开始展示 blueprint 边通道分布与低优先边计数
 
 ### 当前进行中
 
 - `P4-3`：继续增强 bundling 与 merge bus，压低箭头杂乱感
 - `P4-4`：限制低价值边视觉权重，继续压低说明性边和反馈边的存在感
+- `P5-3`：继续把 blueprint / matcher / skeleton / router 的差异纳入固定调试与验收面板
 
 ### 下一轮计划
 
-- `P3-0` 第四轮：router 开始直接消费 blueprint 的 edge policy / bundle key，而不是局部再推断
-- `P4-3` 第二轮：继续增强 spine bundling 与分支汇入前对齐
-- `P4-4` 第二轮：降低 annotation / feedback / low-priority auxiliary 边的 guide 权重
-- `P5-3`：把 blueprint / matcher / skeleton / router 的差异纳入固定调试与验收面板
+- `P4-3` 第二轮：bundle guide offset 已接入 router，开始为 control / auxiliary / merge bundle 分配稳定导流偏移
+- `P4-4` 第二轮：低优先级 auxiliary / annotation / feedback 边开始提升拥塞惩罚并远离主 corridor
+- `P5-3` 第一轮：调试面板开始展示 blueprint 边通道分布与低优先边计数
+- `P4-3` 第三轮：继续增强 branch 汇入前对齐，减少支路在 merge 前的最后一跳摆动
+- `P4-4` 第三轮：继续压低说明性边在局部 dense 区域的抢道行为
 
 ## 5.1 阶段 P0：建立可观测性与真实基线
 

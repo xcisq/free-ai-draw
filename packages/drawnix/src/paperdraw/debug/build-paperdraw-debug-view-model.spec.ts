@@ -127,6 +127,14 @@ describe('buildPaperDrawDebugViewModel', () => {
         expect.objectContaining({ role: 'auxiliary' }),
       ])
     );
+    expect(viewModel?.blueprint?.edgeLaneKinds).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ role: 'main' }),
+        expect.objectContaining({ role: 'control' }),
+        expect.objectContaining({ role: 'auxiliary' }),
+      ])
+    );
+    expect(viewModel?.blueprint?.lowPriorityEdgeCount).toBeGreaterThan(0);
     expect(viewModel?.template).not.toBeNull();
     expect(viewModel?.template?.localTemplateIds).toEqual(
       expect.arrayContaining(['control-over-main', 'aux-under-main'])

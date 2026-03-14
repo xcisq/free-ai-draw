@@ -96,11 +96,21 @@ export const PaperDrawDebugPanel = ({
               分支组 {viewModel.blueprint.branchGroupCount} / 汇聚组 {viewModel.blueprint.mergeGroupCount} /
               反馈环 {viewModel.blueprint.feedbackLoopCount}
             </p>
-            <p>bundle 组数: {viewModel.blueprint.bundleGroupCount}</p>
+            <p>
+              bundle 组数: {viewModel.blueprint.bundleGroupCount} / 低优先边{' '}
+              {viewModel.blueprint.lowPriorityEdgeCount}
+            </p>
             <div className="paperdraw-debug-chip-list">
               {viewModel.blueprint.laneKinds.map((item) => (
                 <span key={`blueprint-lane-${item.role}`} className="paperdraw-debug-chip">
                   {item.role}: {item.count}
+                </span>
+              ))}
+            </div>
+            <div className="paperdraw-debug-chip-list">
+              {viewModel.blueprint.edgeLaneKinds.map((item) => (
+                <span key={`blueprint-edge-lane-${item.role}`} className="paperdraw-debug-chip">
+                  edge:{item.role} {item.count}
                 </span>
               ))}
             </div>

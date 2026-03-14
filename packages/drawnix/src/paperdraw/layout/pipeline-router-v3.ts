@@ -65,6 +65,8 @@ export interface RouteIntent {
   spineEdgeIds: Set<string>;
   mergeTargetIds: Set<string>;
   edgeBundleKeys: Map<string, string>;
+  bundleGuideOffsets: Map<string, number>;
+  bundleSizes: Map<string, number>;
   edgeRouteLanes: Map<string, PipelineBlueprintLaneKind>;
   edgePriorities: Map<string, number>;
   templateId?: PipelineTemplateId;
@@ -134,6 +136,10 @@ const EDGE_PRIORITY: Record<RouteEdgeClass, number> = {
 
 function pointKey(point: Point) {
   return `${point[0]}:${point[1]}`;
+}
+
+function uniqueNumbers(values: number[]) {
+  return [...new Set(values.map((value) => Number(value.toFixed(3))))];
 }
 
 function getNodeRect(node: LayoutNode): Rectangle {
@@ -437,8 +443,43 @@ function buildPipelineRouteIntent(
     }
     edgeClasses.set(edge.id, 'aux');
   });
+  intent.edges.forEach((edge) => {
+    if (!edgeBundleKeys.has(edge.id)) {
+      const edgeClass = edgeClasses.get(edge.id);
+      if (edgeClass === 'merge') {
+        edgeBundleKeys.set(edge.id, `merge:${edge.targetId}`);
+      } else if (edgeClass === 'spine') {
+        edgeBundleKeys.set(edge.id, 'spine');
+      } else if (edgeClass === 'control') {
+        edgeBundleKeys.set(edge.id, 'control');
+      } else if (edgeClass === 'feedback') {
+        edgeBundleKeys.set(edge.id, 'feedback');
+      } else if (edgeClass === 'annotation') {
+        edgeBundleKeys.set(edge.id, 'annotation');
+      }
+    }
 
-  const frame = buildRouteFrame(layout, intent);
+    if (!edgeRouteLanes.has(edge.id)) {
+      const edgeClass = edgeClasses.get(edge.id);
+      if (edgeClass === 'spine') {
+        edgeRouteLanes.set(edge.id, 'main');
+      } else if (edgeClass === 'control') {
+        edgeRouteLanes.set(edge.id, 'control');
+      } else if (edgeClass === 'feedback') {
+        edgeRouteLanes.set(edge.id, 'feedback');
+      } else if (edgeClass === 'annotation') {
+        edgeRouteLanes.set(edge.id, 'annotation');
+      }
+    }
+  });
+  const { bundleGuideOffsets, bundleSizes } = buildBundleGuideMetadata(
+    layout,
+    edgeClasses,
+    edgeBundleKeys,
+    edgeRouteLanes
+  );
+
+  const frame = buildRouteFrame(layout, intent, blueprint);
   const corridors: RouteCorridor[] = [
     { id: 'main_spine_corridor', axis: 'y', value: frame.mainY },
     { id: 'merge_corridor', axis: 'y', value: frame.mainY },
@@ -461,6 +502,8 @@ function buildPipelineRouteIntent(
       blueprint?.mergeGroups.map((group) => group.mergeNodeId) ?? intent.mergeNodes
     ),
     edgeBundleKeys,
+    bundleGuideOffsets,
+    bundleSizes,
     edgeRouteLanes,
     edgePriorities,
     templateId,
@@ -469,6 +512,136 @@ function buildPipelineRouteIntent(
 
 function getEdgeClass(routeIntent: RouteIntent, edgeId: string): RouteEdgeClass {
   return routeIntent.edgeClasses.get(edgeId) ?? 'aux';
+}
+
+function normalizePriority(priority?: number) {
+  if (priority === undefined) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, priority));
+}
+
+function getBundleKey(routeIntent: RouteIntent, edgeId: string) {
+  return routeIntent.edgeBundleKeys.get(edgeId) ?? edgeId;
+}
+
+function getBundleGuideOffset(routeIntent: RouteIntent, edgeId: string) {
+  return routeIntent.bundleGuideOffsets.get(getBundleKey(routeIntent, edgeId)) ?? 0;
+}
+
+function getPriorityPenaltyBoost(routeIntent: RouteIntent, edgeId: string, scale: number) {
+  return Math.round((1 - normalizePriority(routeIntent.edgePriorities.get(edgeId) ?? 1)) * scale);
+}
+
+function offsetGuideValues(values: number[], offset: number) {
+  return uniqueNumbers(values.map((value) => value + offset));
+}
+
+function buildBundleGuideMetadata(
+  layout: LayoutResult,
+  edgeClasses: Map<string, RouteEdgeClass>,
+  edgeBundleKeys: Map<string, string>,
+  edgeRouteLanes: Map<string, PipelineBlueprintLaneKind>
+) {
+  const nodeMap = new Map(layout.nodes.map((node) => [node.id, node]));
+  const edgeMap = new Map(layout.edges.map((edge) => [edge.id, edge]));
+  const bundleToEdgeIds = new Map<string, string[]>();
+  layout.edges.forEach((edge) => {
+    const bundleKey = edgeBundleKeys.get(edge.id) ?? edge.id;
+    bundleToEdgeIds.set(bundleKey, [...(bundleToEdgeIds.get(bundleKey) ?? []), edge.id]);
+  });
+
+  const bundlesByLane = new Map<
+    PipelineBlueprintLaneKind,
+    Array<{ bundleKey: string; anchor: number }>
+  >();
+
+  bundleToEdgeIds.forEach((edgeIds, bundleKey) => {
+    const representativeEdgeId = edgeIds[0];
+    const edgeClass = edgeClasses.get(representativeEdgeId) ?? 'aux';
+    const inferredLane =
+      edgeRouteLanes.get(representativeEdgeId) ??
+      (edgeClass === 'spine'
+        ? 'main'
+        : edgeClass === 'control'
+          ? 'control'
+          : edgeClass === 'feedback'
+            ? 'feedback'
+            : edgeClass === 'annotation'
+              ? 'annotation'
+              : 'auxiliary');
+    const anchorAxis =
+      inferredLane === 'feedback' || inferredLane === 'annotation'
+        ? 'y'
+        : layout.direction === 'TB'
+          ? 'x'
+          : 'y';
+    const anchorValues = edgeIds.flatMap((edgeId) => {
+      const edge = edgeMap.get(edgeId);
+      if (!edge) {
+        return [];
+      }
+      const sourceNode = nodeMap.get(edge.sourceId);
+      const targetNode = nodeMap.get(edge.targetId);
+      const values: number[] = [];
+      if (sourceNode) {
+        values.push(
+          anchorAxis === 'x'
+            ? sourceNode.x + sourceNode.width / 2
+            : sourceNode.y + sourceNode.height / 2
+        );
+      }
+      if (targetNode) {
+        values.push(
+          anchorAxis === 'x'
+            ? targetNode.x + targetNode.width / 2
+            : targetNode.y + targetNode.height / 2
+        );
+      }
+      return values;
+    });
+    const anchor =
+      anchorValues.reduce((sum, value) => sum + value, 0) /
+      Math.max(anchorValues.length, 1);
+
+    bundlesByLane.set(inferredLane, [
+      ...(bundlesByLane.get(inferredLane) ?? []),
+      { bundleKey, anchor },
+    ]);
+  });
+
+  const bundleGuideOffsets = new Map<string, number>();
+  const bundleSizes = new Map<string, number>();
+  bundleToEdgeIds.forEach((edgeIds, bundleKey) => {
+    bundleSizes.set(bundleKey, edgeIds.length);
+  });
+
+  bundlesByLane.forEach((bundles, laneKind) => {
+    const sorted = [...bundles].sort((left, right) => {
+      if (left.anchor !== right.anchor) {
+        return left.anchor - right.anchor;
+      }
+      return left.bundleKey.localeCompare(right.bundleKey);
+    });
+
+    if (laneKind === 'main') {
+      sorted.forEach((bundle) => bundleGuideOffsets.set(bundle.bundleKey, 0));
+      return;
+    }
+
+    const centerIndex = (sorted.length - 1) / 2;
+    sorted.forEach((bundle, index) => {
+      bundleGuideOffsets.set(
+        bundle.bundleKey,
+        (index - centerIndex) * PAPERDRAW_LAYOUT_DEFAULTS.routePipelineLaneOffset
+      );
+    });
+  });
+
+  return {
+    bundleGuideOffsets,
+    bundleSizes,
+  };
 }
 
 function sortEdgesForRouting(layout: LayoutResult, routeIntent: RouteIntent) {
@@ -764,9 +937,22 @@ function buildMergeBusGuide(edge: LayoutEdge, routeIntent: RouteIntent, frame: R
   const end = edge.points[1];
   const targetSide = getConnectionSide(edge.targetConnection);
   const sourceSide = getConnectionSide(edge.sourceConnection);
+  const bundleOffset = getBundleGuideOffset(routeIntent, edge.id);
+  const edgeLane = routeIntent.edgeRouteLanes.get(edge.id);
+  const priorityBoost = getPriorityPenaltyBoost(routeIntent, edge.id, 18);
   const busOffset =
     PAPERDRAW_LAYOUT_DEFAULTS.routeInnerMargin -
     PAPERDRAW_LAYOUT_DEFAULTS.routePipelineLaneOffset;
+  const preferredYs =
+    edgeLane === 'control'
+      ? [frame.topControlY + bundleOffset]
+      : edgeLane === 'auxiliary'
+        ? [frame.bottomAuxY + bundleOffset]
+        : edgeLane === 'main'
+          ? [frame.mainY]
+          : edgeLane === 'input' || edgeLane === 'output'
+            ? uniqueNumbers([start[1], end[1]])
+            : [];
 
   if (
     targetSide === 'left' ||
@@ -784,9 +970,9 @@ function buildMergeBusGuide(edge: LayoutEdge, routeIntent: RouteIntent, frame: R
             ? -1
             : 1;
     return {
-      preferredXs: [end[0] + direction * busOffset],
-      preferredYs: [],
-      classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty + 6,
+      preferredXs: [end[0] + direction * busOffset + bundleOffset],
+      preferredYs,
+      classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty + 10 + priorityBoost,
     };
   }
 
@@ -799,9 +985,12 @@ function buildMergeBusGuide(edge: LayoutEdge, routeIntent: RouteIntent, frame: R
           ? -1
           : 1;
   return {
-    preferredXs: [],
-    preferredYs: [end[1] + direction * busOffset],
-    classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty + 6,
+    preferredXs:
+      edgeLane === 'input' || edgeLane === 'output'
+        ? uniqueNumbers([start[0], end[0]])
+        : [],
+    preferredYs: [end[1] + direction * busOffset + bundleOffset],
+    classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty + 10 + priorityBoost,
   };
 }
 
@@ -819,57 +1008,83 @@ function buildRouteGuide(
   const annotationCorridors = getCorridorValues(routeIntent, 'annotation_side_corridor', 'x');
   const edgeLane = routeIntent.edgeRouteLanes.get(edge.id);
   const bundleKey = routeIntent.edgeBundleKeys.get(edge.id);
+  const bundleOffset = getBundleGuideOffset(routeIntent, edge.id);
+  const priorityBoost = getPriorityPenaltyBoost(routeIntent, edge.id, 12);
   switch (edgeClass) {
     case 'spine':
       return {
         preferredXs: [],
-        preferredYs: spineCorridors.length ? spineCorridors : [frame.mainY],
-        classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuideLoosePenalty,
+        preferredYs: offsetGuideValues(
+          spineCorridors.length ? spineCorridors : [frame.mainY],
+          bundleOffset
+        ),
+        classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty + 2 + priorityBoost,
       };
     case 'control':
       return {
         preferredXs: [],
-        preferredYs: controlCorridors.length ? controlCorridors : [frame.topControlY],
-        classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty,
+        preferredYs: offsetGuideValues(
+          controlCorridors.length ? controlCorridors : [frame.topControlY],
+          bundleOffset
+        ),
+        classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty + 4 + priorityBoost,
       };
     case 'aux':
       if (edgeLane === 'input' || edgeLane === 'output') {
         return {
           preferredXs: [],
-          preferredYs: spineCorridors.length ? spineCorridors : [frame.mainY],
-          classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuideLoosePenalty,
+          preferredYs: uniqueNumbers([edge.points[0][1], edge.points[1][1]]),
+          classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty + 10 + priorityBoost,
         };
       }
       if (bundleKey?.startsWith('lane:control')) {
         return {
           preferredXs: [],
-          preferredYs: controlCorridors.length ? controlCorridors : [frame.topControlY],
-          classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty,
+          preferredYs: offsetGuideValues(
+            controlCorridors.length ? controlCorridors : [frame.topControlY],
+            bundleOffset
+          ),
+          classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty + 6 + priorityBoost,
         };
       }
       if (bundleKey?.startsWith('lane:auxiliary')) {
         return {
           preferredXs: [],
-          preferredYs: auxCorridors.length ? auxCorridors : [frame.bottomAuxY],
-          classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty,
+          preferredYs: offsetGuideValues(
+            auxCorridors.length ? auxCorridors : [frame.bottomAuxY],
+            bundleOffset
+          ),
+          classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty + 6 + priorityBoost,
         };
       }
       return {
         preferredXs: [],
-        preferredYs: auxCorridors.length ? auxCorridors : [frame.bottomAuxY],
-        classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty,
+        preferredYs: offsetGuideValues(
+          auxCorridors.length ? auxCorridors : [frame.bottomAuxY],
+          bundleOffset
+        ),
+        classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty + 6 + priorityBoost,
       };
     case 'feedback':
       return {
-        preferredXs: feedbackXCorridors.length ? feedbackXCorridors : [frame.feedbackRightX],
-        preferredYs: feedbackYCorridors.length ? feedbackYCorridors : [frame.feedbackTopY],
-        classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty + 12,
+        preferredXs: offsetGuideValues(
+          feedbackXCorridors.length ? feedbackXCorridors : [frame.feedbackRightX],
+          Math.abs(bundleOffset)
+        ),
+        preferredYs: offsetGuideValues(
+          feedbackYCorridors.length ? feedbackYCorridors : [frame.feedbackTopY],
+          -Math.abs(bundleOffset)
+        ),
+        classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty + 16 + priorityBoost,
       };
     case 'annotation':
       return {
-        preferredXs: annotationCorridors.length ? annotationCorridors : [frame.annotationSideX],
+        preferredXs: offsetGuideValues(
+          annotationCorridors.length ? annotationCorridors : [frame.annotationSideX],
+          Math.abs(bundleOffset)
+        ),
         preferredYs: [],
-        classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty,
+        classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty + 10 + priorityBoost,
       };
     case 'merge':
       return buildMergeBusGuide(edge, routeIntent, frame);
@@ -1080,6 +1295,7 @@ function computeRouteCost(
   to: Point,
   previousDirection: SegmentDirection,
   edgeClass: RouteEdgeClass,
+  edgePriority: number,
   model: LayoutConstraintModel,
   routedSegments: RouteSegment[],
   guide: RouteGuide
@@ -1094,6 +1310,16 @@ function computeRouteCost(
   const isBundledSegment =
     (edgeClass === 'spine' || edgeClass === 'merge') &&
     isOnPreferredGuide(from, to, guide);
+  const normalizedPriority = normalizePriority(edgePriority);
+  const congestionPenaltyMultiplier = isBundledSegment
+    ? 10
+    : edgeClass === 'annotation'
+      ? 72 + (1 - normalizedPriority) * 24
+      : edgeClass === 'feedback'
+        ? 60 + (1 - normalizedPriority) * 18
+        : edgeClass === 'aux'
+          ? 48 + (1 - normalizedPriority) * 20
+          : 40;
   let reverseFlow = 0;
 
   if (edgeClass === 'spine' || edgeClass === 'merge') {
@@ -1110,7 +1336,7 @@ function computeRouteCost(
     bendPenalty +
     crossings * 120 +
     reverseFlow +
-    congestion * (isBundledSegment ? 10 : 40) +
+    congestion * congestionPenaltyMultiplier +
     guidePenalty
   );
 }
@@ -1144,6 +1370,7 @@ function routeEdgeWithAStar(
   const start = getConnectionPoint(sourceNode, edge.sourceConnection);
   const end = getConnectionPoint(targetNode, edge.targetConnection);
   const guide = buildRouteGuide(edge, edgeClass, frame, routeIntent);
+  const edgePriority = routeIntent.edgePriorities.get(edge.id) ?? 1;
   const obstacles = buildObstacles(layout, edge, routeIntent);
   const { xs, ys } = buildGridCoordinates(start, end, obstacles, guide, frame);
   const { nodeMap: gridNodeMap, adjacency } = buildGridGraph(start, end, xs, ys, obstacles);
@@ -1179,6 +1406,7 @@ function routeEdgeWithAStar(
           nextPoint,
           current.dir,
           edgeClass,
+          edgePriority,
           model,
           routedSegments,
           guide

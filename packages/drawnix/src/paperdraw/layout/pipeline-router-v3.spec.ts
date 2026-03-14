@@ -723,4 +723,181 @@ describe('pipeline-router-v3', () => {
     expect(mergeBWithoutBlueprint.targetConnection[0]).not.toBe(0);
     expect(mergeB.points[0][0]).toBeGreaterThan(mergeBWithoutBlueprint.points[0][0]);
   });
+
+  it('stabilizes distinct auxiliary bundles onto different guide rows', () => {
+    const layout: LayoutResult = {
+      direction: 'LR',
+      templateId: 'top-control-main-bottom-aux',
+      engine: 'pipeline_v1',
+      nodes: [
+        {
+          id: 'm1',
+          label: 'Main 1',
+          x: 320,
+          y: 160,
+          width: 220,
+          height: 72,
+          weight: 0.88,
+          confidence: 0.9,
+        },
+        {
+          id: 'm2',
+          label: 'Main 2',
+          x: 760,
+          y: 160,
+          width: 220,
+          height: 72,
+          weight: 0.88,
+          confidence: 0.9,
+        },
+        {
+          id: 'a1',
+          label: 'Aux 1',
+          x: 320,
+          y: 420,
+          width: 220,
+          height: 72,
+          weight: 0.7,
+          confidence: 0.86,
+        },
+        {
+          id: 'a2',
+          label: 'Aux 2',
+          x: 760,
+          y: 420,
+          width: 220,
+          height: 72,
+          weight: 0.7,
+          confidence: 0.86,
+        },
+      ],
+      groups: [],
+      edges: [
+        {
+          id: 'm1m2',
+          type: 'sequential',
+          sourceId: 'm1',
+          targetId: 'm2',
+          shape: 'straight',
+          sourceConnection: [1, 0.5],
+          targetConnection: [0, 0.5],
+          points: [
+            [540, 196],
+            [760, 196],
+          ],
+        },
+        {
+          id: 'a1m1',
+          type: 'sequential',
+          sourceId: 'a1',
+          targetId: 'm2',
+          shape: 'straight',
+          sourceConnection: [0.5, 0],
+          targetConnection: [0.5, 1],
+          points: [
+            [430, 420],
+            [870, 232],
+          ],
+        },
+        {
+          id: 'a2m2',
+          type: 'sequential',
+          sourceId: 'a2',
+          targetId: 'm1',
+          shape: 'straight',
+          sourceConnection: [0.5, 0],
+          targetConnection: [0.5, 1],
+          points: [
+            [870, 420],
+            [430, 232],
+          ],
+        },
+      ],
+    };
+    const intent = createIntent(layout, {
+      dominantSpine: ['m1', 'm2'],
+      edgeRoles: {
+        m1m2: 'main',
+        a1m1: 'auxiliary',
+        a2m2: 'auxiliary',
+      },
+    });
+    const blueprint = createBlueprint({
+      spineNodeIds: ['m1', 'm2'],
+      lanes: [
+        {
+          id: 'lane:main',
+          kind: 'main',
+          nodeIds: ['m1', 'm2'],
+          moduleIds: [],
+        },
+        {
+          id: 'lane:auxiliary:a1',
+          kind: 'auxiliary',
+          nodeIds: ['a1'],
+          moduleIds: [],
+        },
+        {
+          id: 'lane:auxiliary:a2',
+          kind: 'auxiliary',
+          nodeIds: ['a2'],
+          moduleIds: [],
+        },
+      ],
+      edgePolicies: [
+        {
+          edgeId: 'm1m2',
+          role: 'main',
+          priority: 1,
+          routeLane: 'main',
+          bundleKey: 'spine',
+        },
+        {
+          edgeId: 'a1m1',
+          role: 'auxiliary',
+          priority: 0.68,
+          routeLane: 'auxiliary',
+          bundleKey: 'lane:auxiliary:a1',
+        },
+        {
+          edgeId: 'a2m2',
+          role: 'auxiliary',
+          priority: 0.68,
+          routeLane: 'auxiliary',
+          bundleKey: 'lane:auxiliary:a2',
+        },
+      ],
+    });
+    const model = buildLayoutConstraintModel(layout, {
+      mode: 'global',
+      engine: 'pipeline_v1',
+      profile: 'double',
+      quality: 'quality',
+    });
+
+    const routed = routePipelineLayoutV3(layout, model, intent, {
+      templateId: 'top-control-main-bottom-aux',
+      blueprint,
+    });
+    const aux1 = routed.edges.find((edge) => edge.id === 'a1m1')!;
+    const aux2 = routed.edges.find((edge) => edge.id === 'a2m2')!;
+    const getHorizontalRows = (points: number[][]) =>
+      points
+        .slice(0, -1)
+        .flatMap((point, index) => {
+          const next = points[index + 1];
+          if (!next || point[1] !== next[1]) {
+            return [];
+          }
+          return [point[1]];
+        })
+        .filter((value) => value !== 196);
+
+    const aux1Rows = getHorizontalRows((aux1.routing ?? aux1.points) as number[][]);
+    const aux2Rows = getHorizontalRows((aux2.routing ?? aux2.points) as number[][]);
+
+    expect(aux1Rows.length).toBeGreaterThan(0);
+    expect(aux2Rows.length).toBeGreaterThan(0);
+    expect(aux1Rows[0]).not.toBe(aux2Rows[0]);
+  });
 });

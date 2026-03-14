@@ -82,10 +82,12 @@ export interface PaperDrawDebugIntentSummary {
 export interface PaperDrawDebugBlueprintSummary {
   spineNodeIds: string[];
   laneKinds: PaperDrawDebugRoleCount[];
+  edgeLaneKinds: PaperDrawDebugRoleCount[];
   branchGroupCount: number;
   mergeGroupCount: number;
   feedbackLoopCount: number;
   bundleGroupCount: number;
+  lowPriorityEdgeCount: number;
 }
 
 export interface PaperDrawDebugTemplateSummary {
@@ -270,10 +272,12 @@ function summarizeBlueprint(blueprint: PipelineBlueprint): PaperDrawDebugBluepri
   return {
     spineNodeIds: [...blueprint.spineNodeIds],
     laneKinds: summarizeRoleCounts(blueprint.lanes.map((lane) => lane.kind)),
+    edgeLaneKinds: summarizeRoleCounts(blueprint.edgePolicies.map((policy) => policy.routeLane)),
     branchGroupCount: blueprint.branchGroups.length,
     mergeGroupCount: blueprint.mergeGroups.length,
     feedbackLoopCount: blueprint.feedbackLoops.length,
     bundleGroupCount: new Set(blueprint.edgePolicies.map((policy) => policy.bundleKey)).size,
+    lowPriorityEdgeCount: blueprint.edgePolicies.filter((policy) => policy.priority < 0.75).length,
   };
 }
 
