@@ -27,6 +27,19 @@ const getEntityByLabel = (entities: Entity[], label: string) => {
   return entities.find((entity) => entity.label === label);
 };
 
+const filterSpineCandidate = (
+  spineCandidate: ExtractionResult['spineCandidate'],
+  allowedEntityIds: Set<string>
+) => {
+  if (!spineCandidate?.length) {
+    return undefined;
+  }
+
+  const filtered = spineCandidate.filter((entityId) => allowedEntityIds.has(entityId));
+  const deduped = Array.from(new Set(filtered));
+  return deduped.length >= 2 ? deduped : undefined;
+};
+
 const getSequentialStats = (relations: FlowRelation[]) => {
   const indegree = new Map<string, number>();
   const outdegree = new Map<string, number>();
@@ -235,6 +248,7 @@ export function refineWithAnswers(
     relations,
     weights,
     modules,
+    spineCandidate: filterSpineCandidate(extraction.spineCandidate, allowedEntityIds),
     warnings: extraction.warnings,
   };
 }
@@ -245,6 +259,7 @@ export function generateDefaultAnalysis(
   extraction: ExtractionResult,
   _config?: LLMConfig
 ): AnalysisResult {
+  const allowedEntityIds = new Set(extraction.entities.map((entity) => entity.id));
   return {
     entities: extraction.entities,
     relations: extraction.relations,
@@ -254,6 +269,10 @@ export function generateDefaultAnalysis(
       id: `m${index + 1}`,
       order: moduleItem.order ?? index + 1,
     })),
+    spineCandidate: filterSpineCandidate(
+      extraction.spineCandidate,
+      allowedEntityIds
+    ),
     warnings: extraction.warnings,
   };
 }

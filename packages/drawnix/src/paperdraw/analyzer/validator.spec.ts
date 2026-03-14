@@ -128,4 +128,27 @@ describe('PaperDraw validator', () => {
     expect(analysis.modules[0].roleCandidate).toBe('input_stage');
     expect(analysis.spineCandidate).toEqual(['e1', 'e3']);
   });
+
+  it('prunes unlabeled sequential edges that are already implied by a transitive path', () => {
+    const result = validateExtractionResult({
+      entities: [
+        { id: 'e1', label: '输入' },
+        { id: 'e2', label: '编码' },
+        { id: 'e3', label: '输出' },
+      ],
+      modules: [],
+      relations: [
+        { id: 'r1', type: 'sequential', source: 'e1', target: 'e2' },
+        { id: 'r2', type: 'sequential', source: 'e2', target: 'e3' },
+        { id: 'r3', type: 'sequential', source: 'e1', target: 'e3' },
+      ],
+    });
+
+    expect(result.relations.map((relation) => relation.id)).toEqual(['r1', 'r2']);
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('已裁剪冗余连线'),
+      ])
+    );
+  });
 });

@@ -124,6 +124,86 @@ function dedupeFlowRelations(relations: FlowRelation[]): FlowRelation[] {
   });
 }
 
+function buildSequentialAdjacency(
+  relations: FlowRelation[],
+  excludedRelationId?: string
+) {
+  const adjacency = new Map<string, string[]>();
+
+  relations.forEach((relation) => {
+    if (
+      relation.type !== 'sequential' ||
+      relation.id === excludedRelationId
+    ) {
+      return;
+    }
+
+    adjacency.set(relation.source, [
+      ...(adjacency.get(relation.source) ?? []),
+      relation.target,
+    ]);
+  });
+
+  return adjacency;
+}
+
+function hasAlternativeSequentialPath(
+  relations: FlowRelation[],
+  sourceId: string,
+  targetId: string,
+  excludedRelationId: string
+) {
+  const adjacency = buildSequentialAdjacency(relations, excludedRelationId);
+  const visited = new Set<string>([sourceId]);
+  const queue = [...(adjacency.get(sourceId) ?? [])];
+
+  while (queue.length) {
+    const currentId = queue.shift()!;
+    if (currentId === targetId) {
+      return true;
+    }
+    if (visited.has(currentId)) {
+      continue;
+    }
+    visited.add(currentId);
+    queue.push(...(adjacency.get(currentId) ?? []));
+  }
+
+  return false;
+}
+
+function pruneRedundantSequentialRelations(
+  relations: FlowRelation[],
+  entityMap: Map<string, Entity>,
+  warnings: string[]
+) {
+  return relations.filter((relation) => {
+    if (relation.type !== 'sequential') {
+      return true;
+    }
+
+    if (relation.roleCandidate || relation.label || relation.evidence) {
+      return true;
+    }
+
+    if (
+      !hasAlternativeSequentialPath(
+        relations,
+        relation.source,
+        relation.target,
+        relation.id
+      )
+    ) {
+      return true;
+    }
+
+    const sourceLabel = entityMap.get(relation.source)?.label ?? relation.source;
+    const targetLabel = entityMap.get(relation.target)?.label ?? relation.target;
+    warnings.push(`顺序关系 "${sourceLabel}" -> "${targetLabel}" 可由主链传递推导，已裁剪冗余连线`);
+    return false;
+  });
+}
+
 function getEntityIdAliases(entities: unknown, warnings: string[]): NormalizedEntities {
   if (!Array.isArray(entities)) {
     throw new ValidationError('entities must be an array');
@@ -651,6 +731,11 @@ export function normalizeExtractionResult(data: unknown): ExtractionResult {
   );
 
   let relations = dedupeFlowRelations(parsedRelations);
+  relations = pruneRedundantSequentialRelations(
+    relations,
+    new Map(entities.map((entity) => [entity.id, entity])),
+    warnings
+  );
   if (!relations.some((relation) => relation.type === 'sequential') && entities.length > 1) {
     warnings.push('未检测到顺序关系，已按实体顺序自动补全主链');
     relations = dedupeFlowRelations([

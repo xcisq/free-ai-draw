@@ -35,6 +35,7 @@ const extraction: ExtractionResult = {
       confidence: 0.5,
     },
   ],
+  spineCandidate: ['e1', 'e2', 'e3', 'e5'],
 };
 
 describe('PaperDraw local QA agent', () => {
@@ -75,5 +76,22 @@ describe('PaperDraw local QA agent', () => {
     expect(analysis.entities).toHaveLength(5);
     expect(analysis.modules).toHaveLength(2);
     expect(analysis.relations.every((relation) => relation.type !== 'modular')).toBe(true);
+    expect(analysis.spineCandidate).toEqual(['e1', 'e2', 'e3', 'e5']);
+  });
+
+  it('preserves spine candidates after filtering low-confidence entities', () => {
+    const questions = generateQuestions(extraction);
+    const analysis = mergeLocalAnswers(
+      extraction,
+      [
+        {
+          questionId: 'q-low-confidence-1',
+          selectedOptions: ['忽略'],
+        },
+      ],
+      questions
+    );
+
+    expect(analysis.spineCandidate).toEqual(['e1', 'e2', 'e3', 'e5']);
   });
 });
