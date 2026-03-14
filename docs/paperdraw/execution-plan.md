@@ -1,6 +1,6 @@
 # PaperDraw 优化执行计划
 
-> 版本：v1.4
+> 版本：v1.5
 > 日期：2026-03-14
 > 状态：执行中
 > 适用范围：`packages/drawnix/src/paperdraw/**` 及其相关文档、测试、评估链路
@@ -132,16 +132,16 @@ QA 当前也没有校正结构，只校正：
 - `P2-3` 第二轮：merge 节点确认、feedback 边确认
 - `P3-1` 第二轮：增强 merge / aggregator 结果在 intent 中的消费强度
 - `P3-2` 第一轮：正式接入 `top-control-main-bottom-aux` 模板类型、matcher 与 skeleton
+- `P3-3` 第一轮：接入 `control-over-main / aux-under-main` 局部骨架
 - `P4-1`：修复 `pipeline-router-v3` 端口槽位分配错误
 
 ### 当前进行中
 
-- `P3-3`：增加 control-over-main / aux-under-main 局部骨架
+- `P3-4`：继续降低 control / aux 模块对纯关键词推断的依赖
 
 ### 下一轮计划
 
-- `P3-3` 第二轮：让控制区和辅助区在模块内部也具备更强的局部骨架语义
-- `P3-4`：继续降低 control / aux 模块对纯关键词推断的依赖
+- `P3-4` 第二轮：让 control / aux 模块更多依赖显式角色与 QA 结果，而不是关键词兜底
 - `P5-2`：为开发态补一个最小调试视图，方便查看 extraction / analysis / intent 差异
 
 ## 5.1 阶段 P0：建立可观测性与真实基线
@@ -375,6 +375,12 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - control-over-main
 - aux-under-main
 
+当前进度：
+
+- 已接入 `control-over-main` 局部模板，用于“参数/控制在上，主节点在下”的模块内排布
+- 已接入 `aux-under-main` 局部模板，用于“主节点在上，辅助解码在下”的模块内排布
+- 下一轮补充：继续增强 3 节点以上混合模块的局部骨架语义
+
 #### P3-4 解耦 profile 与主流向
 
 不能再由 profile 间接决定 `LR / TB` 主方向，主方向应优先由模板和结构语义决定。
@@ -590,3 +596,9 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - 记录 `P3-2` 第一轮完成：`top-control-main-bottom-aux` 已进入正式模板类型、matcher 与 skeleton
 - 将当前进行中阶段切换到 `P3-3`，开始补 control-over-main / aux-under-main 局部骨架
 - 更新下一轮计划：继续增强局部骨架语义，并降低 control / aux 模块对关键词推断的依赖
+
+### v1.5 - 2026-03-14
+
+- 记录 `P3-3` 第一轮完成：`control-over-main / aux-under-main` 已进入 local template 与 skeleton
+- 将当前进行中阶段切换到 `P3-4`，开始降低 control / aux 模块对纯关键词推断的依赖
+- 更新下一轮计划：继续增强显式角色消费，并准备接入开发态调试视图

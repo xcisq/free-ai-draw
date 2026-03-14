@@ -204,6 +204,8 @@ export type PipelineLocalTemplateId =
   | 'vertical-pair'
   | 'small-fan-out'
   | 'small-fan-in'
+  | 'control-over-main'
+  | 'aux-under-main'
   | 'media-with-caption'
   | 'state-before-after';
 

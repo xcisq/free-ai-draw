@@ -25,6 +25,23 @@ interface BlockLayout {
   order: number;
 }
 
+function isMainStructureRole(role: string | undefined) {
+  return role !== 'parameter' && role !== 'decoder' && role !== 'annotation';
+}
+
+function getMixedRoleStackRank(role: string | undefined) {
+  if (role === 'parameter') {
+    return 0;
+  }
+  if (isMainStructureRole(role)) {
+    return 1;
+  }
+  if (role === 'decoder') {
+    return 2;
+  }
+  return 3;
+}
+
 function getConnectionPoint(node: LayoutNode, connection: [number, number]): Point {
   return [
     node.x + node.width * connection[0],
@@ -395,23 +412,47 @@ function placeNodesInsideBlocks(
     const memberNodes = block.members
       .map((id) => baseNodeMap.get(id))
       .filter((node): node is LayoutNode => Boolean(node));
+    const memberRoles = memberNodes.map((node) => intentNodeMap.get(node.id)?.role);
+    const hasControlOverMain =
+      templateMatch.localTemplateIds.includes('control-over-main') &&
+      memberRoles.some((role) => role === 'parameter') &&
+      memberRoles.some((role) => isMainStructureRole(role));
+    const hasAuxUnderMain =
+      templateMatch.localTemplateIds.includes('aux-under-main') &&
+      memberRoles.some((role) => role === 'decoder') &&
+      memberRoles.some((role) => isMainStructureRole(role));
+    const orderedMemberNodes =
+      hasControlOverMain || hasAuxUnderMain
+        ? [...memberNodes].sort((left, right) => {
+            const leftRole = intentNodeMap.get(left.id)?.role;
+            const rightRole = intentNodeMap.get(right.id)?.role;
+            const rankDiff =
+              getMixedRoleStackRank(leftRole) - getMixedRoleStackRank(rightRole);
+            if (rankDiff !== 0) {
+              return rankDiff;
+            }
+            return left.id.localeCompare(right.id);
+          })
+        : memberNodes;
 
     const forceHorizontalPair =
       templateMatch.localTemplateIds.includes('horizontal-pair') &&
-      memberNodes.length === 2 &&
+      orderedMemberNodes.length === 2 &&
       (block.role === 'output_stage' || block.role === 'core_stage');
     const forceVerticalPair =
       templateMatch.localTemplateIds.includes('vertical-pair') &&
-      memberNodes.length === 2 &&
+      orderedMemberNodes.length === 2 &&
       (block.role === 'control_stage' || block.role === 'auxiliary_stage');
+    const forceRoleStack = hasControlOverMain || hasAuxUnderMain;
     const useTwoColumns =
       forceHorizontalPair ||
       (!forceVerticalPair &&
-        (memberNodes.length >= 4 ||
-          memberNodes.some((node) => intentNodeMap.get(node.id)?.primitive === 'media-card')));
+        !forceRoleStack &&
+        (orderedMemberNodes.length >= 4 ||
+          orderedMemberNodes.some((node) => intentNodeMap.get(node.id)?.primitive === 'media-card')));
     const columns = useTwoColumns ? 2 : 1;
 
-    memberNodes.forEach((node, index) => {
+    orderedMemberNodes.forEach((node, index) => {
       const column = columns > 1 ? index % columns : 0;
       const row = columns > 1 ? Math.floor(index / columns) : index;
       const offsetX = block.type === 'module' ? PAPERDRAW_LAYOUT_DEFAULTS.modulePaddingX : 0;

@@ -25,6 +25,10 @@ function countByNodeRole(intent: LayoutIntent, role: string) {
   return intent.nodes.filter((node) => node.role === role).length;
 }
 
+function isMainStructureRole(role: string | undefined) {
+  return role !== 'parameter' && role !== 'decoder' && role !== 'annotation';
+}
+
 export function buildTemplateFitFeatures(intent: LayoutIntent): TemplateFitFeatures {
   const inputModuleCount = intent.modules.filter(
     (moduleItem) => moduleItem.role === 'input_stage'
@@ -134,6 +138,7 @@ function getLocalTemplates(
   rootTemplateId: PipelineTemplateId
 ): PipelineLocalTemplateId[] {
   const localTemplateIds = new Set<PipelineLocalTemplateId>();
+  const nodeRoleMap = new Map(intent.nodes.map((node) => [node.id, node.role]));
 
   if (features.inputContainerCount > 0 || features.inputZoneScore > 0.3) {
     localTemplateIds.add('input-container-stack');
@@ -161,6 +166,32 @@ function getLocalTemplates(
     )
   ) {
     localTemplateIds.add('vertical-pair');
+  }
+  if (
+    intent.modules.some((moduleItem) => {
+      const memberRoles = moduleItem.members
+        .map((memberId) => nodeRoleMap.get(memberId))
+        .filter((role): role is string => Boolean(role));
+      return (
+        memberRoles.some((role) => role === 'parameter') &&
+        memberRoles.some((role) => isMainStructureRole(role))
+      );
+    })
+  ) {
+    localTemplateIds.add('control-over-main');
+  }
+  if (
+    intent.modules.some((moduleItem) => {
+      const memberRoles = moduleItem.members
+        .map((memberId) => nodeRoleMap.get(memberId))
+        .filter((role): role is string => Boolean(role));
+      return (
+        memberRoles.some((role) => role === 'decoder') &&
+        memberRoles.some((role) => isMainStructureRole(role))
+      );
+    })
+  ) {
+    localTemplateIds.add('aux-under-main');
   }
 
   return [...localTemplateIds];

@@ -1,5 +1,6 @@
 import type {
   AnalysisResult,
+  PipelineLocalTemplateId,
   PipelineTemplateId,
   TemplateFitFeatures,
 } from '../types/analyzer';
@@ -29,10 +30,13 @@ const EMPTY_FEATURES: TemplateFitFeatures = {
   outputZoneScore: 0,
 };
 
-function createTemplateMatch(rootTemplateId: PipelineTemplateId) {
+function createTemplateMatch(
+  rootTemplateId: PipelineTemplateId,
+  localTemplateIds: PipelineLocalTemplateId[] = []
+) {
   return {
     rootTemplateId,
-    localTemplateIds: [],
+    localTemplateIds,
     features: EMPTY_FEATURES,
   };
 }
@@ -189,5 +193,47 @@ describe('pipeline-skeleton-generator', () => {
     expect(nodeMap.get('n4')!.y).toBeGreaterThan(nodeMap.get('n2')!.y);
     expect(Math.abs(nodeMap.get('n3')!.x - nodeMap.get('n2')!.x)).toBeLessThanOrEqual(40);
     expect(Math.abs(nodeMap.get('n4')!.x - nodeMap.get('n2')!.x)).toBeLessThanOrEqual(40);
+  });
+
+  it('stacks control over main and auxiliary under main inside mixed-role modules', () => {
+    const analysis: AnalysisResult = {
+      entities: [
+        { id: 'n1', label: 'Input', roleCandidate: 'media' },
+        { id: 'n2', label: 'Main Processor' },
+        { id: 'n3', label: 'Control Token', roleCandidate: 'parameter' },
+        { id: 'n4', label: 'Aux Decoder', roleCandidate: 'decoder' },
+        { id: 'n5', label: 'Output', roleCandidate: 'output' },
+      ],
+      relations: [
+        { id: 'r1', type: 'sequential', source: 'n1', target: 'n2', roleCandidate: 'main' },
+        { id: 'r2', type: 'annotative', source: 'n3', target: 'n2', roleCandidate: 'control' },
+        { id: 'r3', type: 'sequential', source: 'n2', target: 'n4', roleCandidate: 'auxiliary' },
+        { id: 'r4', type: 'sequential', source: 'n2', target: 'n5', roleCandidate: 'main' },
+      ],
+      weights: { n1: 0.9, n2: 0.88, n3: 0.72, n4: 0.66, n5: 0.9 },
+      modules: [
+        { id: 'm1', label: 'Input', entityIds: ['n1'], order: 1, roleCandidate: 'input_stage' },
+        { id: 'm2', label: 'Control Main', entityIds: ['n2', 'n3'], order: 2, roleCandidate: 'core_stage' },
+        { id: 'm3', label: 'Main Aux', entityIds: ['n4', 'n5'], order: 3, roleCandidate: 'core_stage' },
+      ],
+      spineCandidate: ['n1', 'n2', 'n5'],
+    };
+
+    const baseLayout = basicLayout(analysis);
+    const intent = buildLayoutIntent(analysis, baseLayout);
+    const layout = generatePipelineSkeletonLayout(
+      baseLayout,
+      intent,
+      createTemplateMatch('top-control-main-bottom-aux', [
+        'control-over-main',
+        'aux-under-main',
+      ])
+    );
+    const nodeMap = new Map(layout.nodes.map((node) => [node.id, node]));
+
+    expect(nodeMap.get('n3')!.y).toBeLessThan(nodeMap.get('n2')!.y);
+    expect(nodeMap.get('n3')!.x).toBe(nodeMap.get('n2')!.x);
+    expect(nodeMap.get('n5')!.y).toBeLessThan(nodeMap.get('n4')!.y);
+    expect(nodeMap.get('n5')!.x).toBe(nodeMap.get('n4')!.x);
   });
 });

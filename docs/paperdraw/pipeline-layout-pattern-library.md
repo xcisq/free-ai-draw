@@ -267,6 +267,32 @@ Main Spine -> Output
 - 右侧更新状态
 - 中间不直接承载大主链，只作为状态对
 
+### L8 `control-over-main`
+
+结构：
+
+- 上方是控制参数或条件输入
+- 下方是主处理节点
+- 模块内部保持同列对齐
+
+适合：
+
+- `prompt + encoder`
+- `condition + backbone`
+
+### L9 `aux-under-main`
+
+结构：
+
+- 上方是主处理节点
+- 下方是辅助解码或辅助预测
+- 模块内部保持同列对齐
+
+适合：
+
+- `main branch + decoder`
+- `core stage + auxiliary prediction`
+
 ---
 
 ## 5. 模板匹配特征
