@@ -1,6 +1,6 @@
 # PaperDraw 优化执行计划
 
-> 版本：v1.8
+> 版本：v1.9
 > 日期：2026-03-14
 > 状态：执行中
 > 适用范围：`packages/drawnix/src/paperdraw/**` 及其相关文档、测试、评估链路
@@ -137,11 +137,11 @@ QA 当前也没有校正结构，只校正：
 
 ### 当前进行中
 
-- `P5-2` 第二轮：把 trace 数据挂到最小调试视图里，方便直接定位 parser / intent / template 断层
+- `P4-2`：让 corridor 从概念走向真实 lane reservation 与合流 bundling
 
 ### 下一轮计划
 
-- `P4-2`：让 corridor 从概念走向真实 lane reservation 与合流 bundling
+- `P4-3`：增加 bundling 与 merge bus，继续压低箭头杂乱感
 - `P5-3`：把调试视图纳入回归口径，形成固定验收门槛
 
 ## 5.1 阶段 P0：建立可观测性与真实基线
@@ -503,7 +503,9 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - 已在 `paperdraw-dialog` 中接入开发态折叠调试面板
 - 已可查看 `extraction / analysis / intent / template` 摘要
 - 已可查看实体、关系、模块从 extraction 到 analysis 的角色变化
-- 下一轮补充：把 evaluation trace 与路由侧 warning 一并接入面板
+- 已可查看当前 `layout` 阶段信息，包括 `engine / templateId / routingEngine / fallback / metrics`
+- 已可查看路由侧 warning，例如回退链、交叉残留和弯折偏多提示
+- 下一轮补充：把更细粒度的 corridor / bundling 诊断也并入面板
 
 #### P5-3 建立验收门槛
 
@@ -637,3 +639,9 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - 记录 `P5-2` 第一轮完成：开发态最小调试面板已接入弹窗，可查看 `extraction / analysis / intent / template`
 - 记录新增可测试调试数据层：阶段摘要、模板命中和 extraction 到 analysis 的角色变化已可直接验证
 - 将当前进行中阶段切换到 `P5-2` 第二轮，下一步把 trace 数据与路由 warning 挂进调试面板
+
+### v1.9 - 2026-03-14
+
+- 记录 `P5-2` 第二轮完成：调试面板已接入当前 `layout` 阶段摘要，可查看 `engine / templateId / routingEngine / fallback / metrics`
+- 记录新增路由诊断：调试面板开始提示路由回退、边交叉残留与弯折偏多等 warning
+- 将当前进行中阶段切换到 `P4-2`，下一步开始推进 corridor reservation 与合流 bundling

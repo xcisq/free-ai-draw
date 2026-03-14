@@ -1,19 +1,21 @@
 import { useMemo } from 'react';
-import type { AnalysisResult, ExtractionResult } from '../types/analyzer';
+import type { AnalysisResult, ExtractionResult, LayoutResult } from '../types/analyzer';
 import { buildPaperDrawDebugViewModel } from '../debug/build-paperdraw-debug-view-model';
 
 interface PaperDrawDebugPanelProps {
   extraction: ExtractionResult | null;
   analysis: AnalysisResult | null;
+  layout: LayoutResult | null;
 }
 
 export const PaperDrawDebugPanel = ({
   extraction,
   analysis,
+  layout,
 }: PaperDrawDebugPanelProps) => {
   const viewModel = useMemo(
-    () => buildPaperDrawDebugViewModel(extraction, analysis),
-    [analysis, extraction]
+    () => buildPaperDrawDebugViewModel(extraction, analysis, layout),
+    [analysis, extraction, layout]
   );
 
   if (!viewModel) {
@@ -25,7 +27,7 @@ export const PaperDrawDebugPanel = ({
       <summary className="paperdraw-debug-summary">
         <span>开发态调试视图</span>
         <span className="paperdraw-debug-summary-meta">
-          {analysis ? 'extraction / analysis / intent' : 'extraction'}
+          {analysis ? 'extraction / analysis / intent / layout' : 'extraction'}
         </span>
       </summary>
 
@@ -85,6 +87,36 @@ export const PaperDrawDebugPanel = ({
             </div>
           </section>
         ) : null}
+
+        {viewModel.layout ? (
+          <section className="paperdraw-debug-card">
+            <h4>Layout</h4>
+            <p>
+              引擎 {viewModel.layout.engine} / 路由 {viewModel.layout.routingEngine}
+            </p>
+            <p>
+              模板 {viewModel.layout.templateId} / 方向 {viewModel.layout.direction}
+            </p>
+            <p>
+              节点 {viewModel.layout.nodeCount} / 边 {viewModel.layout.edgeCount} / 分组{' '}
+              {viewModel.layout.groupCount}
+            </p>
+            {viewModel.layout.fallbackChain.length ? (
+              <ul className="paperdraw-debug-list">
+                {viewModel.layout.fallbackChain.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            ) : null}
+            <div className="paperdraw-debug-metric-list">
+              {viewModel.layout.metrics.map((metric) => (
+                <span key={metric.label} className="paperdraw-debug-metric">
+                  {metric.label}: {Number.isInteger(metric.value) ? metric.value : metric.value.toFixed(2)}
+                </span>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
 
       {viewModel.template ? (
@@ -105,6 +137,17 @@ export const PaperDrawDebugPanel = ({
               </span>
             ))}
           </div>
+        </section>
+      ) : null}
+
+      {viewModel.layout?.routingWarnings.length ? (
+        <section className="paperdraw-debug-card">
+          <h4>Routing Warnings</h4>
+          <ul className="paperdraw-debug-list">
+            {viewModel.layout.routingWarnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
         </section>
       ) : null}
 

@@ -3,6 +3,8 @@ import type {
   ExtractionResult,
   FlowRelation,
   LayoutIntent,
+  LayoutMetrics,
+  LayoutResult,
   ModuleGroup,
   TemplateFitFeatures,
 } from '../types/analyzer';
@@ -76,15 +78,45 @@ export interface PaperDrawDebugTemplateSummary {
   }>;
 }
 
+export interface PaperDrawDebugLayoutSummary {
+  engine: string;
+  direction: LayoutResult['direction'];
+  nodeCount: number;
+  edgeCount: number;
+  groupCount: number;
+  templateId: string;
+  routingEngine: string;
+  fallbackChain: string[];
+  routingWarnings: string[];
+  metrics: Array<{
+    label: string;
+    value: number;
+  }>;
+}
+
 export interface PaperDrawDebugViewModel {
   extraction: PaperDrawDebugStageSummary | null;
   analysis: PaperDrawDebugStageSummary | null;
   intent: PaperDrawDebugIntentSummary | null;
   template: PaperDrawDebugTemplateSummary | null;
+  layout: PaperDrawDebugLayoutSummary | null;
   entityRoleChanges: PaperDrawDebugRoleChange[];
   relationRoleChanges: PaperDrawDebugRoleChange[];
   moduleRoleChanges: PaperDrawDebugRoleChange[];
 }
+
+const LAYOUT_METRIC_LABELS: Array<{
+  key: keyof Pick<
+    LayoutMetrics,
+    'edgeCrossings' | 'bendCount' | 'routeLength' | 'totalScore'
+  >;
+  label: string;
+}> = [
+  { key: 'edgeCrossings', label: '边交叉' },
+  { key: 'bendCount', label: '弯折数' },
+  { key: 'routeLength', label: '总路径长' },
+  { key: 'totalScore', label: '总评分' },
+];
 
 function summarizeRoleCounts(roles: Array<string | undefined>) {
   const counts = new Map<string, number>();
@@ -235,9 +267,56 @@ function summarizeTemplate(features: TemplateFitFeatures, rootTemplateId: string
   };
 }
 
+function summarizeLayout(layout: LayoutResult | null): PaperDrawDebugLayoutSummary | null {
+  if (!layout) {
+    return null;
+  }
+
+  const fallbackChain: string[] = [];
+  const routingWarnings: string[] = [];
+
+  if (layout.fallbackFrom) {
+    fallbackChain.push(`布局回退: ${layout.fallbackFrom} -> ${layout.engine ?? 'unknown'}`);
+  }
+  if (layout.routeFallbackFrom && layout.routingEngine) {
+    fallbackChain.push(`路由回退: ${layout.routeFallbackFrom} -> ${layout.routingEngine}`);
+  }
+
+  if (layout.routeFallbackFrom) {
+    routingWarnings.push('当前路由已发生回退，建议优先检查 corridor 与端口分配');
+  }
+  if ((layout.metrics?.edgeCrossings ?? 0) > 0) {
+    routingWarnings.push(`当前仍有 ${layout.metrics?.edgeCrossings} 处边交叉`);
+  }
+  if ((layout.metrics?.bendCount ?? 0) > layout.edges.length) {
+    routingWarnings.push('当前线条弯折偏多，仍可能显得杂乱');
+  }
+
+  return {
+    engine: layout.engine ?? 'basic_draft',
+    direction: layout.direction,
+    nodeCount: layout.nodes.length,
+    edgeCount: layout.edges.length,
+    groupCount: layout.groups.length,
+    templateId: layout.templateId ?? '未落版',
+    routingEngine:
+      layout.routingEngine ??
+      (layout.engine === 'legacy_v2' ? 'orthogonal_v1' : 'draft'),
+    fallbackChain,
+    routingWarnings,
+    metrics: layout.metrics
+      ? LAYOUT_METRIC_LABELS.map(({ key, label }) => ({
+          label,
+          value: layout.metrics?.[key] ?? 0,
+        }))
+      : [],
+  };
+}
+
 export function buildPaperDrawDebugViewModel(
   extraction: ExtractionResult | null,
-  analysis: AnalysisResult | null
+  analysis: AnalysisResult | null,
+  layout?: LayoutResult | null
 ): PaperDrawDebugViewModel | null {
   if (!extraction && !analysis) {
     return null;
@@ -253,14 +332,15 @@ export function buildPaperDrawDebugViewModel(
       analysis: null,
       intent: null,
       template: null,
+      layout: null,
       entityRoleChanges: [],
       relationRoleChanges: [],
       moduleRoleChanges: [],
     };
   }
 
-  const layout = basicLayout(analysis);
-  const intent = buildLayoutIntent(analysis, layout);
+  const activeLayout = layout ?? basicLayout(analysis);
+  const intent = buildLayoutIntent(analysis, activeLayout);
   const templateMatch = matchPipelineTemplates(intent);
 
   return {
@@ -272,6 +352,7 @@ export function buildPaperDrawDebugViewModel(
       templateMatch.rootTemplateId,
       templateMatch.localTemplateIds
     ),
+    layout: summarizeLayout(activeLayout),
     entityRoleChanges: extraction
       ? buildRoleChangesById(
           extraction.entities,

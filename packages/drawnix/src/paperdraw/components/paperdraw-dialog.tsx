@@ -18,6 +18,7 @@ import {
   type ElkLayoutOptions,
   type ExtractionResult,
   type LayoutEngine,
+  type LayoutResult,
   type OptimizeMode,
   type PaperDrawPhase,
   type PaperDrawSelectionState,
@@ -70,6 +71,7 @@ const PaperDrawDialog = () => {
   const [extraction, setExtraction] = useState<ExtractionResult | null>(null);
   const [questions, setQuestions] = useState<CRSQuestion[]>([]);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [draftLayout, setDraftLayout] = useState<LayoutResult | null>(null);
   const [draftElements, setDraftElements] = useState<PlaitElement[]>([]);
   const [selectionState, setSelectionState] = useState<PaperDrawSelectionState>({
     elementIds: [],
@@ -85,6 +87,7 @@ const PaperDrawDialog = () => {
   const buildDraft = useCallback((analysis: AnalysisResult) => {
     const draft = buildFlowchartState(analysis);
     setAnalysisResult(analysis);
+    setDraftLayout(draft.layout);
     setDraftElements(draft.elements);
     setPhase('draft_flowchart');
   }, []);
@@ -105,6 +108,7 @@ const PaperDrawDialog = () => {
     setExtraction(null);
     setQuestions([]);
     setAnalysisResult(null);
+    setDraftLayout(null);
     setDraftElements([]);
     setSelectionState({
       elementIds: [],
@@ -241,6 +245,7 @@ const PaperDrawDialog = () => {
           draftElements,
           options
         );
+        setDraftLayout(optimizedDraft.layout);
         setDraftElements(optimizedDraft.elements);
         setError(
           optimizedDraft.layout.fallbackFrom === 'pipeline_v1'
@@ -255,6 +260,7 @@ const PaperDrawDialog = () => {
             analysisResult,
             draftElements
           );
+          setDraftLayout(fallbackDraft.layout);
           setDraftElements(fallbackDraft.elements);
           setPhase('draft_flowchart');
         } catch (fallbackError: any) {
@@ -451,6 +457,7 @@ const PaperDrawDialog = () => {
             <PaperDrawDebugPanel
               extraction={extraction}
               analysis={analysisResult}
+              layout={draftLayout}
             />
           )}
         </div>

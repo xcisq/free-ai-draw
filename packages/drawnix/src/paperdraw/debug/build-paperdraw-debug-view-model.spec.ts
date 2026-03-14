@@ -60,8 +60,59 @@ describe('buildPaperDrawDebugViewModel', () => {
       spineCandidate: ['n1', 'n2', 'n5'],
       warnings: ['本地 QA 已确认主干候选'],
     };
+    const layout = {
+      nodes: [
+        {
+          id: 'n1',
+          label: 'Input Image',
+          x: 0,
+          y: 0,
+          width: 120,
+          height: 64,
+          weight: 0.9,
+          confidence: 0.95,
+        },
+      ],
+      edges: [
+        {
+          id: 'r1',
+          type: 'sequential' as const,
+          sourceId: 'n1',
+          targetId: 'n2',
+          shape: 'elbow' as const,
+          sourceConnection: [1, 0.5] as [number, number],
+          targetConnection: [0, 0.5] as [number, number],
+          points: [
+            [0, 0],
+            [10, 10],
+          ] as [[number, number], [number, number]],
+        },
+      ],
+      groups: [],
+      direction: 'LR' as const,
+      engine: 'pipeline_v1' as const,
+      templateId: 'top-control-main-bottom-aux' as const,
+      routingEngine: 'orthogonal_v1' as const,
+      routeFallbackFrom: 'pipeline_v3' as const,
+      metrics: {
+        blankSpaceScore: 0,
+        vifScore: 0,
+        aspectRatioPenalty: 0,
+        alignmentPenalty: 0,
+        groupingPenalty: 0,
+        estimatedCrossings: 1,
+        nodeCrossings: 0,
+        moduleCrossings: 0,
+        edgeCrossings: 1,
+        bends: 2,
+        bendCount: 2,
+        routeLength: 180,
+        hardConstraintViolations: 0,
+        totalScore: 0.42,
+      },
+    };
 
-    const viewModel = buildPaperDrawDebugViewModel(extraction, analysis);
+    const viewModel = buildPaperDrawDebugViewModel(extraction, analysis, layout);
 
     expect(viewModel).not.toBeNull();
     expect(viewModel?.extraction?.entityCount).toBe(5);
@@ -75,6 +126,22 @@ describe('buildPaperDrawDebugViewModel', () => {
       expect.arrayContaining([
         expect.objectContaining({ key: 'topControlCount' }),
         expect.objectContaining({ key: 'bottomAuxCount' }),
+      ])
+    );
+    expect(viewModel?.layout).toEqual(
+      expect.objectContaining({
+        engine: 'pipeline_v1',
+        templateId: 'top-control-main-bottom-aux',
+        routingEngine: 'orthogonal_v1',
+      })
+    );
+    expect(viewModel?.layout?.fallbackChain).toEqual(
+      expect.arrayContaining(['路由回退: pipeline_v3 -> orthogonal_v1'])
+    );
+    expect(viewModel?.layout?.routingWarnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('当前路由已发生回退'),
+        expect.stringContaining('当前仍有 1 处边交叉'),
       ])
     );
     expect(viewModel?.relationRoleChanges).toEqual(
@@ -115,5 +182,6 @@ describe('buildPaperDrawDebugViewModel', () => {
     expect(viewModel?.analysis).toBeNull();
     expect(viewModel?.intent).toBeNull();
     expect(viewModel?.template).toBeNull();
+    expect(viewModel?.layout).toBeNull();
   });
 });
