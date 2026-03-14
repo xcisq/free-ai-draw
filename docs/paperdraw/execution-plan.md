@@ -1,6 +1,6 @@
 # PaperDraw 优化执行计划
 
-> 版本：v1.7
+> 版本：v1.8
 > 日期：2026-03-14
 > 状态：执行中
 > 适用范围：`packages/drawnix/src/paperdraw/**` 及其相关文档、测试、评估链路
@@ -137,12 +137,12 @@ QA 当前也没有校正结构，只校正：
 
 ### 当前进行中
 
-- `P5-2`：为开发态补一个最小调试视图，方便查看 extraction / analysis / intent 差异
+- `P5-2` 第二轮：把 trace 数据挂到最小调试视图里，方便直接定位 parser / intent / template 断层
 
 ### 下一轮计划
 
 - `P4-2`：让 corridor 从概念走向真实 lane reservation 与合流 bundling
-- `P5-2` 第二轮：把 trace 数据挂到最小调试视图里，方便直接定位 parser / intent / template 断层
+- `P5-3`：把调试视图纳入回归口径，形成固定验收门槛
 
 ## 5.1 阶段 P0：建立可观测性与真实基线
 
@@ -498,6 +498,13 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - template id
 - routing warnings
 
+当前进度：
+
+- 已在 `paperdraw-dialog` 中接入开发态折叠调试面板
+- 已可查看 `extraction / analysis / intent / template` 摘要
+- 已可查看实体、关系、模块从 extraction 到 analysis 的角色变化
+- 下一轮补充：把 evaluation trace 与路由侧 warning 一并接入面板
+
 #### P5-3 建立验收门槛
 
 每次较大改动至少满足：
@@ -624,3 +631,9 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - 记录 `P3-4` 第二轮完成：模块角色 QA 开始支持纠正已有的错误 `control_stage / auxiliary_stage` 候选
 - 记录本地 QA 合并增强：当用户确认新的 control / aux 模块后，旧的同角色错误模块会被清空，避免继续污染 intent
 - 将当前进行中阶段切换到 `P5-2`，下一步开始补最小开发态调试视图
+
+### v1.8 - 2026-03-14
+
+- 记录 `P5-2` 第一轮完成：开发态最小调试面板已接入弹窗，可查看 `extraction / analysis / intent / template`
+- 记录新增可测试调试数据层：阶段摘要、模板命中和 extraction 到 analysis 的角色变化已可直接验证
+- 将当前进行中阶段切换到 `P5-2` 第二轮，下一步把 trace 数据与路由 warning 挂进调试面板

@@ -1,5 +1,6 @@
 import type {
   LayoutIntent,
+  NodeRole,
   PipelineLocalTemplateId,
   PipelineTemplateId,
   TemplateFitFeatures,
@@ -177,7 +178,7 @@ function getLocalTemplates(
     intent.modules.some((moduleItem) => {
       const memberRoles = moduleItem.members
         .map((memberId) => nodeRoleMap.get(memberId))
-        .filter((role): role is string => Boolean(role));
+        .filter((role): role is NodeRole => Boolean(role));
       return (
         memberRoles.some((role) => role === 'parameter') &&
         memberRoles.some((role) => isMainStructureRole(role))
@@ -190,7 +191,7 @@ function getLocalTemplates(
     intent.modules.some((moduleItem) => {
       const memberRoles = moduleItem.members
         .map((memberId) => nodeRoleMap.get(memberId))
-        .filter((role): role is string => Boolean(role));
+        .filter((role): role is NodeRole => Boolean(role));
       return (
         memberRoles.some((role) => role === 'decoder') &&
         memberRoles.some((role) => isMainStructureRole(role))

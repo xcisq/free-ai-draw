@@ -94,6 +94,13 @@ function normalizeEdgeRoleCandidate(value: unknown): EdgeRole | undefined {
     : undefined;
 }
 
+function normalizeSequentialEdgeRoleCandidate(
+  value: unknown
+): SequentialRelation['roleCandidate'] {
+  const normalizedRole = normalizeEdgeRoleCandidate(value);
+  return normalizedRole === 'annotation' ? undefined : normalizedRole;
+}
+
 function normalizeModuleRoleCandidate(value: unknown): ModuleRole | undefined {
   return typeof value === 'string' && VALID_MODULE_ROLES.has(value as ModuleRole)
     ? (value as ModuleRole)
@@ -431,7 +438,6 @@ function normalizeRawFlowRelations(
       evidence:
         typeof relation.evidence === 'string' ? relation.evidence.trim() || undefined : undefined,
       confidence: clampConfidence(relation.confidence),
-      roleCandidate: normalizeEdgeRoleCandidate(relation.roleCandidate),
     };
 
     if (relation.type === 'sequential') {
@@ -440,6 +446,7 @@ function normalizeRawFlowRelations(
         type: 'sequential',
         source,
         target,
+        roleCandidate: normalizeSequentialEdgeRoleCandidate(relation.roleCandidate),
       });
       continue;
     }
@@ -450,6 +457,7 @@ function normalizeRawFlowRelations(
         type: 'annotative',
         source,
         target,
+        roleCandidate: normalizeEdgeRoleCandidate(relation.roleCandidate),
       } as AnnotativeRelation);
       continue;
     }

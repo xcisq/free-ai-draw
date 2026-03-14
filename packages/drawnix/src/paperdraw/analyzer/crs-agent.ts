@@ -587,7 +587,7 @@ function applyMergeNodeAnswers(
 
   return {
     mergeEntityIds,
-    entities: entities.map((entity) =>
+    entities: entities.map((entity): Entity =>
       mergeEntityIds.has(entity.id)
         ? {
             ...entity,
@@ -690,7 +690,7 @@ function applyFeedbackEdgeAnswers(
 
   return {
     feedbackRelationIds,
-    relations: relations.map((relation) =>
+    relations: relations.map((relation): FlowRelation =>
       relation.type === 'sequential' && feedbackRelationIds.has(relation.id)
         ? {
             ...relation,

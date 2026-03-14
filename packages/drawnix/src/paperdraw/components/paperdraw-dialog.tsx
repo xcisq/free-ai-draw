@@ -40,6 +40,7 @@ import { PAPERDRAW_LAYOUT_DEFAULTS } from '../config/defaults';
 import { isValidSelectionForOptimize } from '../layout/layout-snapshot';
 import { CRSQAPanel } from './crs-qa-panel';
 import { PaperDrawBoardPreview } from './paperdraw-board-preview';
+import { PaperDrawDebugPanel } from './paperdraw-debug-panel';
 import './paperdraw-dialog.scss';
 
 const PaperDrawDialog = () => {
@@ -54,6 +55,12 @@ const PaperDrawDialog = () => {
       ),
     []
   );
+  const isDebugEnabled = useMemo(() => {
+    const metaEnv = (import.meta as unknown as {
+      env?: Record<string, string | boolean | undefined>;
+    }).env;
+    return metaEnv?.DEV === true || metaEnv?.VITE_PAPERDRAW_DEBUG === 'true';
+  }, []);
 
   const [phase, setPhase] = useState<PaperDrawPhase>('input');
   const [text, setText] = useState('');
@@ -438,6 +445,13 @@ const PaperDrawDialog = () => {
                 </>
               ) : null}
             </div>
+          )}
+
+          {isDebugEnabled && (extraction || analysisResult) && (
+            <PaperDrawDebugPanel
+              extraction={extraction}
+              analysis={analysisResult}
+            />
           )}
         </div>
 

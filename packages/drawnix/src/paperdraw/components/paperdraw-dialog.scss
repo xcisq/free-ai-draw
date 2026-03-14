@@ -187,6 +187,7 @@
 
 .paperdraw-stream-section,
 .paperdraw-analysis-preview,
+.paperdraw-debug-panel,
 .paperdraw-draft-placeholder {
   background: var(--island-bg-color, #f7f7f7);
   border: 1px solid var(--default-border-color, #e0e0e0);
@@ -229,6 +230,100 @@
 
 .paperdraw-analysis-preview li {
   margin-bottom: 2px;
+}
+
+.paperdraw-debug-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.paperdraw-debug-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary-color, #333);
+}
+
+.paperdraw-debug-summary-meta {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b778c;
+}
+
+.paperdraw-debug-panel[open] .paperdraw-debug-summary {
+  border-bottom: 1px solid var(--default-border-color, #e0e0e0);
+}
+
+.paperdraw-debug-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+.paperdraw-debug-card {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(79, 125, 249, 0.12);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.paperdraw-debug-card h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #33405c;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.paperdraw-debug-card p {
+  margin: 0 0 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #4a5568;
+}
+
+.paperdraw-debug-chip-list,
+.paperdraw-debug-metric-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.paperdraw-debug-chip,
+.paperdraw-debug-metric {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #eef3ff;
+  color: #3656a6;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.paperdraw-debug-metric {
+  background: #f2f4f8;
+  color: #4a5568;
+}
+
+.paperdraw-debug-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #4a5568;
+}
+
+.paperdraw-debug-empty {
+  color: #7a869a;
 }
 
 .paperdraw-board-preview {
