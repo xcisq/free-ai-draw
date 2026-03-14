@@ -79,14 +79,23 @@ export interface AnalysisResult {
 
 export interface CRSQuestion {
   id: string;
-  type: 'module_grouping' | 'low_confidence' | 'importance_ranking';
+  type:
+    | 'module_grouping'
+    | 'low_confidence'
+    | 'importance_ranking'
+    | 'spine_selection'
+    | 'relation_pruning'
+    | 'module_role_assignment';
   question: string;
   options: string[];
   multiSelect: boolean;
   relatedEntityIds?: string[];
+  relatedRelationIds?: string[];
+  relatedModuleIds?: string[];
   moduleId?: string;
   moduleLabel?: string;
   entityId?: string;
+  targetRoleCandidate?: ModuleRole;
 }
 
 export interface CRSAnswer {
