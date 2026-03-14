@@ -116,4 +116,76 @@ describe('pipeline-layout-intent', () => {
     expect(intent.zoneScores.outputZoneScore).toBeGreaterThan(0.2);
     expect(edgeMap.get('r8')?.role).toBe('feedback');
   });
+
+  it('prefers explicit semantic candidates over keyword-only inference', () => {
+    const semanticAnalysis: AnalysisResult = {
+      entities: [
+        {
+          id: 's1',
+          label: 'Latent Vector',
+          roleCandidate: 'parameter',
+        },
+        {
+          id: 's2',
+          label: 'Feature Mixer',
+          roleCandidate: 'aggregator',
+        },
+        {
+          id: 's3',
+          label: 'Next Output',
+          roleCandidate: 'output',
+        },
+      ],
+      relations: [
+        {
+          id: 'sr1',
+          type: 'sequential',
+          source: 's1',
+          target: 's2',
+          roleCandidate: 'control',
+        },
+        {
+          id: 'sr2',
+          type: 'sequential',
+          source: 's2',
+          target: 's3',
+          roleCandidate: 'main',
+        },
+      ],
+      weights: {
+        s1: 0.7,
+        s2: 0.88,
+        s3: 0.9,
+      },
+      modules: [
+        {
+          id: 'sm1',
+          label: 'Guidance',
+          entityIds: ['s1', 's2'],
+          order: 1,
+          roleCandidate: 'control_stage',
+        },
+        {
+          id: 'sm2',
+          label: 'Result',
+          entityIds: ['s3', 's2'],
+          order: 2,
+          roleCandidate: 'output_stage',
+        },
+      ],
+      spineCandidate: ['s2', 's3'],
+    };
+
+    const layout = basicLayout(semanticAnalysis);
+    const intent = buildLayoutIntent(semanticAnalysis, layout);
+    const nodeMap = new Map(intent.nodes.map((node) => [node.id, node]));
+    const edgeMap = new Map(intent.edges.map((edge) => [edge.id, edge]));
+    const moduleMap = new Map(intent.modules.map((moduleItem) => [moduleItem.id, moduleItem]));
+
+    expect(nodeMap.get('s1')?.role).toBe('parameter');
+    expect(nodeMap.get('s2')?.role).toBe('aggregator');
+    expect(moduleMap.get('sm1')?.role).toBe('control_stage');
+    expect(edgeMap.get('sr1')?.role).toBe('control');
+    expect(intent.dominantSpine).toEqual(['s2', 's3']);
+  });
 });

@@ -1,11 +1,14 @@
 import {
   AnalysisResult,
   AnnotativeRelation,
+  EdgeRole,
   Entity,
   ExtractionResult,
   FlowRelation,
   ModularRelation,
   ModuleGroup,
+  ModuleRole,
+  NodeRole,
   SequentialRelation,
 } from '../types/analyzer';
 
@@ -36,6 +39,32 @@ const MODULE_LABEL_STOPWORDS = new Set([
   '步骤',
   '论文',
 ]);
+const VALID_NODE_ROLES = new Set<NodeRole>([
+  'input',
+  'process',
+  'state',
+  'parameter',
+  'decoder',
+  'aggregator',
+  'simulator',
+  'output',
+  'annotation',
+  'media',
+]);
+const VALID_EDGE_ROLES = new Set<EdgeRole>([
+  'main',
+  'auxiliary',
+  'control',
+  'feedback',
+  'annotation',
+]);
+const VALID_MODULE_ROLES = new Set<ModuleRole>([
+  'input_stage',
+  'core_stage',
+  'auxiliary_stage',
+  'control_stage',
+  'output_stage',
+]);
 
 interface NormalizedEntities {
   aliases: Map<string, string>;
@@ -51,6 +80,24 @@ function clampConfidence(value: unknown): number {
     return DEFAULT_CONFIDENCE;
   }
   return Math.max(0, Math.min(1, value));
+}
+
+function normalizeNodeRoleCandidate(value: unknown): NodeRole | undefined {
+  return typeof value === 'string' && VALID_NODE_ROLES.has(value as NodeRole)
+    ? (value as NodeRole)
+    : undefined;
+}
+
+function normalizeEdgeRoleCandidate(value: unknown): EdgeRole | undefined {
+  return typeof value === 'string' && VALID_EDGE_ROLES.has(value as EdgeRole)
+    ? (value as EdgeRole)
+    : undefined;
+}
+
+function normalizeModuleRoleCandidate(value: unknown): ModuleRole | undefined {
+  return typeof value === 'string' && VALID_MODULE_ROLES.has(value as ModuleRole)
+    ? (value as ModuleRole)
+    : undefined;
 }
 
 function assertObject(value: unknown, name: string): asserts value is Record<string, unknown> {
@@ -107,6 +154,7 @@ function getEntityIdAliases(entities: unknown, warnings: string[]): NormalizedEn
           ? entity.evidence.trim()
           : undefined,
       confidence: clampConfidence(entity.confidence),
+      roleCandidate: normalizeNodeRoleCandidate(entity.roleCandidate),
     };
 
     const existed = uniqueByLabel.get(key);
@@ -219,7 +267,7 @@ function normalizeRawFlowRelations(
   }
 
   const flowRelations: FlowRelation[] = [];
-  const legacyModules: ModularRelation[] = [];
+      const legacyModules: ModularRelation[] = [];
   let relationIndex = 1;
 
   for (const relation of relations) {
@@ -275,6 +323,7 @@ function normalizeRawFlowRelations(
       evidence:
         typeof relation.evidence === 'string' ? relation.evidence.trim() || undefined : undefined,
       confidence: clampConfidence(relation.confidence),
+      roleCandidate: normalizeEdgeRoleCandidate(relation.roleCandidate),
     };
 
     if (relation.type === 'sequential') {
@@ -358,6 +407,7 @@ function normalizeModulesInput(
       confidence: clampConfidence(moduleItem.confidence),
       evidence:
         typeof moduleItem.evidence === 'string' ? moduleItem.evidence.trim() || undefined : undefined,
+      roleCandidate: normalizeModuleRoleCandidate(moduleItem.roleCandidate),
     });
   }
 
@@ -384,6 +434,7 @@ function mergeModules(explicitModules: ModuleGroup[], legacyModules: ModularRela
         entityIds: [...legacyModule.entityIds],
         confidence: legacyModule.confidence,
         evidence: legacyModule.evidence,
+        roleCandidate: undefined,
       });
       continue;
     }
@@ -526,6 +577,7 @@ function rebuildModules(
       order: rebuiltModules.length + 1,
       confidence: DEFAULT_CONFIDENCE,
       evidence: members.map((entity) => entity.label).join(' -> '),
+      roleCandidate: undefined,
     });
   }
 
@@ -557,6 +609,21 @@ function finalizeModules(
     id: `m${index + 1}`,
     order: moduleItem.order ?? index + 1,
   }));
+}
+
+function normalizeSpineCandidate(
+  spineCandidate: unknown,
+  entityIds: Set<string>
+) {
+  if (!Array.isArray(spineCandidate)) {
+    return undefined;
+  }
+
+  const normalized = spineCandidate
+    .map((entityId) => (typeof entityId === 'string' ? entityId.trim() : ''))
+    .filter((entityId): entityId is string => Boolean(entityId && entityIds.has(entityId)));
+  const deduped = Array.from(new Set(normalized));
+  return deduped.length >= 2 ? deduped : undefined;
 }
 
 function normalizeWeights(entities: Entity[], weightsInput: Record<string, unknown>) {
@@ -599,11 +666,13 @@ export function normalizeExtractionResult(data: unknown): ExtractionResult {
     mergeModules(explicitModules, legacyModules),
     warnings
   );
+  const spineCandidate = normalizeSpineCandidate(data.spineCandidate, entityIds);
 
   return {
     entities,
     relations,
     modules,
+    spineCandidate,
     warnings,
   };
 }
@@ -631,6 +700,10 @@ export function validateAnalysisResult(data: unknown): AnalysisResult {
     relations: extraction.relations,
     weights: normalizeWeights(extraction.entities, weightsInput),
     modules: extraction.modules,
+    spineCandidate: normalizeSpineCandidate(
+      data.spineCandidate ?? extraction.spineCandidate,
+      new Set(extraction.entities.map((entity) => entity.id))
+    ),
     warnings: extraction.warnings,
   };
 }

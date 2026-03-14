@@ -240,6 +240,18 @@ function inferInitialNodeRole(label: string, indegree: number, outdegree: number
   return 'process';
 }
 
+function resolveNodeRoleCandidate(
+  explicitRole: NodeRole | undefined,
+  label: string,
+  indegree: number,
+  outdegree: number
+) {
+  if (explicitRole) {
+    return explicitRole;
+  }
+  return inferInitialNodeRole(label, indegree, outdegree);
+}
+
 function inferModuleRole(
   label: string,
   memberRoles: NodeRole[],
@@ -473,6 +485,10 @@ function computeDominantSpine(
   orderMap: Map<string, number>,
   moduleOrderMap: Map<string, number>
 ) {
+  if (analysis.spineCandidate && analysis.spineCandidate.length >= 2) {
+    return [...analysis.spineCandidate];
+  }
+
   const { incoming } = buildSequentialGraph(analysis, feedbackEdgeIds);
   const nodeWeight = new Map(
     analysis.entities.map((entity) => {
@@ -767,7 +783,8 @@ export function buildLayoutIntent(
   analysis.entities.forEach((entity) => {
     initialRoleMap.set(
       entity.id,
-      inferInitialNodeRole(
+      resolveNodeRoleCandidate(
+        entity.roleCandidate,
         entity.label,
         baseGraph.indegree.get(entity.id) ?? 0,
         baseGraph.outdegree.get(entity.id) ?? 0
@@ -777,14 +794,16 @@ export function buildLayoutIntent(
 
   let modules: LayoutIntentModule[] = analysis.modules.map((moduleItem, index) => ({
     id: moduleItem.id,
-    role: inferModuleRole(
-      moduleItem.label,
-      moduleItem.entityIds
-        .map((entityId) => initialRoleMap.get(entityId))
-        .filter((role): role is NodeRole => Boolean(role)),
-      index,
-      analysis.modules.length
-    ),
+    role:
+      moduleItem.roleCandidate ??
+      inferModuleRole(
+        moduleItem.label,
+        moduleItem.entityIds
+          .map((entityId) => initialRoleMap.get(entityId))
+          .filter((role): role is NodeRole => Boolean(role)),
+        index,
+        analysis.modules.length
+      ),
     preferredRail: undefined,
     members: [...moduleItem.entityIds],
   }));
@@ -818,7 +837,9 @@ export function buildLayoutIntent(
     const memberRoles = moduleItem.entityIds
       .map((entityId) => nodeRoleMap.get(entityId))
       .filter((role): role is NodeRole => Boolean(role));
-    const role = inferModuleRole(moduleItem.label, memberRoles, index, analysis.modules.length);
+    const role =
+      moduleItem.roleCandidate ??
+      inferModuleRole(moduleItem.label, memberRoles, index, analysis.modules.length);
     return {
       id: moduleItem.id,
       role,
@@ -878,9 +899,13 @@ export function buildLayoutIntent(
 
   const spineIndexMap = new Map(dominantSpine.map((nodeId, index) => [nodeId, index]));
   const edges: LayoutIntentEdge[] = analysis.relations.map((relation) => {
-    let role: EdgeRole = relation.type === 'annotative' ? 'annotation' : 'main';
+    let role: EdgeRole =
+      relation.roleCandidate ??
+      (relation.type === 'annotative' ? 'annotation' : 'main');
 
-    if (relation.type === 'annotative') {
+    if (relation.roleCandidate) {
+      role = relation.roleCandidate;
+    } else if (relation.type === 'annotative') {
       role = nodeRoleMap.get(relation.source) === 'parameter' ? 'control' : 'annotation';
     } else if (feedbackEdgeIds.has(relation.id)) {
       role = 'feedback';

@@ -9,6 +9,7 @@ export interface Entity {
   label: string;
   evidence?: string;
   confidence?: number;
+  roleCandidate?: NodeRole;
 }
 
 export interface SequentialRelation {
@@ -19,6 +20,7 @@ export interface SequentialRelation {
   label?: string;
   evidence?: string;
   confidence?: number;
+  roleCandidate?: Exclude<EdgeRole, 'annotation'>;
 }
 
 /**
@@ -41,6 +43,7 @@ export interface AnnotativeRelation {
   label?: string;
   evidence?: string;
   confidence?: number;
+  roleCandidate?: EdgeRole;
 }
 
 export interface ModuleGroup {
@@ -50,6 +53,7 @@ export interface ModuleGroup {
   order?: number;
   confidence?: number;
   evidence?: string;
+  roleCandidate?: ModuleRole;
 }
 
 export type PromptRelationType = 'sequential' | 'modular' | 'annotative';
@@ -60,6 +64,7 @@ export interface ExtractionResult {
   entities: Entity[];
   relations: FlowRelation[];
   modules: ModuleGroup[];
+  spineCandidate?: string[];
   warnings?: string[];
 }
 
@@ -68,6 +73,7 @@ export interface AnalysisResult {
   relations: FlowRelation[];
   weights: Record<string, number>;
   modules: ModuleGroup[];
+  spineCandidate?: string[];
   warnings?: string[];
 }
 

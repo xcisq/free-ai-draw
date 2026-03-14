@@ -81,4 +81,51 @@ describe('PaperDraw validator', () => {
     expect(analysis.modules).toHaveLength(1);
     expect(analysis.modules[0].label).toBe('数据准备');
   });
+
+  it('preserves explicit semantic candidates when they are valid', () => {
+    const analysis = validateAnalysisResult({
+      entities: [
+        { id: 'e1', label: '输入图像', roleCandidate: 'media' },
+        { id: 'e2', label: '控制参数', roleCandidate: 'parameter' },
+        { id: 'e3', label: '输出结果', roleCandidate: 'output' },
+      ],
+      relations: [
+        {
+          id: 'r1',
+          type: 'sequential',
+          source: 'e1',
+          target: 'e3',
+          roleCandidate: 'main',
+        },
+        {
+          id: 'r2',
+          type: 'annotative',
+          source: 'e2',
+          target: 'e3',
+          roleCandidate: 'control',
+        },
+      ],
+      weights: {},
+      modules: [
+        {
+          id: 'm1',
+          label: '输入区',
+          entityIds: ['e1', 'e2'],
+          roleCandidate: 'input_stage',
+        },
+        {
+          id: 'm2',
+          label: '输出区',
+          entityIds: ['e3', 'e2'],
+          roleCandidate: 'output_stage',
+        },
+      ],
+      spineCandidate: ['e1', 'e3'],
+    });
+
+    expect(analysis.entities[0].roleCandidate).toBe('media');
+    expect(analysis.relations[0].roleCandidate).toBe('main');
+    expect(analysis.modules[0].roleCandidate).toBe('input_stage');
+    expect(analysis.spineCandidate).toEqual(['e1', 'e3']);
+  });
 });
