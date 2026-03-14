@@ -151,4 +151,36 @@ describe('pipeline-template-matcher', () => {
     expect(match.rootTemplateId).toBe('split-merge');
     expect(match.features.mergeClusterCount).toBeGreaterThan(0);
   });
+
+  it('matches top-control-main-bottom-aux when control and auxiliary rails are both explicit', () => {
+    const analysis: AnalysisResult = {
+      entities: [
+        { id: 'n1', label: 'Input Image', roleCandidate: 'media' },
+        { id: 'n2', label: 'Main Encoder' },
+        { id: 'n3', label: 'Control Prompt', roleCandidate: 'parameter' },
+        { id: 'n4', label: 'Aux Decoder', roleCandidate: 'decoder' },
+        { id: 'n5', label: 'Output State', roleCandidate: 'output' },
+      ],
+      relations: [
+        { id: 'r1', type: 'sequential', source: 'n1', target: 'n2', roleCandidate: 'main' },
+        { id: 'r2', type: 'annotative', source: 'n3', target: 'n2', roleCandidate: 'control' },
+        { id: 'r3', type: 'sequential', source: 'n2', target: 'n4', roleCandidate: 'auxiliary' },
+        { id: 'r4', type: 'sequential', source: 'n2', target: 'n5', roleCandidate: 'main' },
+      ],
+      weights: { n1: 0.9, n2: 0.88, n3: 0.74, n4: 0.66, n5: 0.9 },
+      modules: [
+        { id: 'm1', label: 'Input', entityIds: ['n1'], order: 1, roleCandidate: 'input_stage' },
+        { id: 'm2', label: 'Core', entityIds: ['n2', 'n5'], order: 2, roleCandidate: 'core_stage' },
+        { id: 'm3', label: 'Control', entityIds: ['n3'], order: 3, roleCandidate: 'control_stage' },
+        { id: 'm4', label: 'Auxiliary', entityIds: ['n4'], order: 4, roleCandidate: 'auxiliary_stage' },
+      ],
+      spineCandidate: ['n1', 'n2', 'n5'],
+    };
+
+    const match = matchTemplate(analysis);
+
+    expect(match.rootTemplateId).toBe('top-control-main-bottom-aux');
+    expect(match.features.topControlCount).toBeGreaterThan(0);
+    expect(match.features.bottomAuxCount).toBeGreaterThan(0);
+  });
 });

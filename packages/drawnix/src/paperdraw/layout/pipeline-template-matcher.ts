@@ -13,6 +13,7 @@ export interface PipelineTemplateMatch {
 
 const ROOT_TEMPLATE_PRIORITY: PipelineTemplateId[] = [
   'input-core-output',
+  'top-control-main-bottom-aux',
   'spine-lower-branch',
   'split-merge',
   'paired-state-simulator',
@@ -80,6 +81,16 @@ function scoreTemplate(
         Math.min(features.mergeClusterCount / 2, 0.12) +
         Math.min(features.spineLength / 8, 0.12) +
         (features.bottomAuxCount > 0 ? 0.08 : 0)
+      );
+    case 'top-control-main-bottom-aux':
+      return (
+        (features.topControlCount > 0 ? 0.18 : 0) +
+        (features.bottomAuxCount > 0 ? 0.18 : 0) +
+        (features.controlZoneScore > 0.18 && features.auxZoneScore > 0.18 ? 0.2 : 0) +
+        features.controlZoneScore * 0.16 +
+        features.auxZoneScore * 0.16 +
+        Math.min(features.branchAttachmentCount / 3, 0.06) +
+        Math.min(features.spineLength / 8, 0.06)
       );
     case 'split-merge':
       return (
@@ -172,7 +183,9 @@ export function matchPipelineTemplates(
 
   if (rootScore < 0.58) {
     rootTemplateId =
-      features.inputZoneScore >= 0.25 && features.outputZoneScore >= 0.2
+      features.controlZoneScore >= 0.18 && features.auxZoneScore >= 0.18
+        ? 'top-control-main-bottom-aux'
+        : features.inputZoneScore >= 0.25 && features.outputZoneScore >= 0.2
         ? 'input-core-output'
         : features.branchAttachmentCount > 0
           ? 'spine-lower-branch'

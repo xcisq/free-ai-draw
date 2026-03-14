@@ -192,6 +192,7 @@ export type VisualPrimitive =
 export type PipelineTemplateId =
   | 'linear-spine'
   | 'input-core-output'
+  | 'top-control-main-bottom-aux'
   | 'spine-lower-branch'
   | 'split-merge'
   | 'paired-state-simulator'

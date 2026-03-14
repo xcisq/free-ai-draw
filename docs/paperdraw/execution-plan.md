@@ -1,6 +1,6 @@
 # PaperDraw 优化执行计划
 
-> 版本：v1.3
+> 版本：v1.4
 > 日期：2026-03-14
 > 状态：执行中
 > 适用范围：`packages/drawnix/src/paperdraw/**` 及其相关文档、测试、评估链路
@@ -131,16 +131,17 @@ QA 当前也没有校正结构，只校正：
 - `P2-3` 第一轮：主干确认、可省略连线确认、模块角色确认
 - `P2-3` 第二轮：merge 节点确认、feedback 边确认
 - `P3-1` 第二轮：增强 merge / aggregator 结果在 intent 中的消费强度
+- `P3-2` 第一轮：正式接入 `top-control-main-bottom-aux` 模板类型、matcher 与 skeleton
 - `P4-1`：修复 `pipeline-router-v3` 端口槽位分配错误
 
 ### 当前进行中
 
-- `P3-2`：开始补正式模板 `top-control-main-bottom-aux`
+- `P3-3`：增加 control-over-main / aux-under-main 局部骨架
 
 ### 下一轮计划
 
-- `P3-2` 第二轮：补模板 matcher 与 skeleton 对 `top-control-main-bottom-aux` 的正式支持
-- `P3-3`：增加 control-over-main / aux-under-main 局部骨架
+- `P3-3` 第二轮：让控制区和辅助区在模块内部也具备更强的局部骨架语义
+- `P3-4`：继续降低 control / aux 模块对纯关键词推断的依赖
 - `P5-2`：为开发态补一个最小调试视图，方便查看 extraction / analysis / intent 差异
 
 ## 5.1 阶段 P0：建立可观测性与真实基线
@@ -355,6 +356,13 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - `outer-feedback-loop`
 
 其中 `top-control-main-bottom-aux` 必须进入正式代码，而不是只停留在文档里。
+
+当前进度：
+
+- 已将 `top-control-main-bottom-aux` 纳入正式 `PipelineTemplateId`
+- 已补 matcher 打分与回退逻辑
+- 已补 skeleton 对 top control rail / bottom auxiliary rail 的显式上下分离布局
+- 下一轮补充：局部骨架层面的 control-over-main / aux-under-main
 
 #### P3-3 增强局部骨架
 
@@ -576,3 +584,9 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - 记录 `P3-1` 第二轮完成：显式 `aggregator` 结果开始参与 merge cluster 构建
 - 将当前进行中阶段切换到 `P3-2`，开始补正式模板 `top-control-main-bottom-aux`
 - 更新下一轮计划：先补模板 matcher 和 skeleton，再补 control-over-main / aux-under-main 局部骨架
+
+### v1.4 - 2026-03-14
+
+- 记录 `P3-2` 第一轮完成：`top-control-main-bottom-aux` 已进入正式模板类型、matcher 与 skeleton
+- 将当前进行中阶段切换到 `P3-3`，开始补 control-over-main / aux-under-main 局部骨架
+- 更新下一轮计划：继续增强局部骨架语义，并降低 control / aux 模块对关键词推断的依赖

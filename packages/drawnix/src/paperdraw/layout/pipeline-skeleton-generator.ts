@@ -230,16 +230,37 @@ function positionSpecialRails(
   intent: LayoutIntent,
   templateId: PipelineTemplateId
 ) {
+  const isTopControlMainBottomAux = templateId === 'top-control-main-bottom-aux';
   const blockMap = new Map(blocks.map((block) => [block.id, block]));
   const { nodeToBlock } = buildBlockMaps(blocks);
   const spineBlockIds = getSpineBlockIds(intent, nodeToBlock);
+  const splitMergeBranchBlockIds =
+    templateId === 'split-merge'
+      ? new Set(getBranchBlockIds(intent, nodeToBlock))
+      : new Set<string>();
+  const splitMergeMergeBlockIds =
+    templateId === 'split-merge'
+      ? new Set(getMergeBlockIds(intent, nodeToBlock))
+      : new Set<string>();
   positionMainSpine(blocks, spineBlockIds, templateId, nodeToBlock, intent);
 
   const spineBlockSet = new Set(spineBlockIds);
   const mainBlocks = spineBlockIds.map((blockId) => blockMap.get(blockId)).filter(Boolean) as BlockLayout[];
+  const coreAnchorBlocks = mainBlocks.filter(
+    (block) => block.role === 'core_stage' || block.role === 'standalone'
+  );
+  const nonTerminalMainBlocks = mainBlocks.filter(
+    (block) => block.role !== 'input_stage' && block.role !== 'output_stage'
+  );
+  const railAnchorBlocks =
+    isTopControlMainBottomAux && coreAnchorBlocks.length
+      ? coreAnchorBlocks
+      : isTopControlMainBottomAux && nonTerminalMainBlocks.length
+        ? nonTerminalMainBlocks
+        : mainBlocks;
   const leftZoneX = 40;
-  const topY = 70;
-  const bottomY = 520;
+  const topY = isTopControlMainBottomAux ? 40 : 70;
+  const bottomY = isTopControlMainBottomAux ? 560 : 520;
   const mainY = 250;
   const rightBaseX =
     Math.max(...mainBlocks.map((block) => block.x + block.width), 780) +
@@ -254,7 +275,11 @@ function positionSpecialRails(
     (block) => block.preferredRail === 'top_control_rail' && !spineBlockSet.has(block.id)
   );
   const auxBlocks = blocks.filter(
-    (block) => block.preferredRail === 'bottom_aux_rail' && !spineBlockSet.has(block.id)
+    (block) =>
+      block.preferredRail === 'bottom_aux_rail' &&
+      !spineBlockSet.has(block.id) &&
+      !splitMergeBranchBlockIds.has(block.id) &&
+      !splitMergeMergeBlockIds.has(block.id)
   );
   const outputBlocks = blocks.filter(
     (block) =>
@@ -267,7 +292,9 @@ function positionSpecialRails(
       !inputBlocks.includes(block) &&
       !controlBlocks.includes(block) &&
       !auxBlocks.includes(block) &&
-      !outputBlocks.includes(block)
+      !outputBlocks.includes(block) &&
+      !splitMergeBranchBlockIds.has(block.id) &&
+      !splitMergeMergeBlockIds.has(block.id)
   );
 
   placeStack(inputBlocks, leftZoneX, templateId === 'paired-state-simulator' ? 170 : 170, 28);
@@ -277,18 +304,22 @@ function positionSpecialRails(
     const attachment = intent.branchAttachments.find(
       (item) => nodeToBlock.get(item.branchRootId) === block.id
     );
-    const anchorBlock = attachment ? blockMap.get(nodeToBlock.get(attachment.attachToId) ?? '') : mainBlocks[Math.min(index, Math.max(mainBlocks.length - 1, 0))];
-    block.x = anchorBlock ? anchorBlock.x : rightBaseX * 0.5;
-    block.y = topY + index * (block.height + 18);
+    const anchorBlock = attachment
+      ? blockMap.get(nodeToBlock.get(attachment.attachToId) ?? '')
+      : railAnchorBlocks[Math.min(index, Math.max(railAnchorBlocks.length - 1, 0))];
+    block.x = anchorBlock ? anchorBlock.x : rightBaseX * 0.45;
+    block.y = topY + index * (block.height + (isTopControlMainBottomAux ? 24 : 18));
   });
 
   auxBlocks.forEach((block, index) => {
     const attachment = intent.branchAttachments.find(
       (item) => nodeToBlock.get(item.branchRootId) === block.id
     );
-    const anchorBlock = attachment ? blockMap.get(nodeToBlock.get(attachment.attachToId) ?? '') : mainBlocks[Math.min(index + 1, Math.max(mainBlocks.length - 1, 0))];
-    block.x = anchorBlock ? anchorBlock.x + 20 : 520;
-    block.y = bottomY + index * (block.height + 28);
+    const anchorBlock = attachment
+      ? blockMap.get(nodeToBlock.get(attachment.attachToId) ?? '')
+      : railAnchorBlocks[Math.min(index, Math.max(railAnchorBlocks.length - 1, 0))];
+    block.x = anchorBlock ? anchorBlock.x : 520;
+    block.y = bottomY + index * (block.height + (isTopControlMainBottomAux ? 32 : 28));
   });
 
   freeBlocks.forEach((block, index) => {

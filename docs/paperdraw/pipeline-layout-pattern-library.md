@@ -179,6 +179,10 @@ Bottom Auxiliary Rail
 - 参数控制型方法图
 - 条件输入 + 主流程 + 辅助预测
 
+实现状态：
+
+- 已作为正式 root template 接入 matcher 与 skeleton
+
 ---
 
 ### G7 `outer-feedback-loop`
