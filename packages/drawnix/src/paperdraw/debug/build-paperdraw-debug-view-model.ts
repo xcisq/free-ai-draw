@@ -21,17 +21,26 @@ const TEMPLATE_FEATURE_LABELS: Record<keyof TemplateFitFeatures, string> = {
   spineSegmentCount: '主干段数',
   branchCount: '分支节点数',
   branchAttachmentCount: '分支挂接数',
+  branchGroupCount: '分支组数',
+  branchLaneCount: '分支通道数',
   mergeCount: '汇聚节点数',
   mergeClusterCount: '汇聚簇数',
+  mergeGroupCount: '汇聚组数',
+  mergeBundleCount: '汇聚 bundle 数',
   feedbackCount: '反馈边数',
+  feedbackLoopCount: '反馈环数',
   inputContainerCount: '输入容器数',
   inputModuleCount: '输入模块数',
+  inputLaneCount: '输入通道数',
   stateNodeCount: '状态节点数',
   statePairCount: '状态对数',
   simulatorNodeCount: '仿真节点数',
   topControlCount: '控制区节点数',
+  controlLaneCount: '控制通道数',
   bottomAuxCount: '辅助区节点数',
+  auxiliaryLaneCount: '辅助通道数',
   outputNodeCount: '输出节点数',
+  outputLaneCount: '输出通道数',
   inputZoneScore: '输入区得分',
   controlZoneScore: '控制区得分',
   auxZoneScore: '辅助区得分',
@@ -366,7 +375,7 @@ export function buildPaperDrawDebugViewModel(
   const activeLayout = layout ?? basicLayout(analysis);
   const intent = buildLayoutIntent(analysis, activeLayout);
   const blueprint = buildPipelineBlueprint(analysis, intent);
-  const templateMatch = matchPipelineTemplates(intent);
+  const templateMatch = matchPipelineTemplates(intent, blueprint);
 
   return {
     extraction: extractionSummary,

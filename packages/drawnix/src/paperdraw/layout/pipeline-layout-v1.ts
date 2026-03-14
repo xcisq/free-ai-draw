@@ -7,6 +7,7 @@ import { buildLayoutConstraintModel } from './constraint-model';
 import { refineLayoutWithElk } from './elk-layout';
 import { withLayoutMetrics } from './layout-metrics';
 import { buildLayoutIntent } from './pipeline-layout-intent';
+import { buildPipelineBlueprint } from './pipeline-blueprint';
 import { routeLayoutOrthogonally } from './orthogonal-router';
 import { routePipelineLayoutV3 } from './pipeline-router-v3';
 import { generatePipelineSkeletonLayout } from './pipeline-skeleton-generator';
@@ -22,7 +23,8 @@ export async function computePipelineLayoutV1(
     throw new Error('PIPELINE_INTENT_NO_SPINE');
   }
 
-  const templateMatch = matchPipelineTemplates(intent);
+  const blueprint = buildPipelineBlueprint(analysis, intent);
+  const templateMatch = matchPipelineTemplates(intent, blueprint);
   const skeletonLayout = generatePipelineSkeletonLayout(
     layout,
     intent,

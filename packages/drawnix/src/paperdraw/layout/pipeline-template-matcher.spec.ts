@@ -1,12 +1,14 @@
 import type { AnalysisResult } from '../types/analyzer';
 import { basicLayout } from './basic-layout';
 import { buildLayoutIntent } from './pipeline-layout-intent';
+import { buildPipelineBlueprint } from './pipeline-blueprint';
 import { matchPipelineTemplates } from './pipeline-template-matcher';
 
 function matchTemplate(analysis: AnalysisResult) {
   const layout = basicLayout(analysis);
   const intent = buildLayoutIntent(analysis, layout);
-  return matchPipelineTemplates(intent);
+  const blueprint = buildPipelineBlueprint(analysis, intent);
+  return matchPipelineTemplates(intent, blueprint);
 }
 
 describe('pipeline-template-matcher', () => {
@@ -150,6 +152,8 @@ describe('pipeline-template-matcher', () => {
 
     expect(match.rootTemplateId).toBe('split-merge');
     expect(match.features.mergeClusterCount).toBeGreaterThan(0);
+    expect(match.features.mergeGroupCount).toBeGreaterThan(0);
+    expect(match.features.mergeBundleCount).toBeGreaterThan(0);
   });
 
   it('matches top-control-main-bottom-aux when control and auxiliary rails are both explicit', () => {
@@ -182,6 +186,8 @@ describe('pipeline-template-matcher', () => {
     expect(match.rootTemplateId).toBe('top-control-main-bottom-aux');
     expect(match.features.topControlCount).toBeGreaterThan(0);
     expect(match.features.bottomAuxCount).toBeGreaterThan(0);
+    expect(match.features.controlLaneCount).toBeGreaterThan(0);
+    expect(match.features.auxiliaryLaneCount).toBeGreaterThan(0);
   });
 
   it('adds control-over-main and aux-under-main local templates for mixed-role modules', () => {
