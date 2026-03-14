@@ -108,9 +108,27 @@ describe('pipeline-layout-evaluation', () => {
         (result) =>
           Boolean(result.optimizedLayout.templateId) &&
           Boolean(result.optimizedLayout.routingEngine) &&
-          result.metrics.routeLength > 0
+          result.metrics.routeLength > 0 &&
+          result.trace.summary.draftSpineLength > 0 &&
+          result.trace.summary.optimizedSpineLength > 0 &&
+          Array.isArray(result.trace.optimized.intent.layoutHints)
       )
     ).toBe(true);
+  });
+
+  it('exports draft and optimized trace snapshots for every fixture', async () => {
+    const result = await evaluatePipelineLayoutFixture(
+      PIPELINE_LAYOUT_FIXTURES[0]
+    );
+
+    expect(result.trace.summary.expectedTemplateId).toBe(
+      PIPELINE_LAYOUT_FIXTURES[0].expectation.expectedTemplateId
+    );
+    expect(result.trace.draft.layout.nodes.length).toBeGreaterThan(0);
+    expect(result.trace.optimized.layout.nodes.length).toBeGreaterThan(0);
+    expect(result.trace.draft.intent.dominantSpine.length).toBeGreaterThan(0);
+    expect(result.trace.optimized.intent.dominantSpine.length).toBeGreaterThan(0);
+    expect(result.trace.summary.optimizedRoutingEngine).toBeDefined();
   });
 
   it('meets the aggregate baseline thresholds across the full fixture set', async () => {

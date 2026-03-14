@@ -67,6 +67,33 @@ export interface PipelineLayoutStructureChecks {
   hasSeparatedNonSpine: boolean;
 }
 
+export interface PipelineLayoutTraceStage {
+  layout: LayoutResult;
+  intent: LayoutIntent;
+}
+
+export interface PipelineLayoutTraceSummary {
+  expectedTemplateId: PipelineTemplateId;
+  optimizedTemplateId?: PipelineTemplateId;
+  draftRoutingEngine?: LayoutResult['routingEngine'];
+  optimizedRoutingEngine?: LayoutResult['routingEngine'];
+  draftSpineLength: number;
+  optimizedSpineLength: number;
+  draftBranchCount: number;
+  optimizedBranchCount: number;
+  draftMergeCount: number;
+  optimizedMergeCount: number;
+  draftFeedbackCount: number;
+  optimizedFeedbackCount: number;
+  templateMatched: boolean;
+}
+
+export interface PipelineLayoutTrace {
+  draft: PipelineLayoutTraceStage;
+  optimized: PipelineLayoutTraceStage;
+  summary: PipelineLayoutTraceSummary;
+}
+
 export interface PipelineLayoutEvaluationResult {
   fixtureId: string;
   category: PipelineLayoutFixtureCategory;
@@ -74,4 +101,5 @@ export interface PipelineLayoutEvaluationResult {
   intent: LayoutIntent;
   metrics: LayoutMetrics;
   structure: PipelineLayoutStructureChecks;
+  trace: PipelineLayoutTrace;
 }

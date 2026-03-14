@@ -7,6 +7,7 @@ import type {
   PipelineLayoutEvaluationResult,
   PipelineLayoutFixture,
   PipelineLayoutStructureChecks,
+  PipelineLayoutTrace,
 } from './types';
 
 function createDraftElementsFromLayout(layout: ReturnType<typeof basicLayout>): PlaitElement[] {
@@ -176,10 +177,46 @@ function computeStructureChecks(
   };
 }
 
+function buildTrace(
+  fixture: PipelineLayoutFixture,
+  draftLayout: ReturnType<typeof basicLayout>,
+  draftIntent: LayoutIntent,
+  optimizedLayout: PipelineLayoutEvaluationResult['optimizedLayout'],
+  optimizedIntent: LayoutIntent
+): PipelineLayoutTrace {
+  return {
+    draft: {
+      layout: draftLayout,
+      intent: draftIntent,
+    },
+    optimized: {
+      layout: optimizedLayout,
+      intent: optimizedIntent,
+    },
+    summary: {
+      expectedTemplateId: fixture.expectation.expectedTemplateId,
+      optimizedTemplateId: optimizedLayout.templateId,
+      draftRoutingEngine: draftLayout.routingEngine,
+      optimizedRoutingEngine: optimizedLayout.routingEngine,
+      draftSpineLength: draftIntent.dominantSpine.length,
+      optimizedSpineLength: optimizedIntent.dominantSpine.length,
+      draftBranchCount: draftIntent.branchRoots.length,
+      optimizedBranchCount: optimizedIntent.branchRoots.length,
+      draftMergeCount: draftIntent.mergeNodes.length,
+      optimizedMergeCount: optimizedIntent.mergeNodes.length,
+      draftFeedbackCount: draftIntent.feedbackEdges.length,
+      optimizedFeedbackCount: optimizedIntent.feedbackEdges.length,
+      templateMatched:
+        optimizedLayout.templateId === fixture.expectation.expectedTemplateId,
+    },
+  };
+}
+
 export async function evaluatePipelineLayoutFixture(
   fixture: PipelineLayoutFixture
 ): Promise<PipelineLayoutEvaluationResult> {
   const draftLayout = basicLayout(fixture.analysis);
+  const draftIntent = buildLayoutIntent(fixture.analysis, draftLayout);
   const draftElements = createDraftElementsFromLayout(draftLayout);
   const optimizedLayout = await computeOptimizedLayoutV2(
     fixture.analysis,
@@ -194,6 +231,13 @@ export async function evaluatePipelineLayoutFixture(
   );
   const intent = buildLayoutIntent(fixture.analysis, optimizedLayout);
   const metrics = optimizedLayout.metrics!;
+  const trace = buildTrace(
+    fixture,
+    draftLayout,
+    draftIntent,
+    optimizedLayout,
+    intent
+  );
 
   return {
     fixtureId: fixture.id,
@@ -202,5 +246,6 @@ export async function evaluatePipelineLayoutFixture(
     intent,
     metrics,
     structure: computeStructureChecks(fixture, intent, optimizedLayout),
+    trace,
   };
 }
