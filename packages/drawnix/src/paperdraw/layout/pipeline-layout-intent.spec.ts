@@ -377,4 +377,43 @@ describe('pipeline-layout-intent', () => {
     expect(nodeMap.get('e3')?.role).toBe('decoder');
     expect(nodeMap.get('e4')?.role).toBe('simulator');
   });
+
+  it('does not let explicit auxiliary edges stretch the dominant spine into a long chain', () => {
+    const explicitAuxAnalysis: AnalysisResult = {
+      entities: [
+        { id: 'x1', label: 'Input' },
+        { id: 'x2', label: 'Core Parser' },
+        { id: 'x3', label: 'Main Output' },
+        { id: 'x4', label: 'Aux Layout Draft' },
+        { id: 'x5', label: 'Aux Router' },
+      ],
+      relations: [
+        { id: 'xr1', type: 'sequential', source: 'x1', target: 'x2', roleCandidate: 'main' },
+        { id: 'xr2', type: 'sequential', source: 'x2', target: 'x3', roleCandidate: 'main' },
+        { id: 'xr3', type: 'sequential', source: 'x2', target: 'x4', roleCandidate: 'auxiliary' },
+        { id: 'xr4', type: 'sequential', source: 'x4', target: 'x5', roleCandidate: 'auxiliary' },
+      ],
+      weights: {
+        x1: 0.82,
+        x2: 0.9,
+        x3: 0.84,
+        x4: 0.97,
+        x5: 0.96,
+      },
+      modules: [
+        { id: 'xm1', label: 'Input', entityIds: ['x1'], order: 1 },
+        { id: 'xm2', label: 'Core', entityIds: ['x2'], order: 2 },
+        { id: 'xm3', label: 'Output', entityIds: ['x3'], order: 3 },
+        { id: 'xm4', label: 'Aux Branch', entityIds: ['x4', 'x5'], order: 4 },
+      ],
+    };
+
+    const layout = basicLayout(explicitAuxAnalysis);
+    const intent = buildLayoutIntent(explicitAuxAnalysis, layout);
+    const edgeMap = new Map(intent.edges.map((edge) => [edge.id, edge]));
+
+    expect(intent.dominantSpine).toEqual(['x1', 'x2', 'x3']);
+    expect(intent.branchRoots).toContain('x4');
+    expect(edgeMap.get('xr3')?.role).toBe('auxiliary');
+  });
 });

@@ -192,28 +192,61 @@ function buildSequentialGraph(
   analysis: AnalysisResult,
   excludedEdgeIds: Set<string> = new Set()
 ): SequentialGraph {
+  return buildGraphFromRelations(
+    analysis.entities,
+    analysis.relations.filter(
+      (relation): relation is Extract<AnalysisResult['relations'][number], { type: 'sequential' }> =>
+        relation.type === 'sequential' && !excludedEdgeIds.has(relation.id)
+    )
+  );
+}
+
+function buildGraphFromRelations(
+  entities: AnalysisResult['entities'],
+  relations: Array<AnalysisResult['relations'][number] & { type: 'sequential' }>
+) {
   const indegree = new Map<string, number>();
   const outdegree = new Map<string, number>();
   const incoming = new Map<string, string[]>();
   const outgoing = new Map<string, string[]>();
 
-  analysis.entities.forEach((entity) => {
+  entities.forEach((entity) => {
     indegree.set(entity.id, 0);
     outdegree.set(entity.id, 0);
     incoming.set(entity.id, []);
     outgoing.set(entity.id, []);
   });
 
-  analysis.relations
-    .filter((relation) => relation.type === 'sequential' && !excludedEdgeIds.has(relation.id))
-    .forEach((relation) => {
-      indegree.set(relation.target, (indegree.get(relation.target) ?? 0) + 1);
-      outdegree.set(relation.source, (outdegree.get(relation.source) ?? 0) + 1);
-      incoming.set(relation.target, [...(incoming.get(relation.target) ?? []), relation.source]);
-      outgoing.set(relation.source, [...(outgoing.get(relation.source) ?? []), relation.target]);
-    });
+  relations.forEach((relation) => {
+    indegree.set(relation.target, (indegree.get(relation.target) ?? 0) + 1);
+    outdegree.set(relation.source, (outdegree.get(relation.source) ?? 0) + 1);
+    incoming.set(relation.target, [...(incoming.get(relation.target) ?? []), relation.source]);
+    outgoing.set(relation.source, [...(outgoing.get(relation.source) ?? []), relation.target]);
+  });
 
   return { indegree, outdegree, incoming, outgoing };
+}
+
+function buildSpineGraph(
+  analysis: AnalysisResult,
+  excludedEdgeIds: Set<string> = new Set()
+): SequentialGraph {
+  const sequentialRelations = analysis.relations.filter(
+    (relation): relation is Extract<AnalysisResult['relations'][number], { type: 'sequential' }> =>
+      relation.type === 'sequential' && !excludedEdgeIds.has(relation.id)
+  );
+  const hasExplicitMainRelation = sequentialRelations.some(
+    (relation) => relation.roleCandidate === 'main'
+  );
+
+  const spineRelations = hasExplicitMainRelation
+    ? sequentialRelations.filter(
+        (relation) =>
+          relation.roleCandidate === undefined || relation.roleCandidate === 'main'
+      )
+    : sequentialRelations;
+
+  return buildGraphFromRelations(analysis.entities, spineRelations);
 }
 
 function buildNodeOrderMap(layout: LayoutResult) {
@@ -516,7 +549,7 @@ function computeDominantSpine(
     return [...analysis.spineCandidate];
   }
 
-  const { incoming } = buildSequentialGraph(analysis, feedbackEdgeIds);
+  const { incoming } = buildSpineGraph(analysis, feedbackEdgeIds);
   const nodeWeight = new Map(
     analysis.entities.map((entity) => {
       const moduleId = nodeToModule.get(entity.id);

@@ -24,6 +24,7 @@ const MAX_RELATION_PRUNING_OPTIONS = 6;
 const MAX_MODULE_ROLE_OPTIONS = 4;
 const MAX_MERGE_NODE_OPTIONS = 4;
 const MAX_FEEDBACK_EDGE_OPTIONS = 4;
+const MIN_LINEAR_GUARD_MODULES = 4;
 
 const CONTROL_MODULE_PATTERNS = [
   /control/i,
@@ -137,6 +138,73 @@ const buildEntityOrderMap = (extraction: ExtractionResult) => {
   return new Map(orderedIds.map((entityId, index) => [entityId, index]));
 };
 
+const getOrderedEntityIds = (
+  extraction: ExtractionResult,
+  entities: Entity[] = extraction.entities
+) => {
+  const entityOrderMap = buildEntityOrderMap(extraction);
+  return [...entities]
+    .sort(
+      (left, right) =>
+        (entityOrderMap.get(left.id) ?? Number.MAX_SAFE_INTEGER) -
+        (entityOrderMap.get(right.id) ?? Number.MAX_SAFE_INTEGER)
+    )
+    .map((entity) => entity.id);
+};
+
+const getOrderedModules = (extraction: ExtractionResult) => {
+  return [...extraction.modules].sort(
+    (left, right) => (left.order ?? Number.MAX_SAFE_INTEGER) - (right.order ?? Number.MAX_SAFE_INTEGER)
+  );
+};
+
+const isLikelyFlattenedLinearFlow = (extraction: ExtractionResult) => {
+  if (
+    extraction.entities.length < MIN_LINEAR_GUARD_MODULES + 1 ||
+    extraction.modules.length < MIN_LINEAR_GUARD_MODULES
+  ) {
+    return false;
+  }
+
+  const sequentialRelations = extraction.relations.filter(
+    (relation): relation is FlowRelation & { type: 'sequential' } =>
+      relation.type === 'sequential'
+  );
+  if (sequentialRelations.length < extraction.entities.length - 1) {
+    return false;
+  }
+
+  const { indegree, outdegree } = getSequentialStats(extraction.relations);
+  const hasBranchOrMerge = extraction.entities.some(
+    (entity) => (indegree.get(entity.id) ?? 0) > 1 || (outdegree.get(entity.id) ?? 0) > 1
+  );
+  if (hasBranchOrMerge) {
+    return false;
+  }
+
+  const hasEntityStructureSignal = extraction.entities.some((entity) =>
+    entity.roleCandidate === 'parameter' ||
+    entity.roleCandidate === 'decoder' ||
+    entity.roleCandidate === 'aggregator' ||
+    entity.roleCandidate === 'simulator' ||
+    entity.roleCandidate === 'state'
+  );
+  const hasRelationStructureSignal = extraction.relations.some(
+    (relation) =>
+      relation.type === 'annotative' ||
+      relation.roleCandidate === 'auxiliary' ||
+      relation.roleCandidate === 'control' ||
+      relation.roleCandidate === 'feedback'
+  );
+  const hasModuleStructureSignal = extraction.modules.some(
+    (moduleItem) =>
+      moduleItem.roleCandidate === 'control_stage' ||
+      moduleItem.roleCandidate === 'auxiliary_stage'
+  );
+
+  return !hasEntityStructureSignal && !hasRelationStructureSignal && !hasModuleStructureSignal;
+};
+
 const getSelectedIds = (
   answer: CRSAnswer | undefined,
   options: string[],
@@ -199,6 +267,45 @@ const getSpineEdgeIds = (extraction: ExtractionResult) => {
     }
   }
   return edgeIds;
+};
+
+const getMainModuleSelection = (
+  extraction: ExtractionResult,
+  answers: CRSAnswer[],
+  questions: CRSQuestion[]
+) => {
+  const question = questions.find((item) => item.type === 'main_module_selection');
+  if (!question?.relatedModuleIds?.length) {
+    return {
+      selectedMiddleModuleIds: [] as string[],
+      selectedMainModuleIds: new Set<string>(),
+    };
+  }
+
+  const answer = answers.find((item) => item.questionId === question.id);
+  const selectedMiddleModuleIds = getSelectedIds(
+    answer,
+    question.options,
+    question.relatedModuleIds
+  );
+  if (!selectedMiddleModuleIds.length) {
+    return {
+      selectedMiddleModuleIds,
+      selectedMainModuleIds: new Set<string>(),
+    };
+  }
+
+  const orderedModules = getOrderedModules(extraction);
+  const firstModuleId = orderedModules[0]?.id;
+  const lastModuleId = orderedModules[orderedModules.length - 1]?.id;
+  return {
+    selectedMiddleModuleIds,
+    selectedMainModuleIds: new Set(
+      [firstModuleId, ...selectedMiddleModuleIds, lastModuleId].filter(
+        (moduleId): moduleId is string => Boolean(moduleId)
+      )
+    ),
+  };
 };
 
 const getFeedbackRelationCandidates = (extraction: ExtractionResult) => {
@@ -302,14 +409,36 @@ const getImportanceQuestion = (extraction: ExtractionResult): CRSQuestion[] => {
 };
 
 const getSpineQuestion = (extraction: ExtractionResult): CRSQuestion[] => {
-  if (!extraction.spineCandidate || extraction.spineCandidate.length < 3) {
+  const mainModuleCandidates = getOrderedModules(extraction).slice(1, -1);
+  if (
+    isLikelyFlattenedLinearFlow(extraction) &&
+    mainModuleCandidates.length >= 2
+  ) {
+    return [
+      {
+        id: 'q-main-modules-1',
+        type: 'main_module_selection',
+        question:
+          '当前结果更像一条顺序流程。以下中间模块中，哪些应继续留在主干上？未选模块会优先作为辅助区处理。',
+        options: ensureUniqueOptions(mainModuleCandidates.map((moduleItem) => moduleItem.label)),
+        multiSelect: true,
+        relatedModuleIds: mainModuleCandidates.map((moduleItem) => moduleItem.id),
+      },
+    ];
+  }
+
+  const candidateEntityIds =
+    extraction.spineCandidate && extraction.spineCandidate.length >= 3
+      ? extraction.spineCandidate.filter((entityId) =>
+          extraction.entities.some((entity) => entity.id === entityId)
+        )
+      : [];
+
+  if (candidateEntityIds.length < 3) {
     return [];
   }
 
-  const entityIds = extraction.spineCandidate.filter((entityId) =>
-    extraction.entities.some((entity) => entity.id === entityId)
-  );
-  const options = entityIds
+  const options = candidateEntityIds
     .map((entityId) => getEntityById(extraction.entities, entityId)?.label)
     .filter((label): label is string => Boolean(label));
 
@@ -324,7 +453,7 @@ const getSpineQuestion = (extraction: ExtractionResult): CRSQuestion[] => {
       question: '以下实体中，哪些应保留在主干流程中？',
       options,
       multiSelect: true,
-      relatedEntityIds: entityIds,
+      relatedEntityIds: candidateEntityIds,
     },
   ];
 };
@@ -545,6 +674,92 @@ export function generateQuestions(extraction: ExtractionResult, _config?: LLMCon
   ];
 }
 
+function applyMainModuleSelectionAnswers(
+  extraction: ExtractionResult,
+  entities: Entity[],
+  relations: FlowRelation[],
+  answers: CRSAnswer[],
+  questions: CRSQuestion[]
+) {
+  const { selectedMiddleModuleIds, selectedMainModuleIds } = getMainModuleSelection(
+    extraction,
+    answers,
+    questions
+  );
+  if (!selectedMiddleModuleIds.length || !selectedMainModuleIds.size) {
+    return {
+      selectedMiddleModuleIds,
+      selectedMainModuleIds,
+      inferredSpineCandidate: undefined as string[] | undefined,
+      relations,
+    };
+  }
+
+  const allowedEntityIds = new Set(entities.map((entity) => entity.id));
+  const entityToModule = new Map<string, string>();
+  extraction.modules.forEach((moduleItem) => {
+    moduleItem.entityIds.forEach((entityId) => entityToModule.set(entityId, moduleItem.id));
+  });
+  const inferredSpineCandidate = filterSpineCandidate(
+    getOrderedEntityIds(extraction, entities).filter((entityId) =>
+      selectedMainModuleIds.has(entityToModule.get(entityId) ?? '')
+    ),
+    allowedEntityIds
+  );
+  if (!inferredSpineCandidate?.length) {
+    return {
+      selectedMiddleModuleIds,
+      selectedMainModuleIds,
+      inferredSpineCandidate,
+      relations,
+    };
+  }
+
+  const spineEdgeKeys = new Set<string>();
+  for (let index = 0; index < inferredSpineCandidate.length - 1; index += 1) {
+    const sourceId = inferredSpineCandidate[index];
+    const targetId = inferredSpineCandidate[index + 1];
+    spineEdgeKeys.add(`${sourceId}->${targetId}`);
+  }
+
+  return {
+    selectedMiddleModuleIds,
+    selectedMainModuleIds,
+    inferredSpineCandidate,
+    relations: relations.map((relation): FlowRelation => {
+      if (relation.type !== 'sequential' || relation.roleCandidate === 'feedback') {
+        return relation;
+      }
+
+      if (spineEdgeKeys.has(`${relation.source}->${relation.target}`)) {
+        return relation.roleCandidate === 'main'
+          ? relation
+          : {
+              ...relation,
+              roleCandidate: 'main',
+            };
+      }
+
+      const sourceModuleId = entityToModule.get(relation.source);
+      const targetModuleId = entityToModule.get(relation.target);
+      const isDetachedRelation =
+        !selectedMainModuleIds.has(sourceModuleId ?? '') ||
+        !selectedMainModuleIds.has(targetModuleId ?? '');
+
+      if (!isDetachedRelation) {
+        return relation;
+      }
+
+      return relation.roleCandidate === 'auxiliary'
+        ? relation
+        : {
+            ...relation,
+            roleCandidate: 'auxiliary',
+          };
+    }),
+  };
+}
+
 function applyLowConfidenceAnswers(
   entities: Entity[],
   answers: CRSAnswer[],
@@ -607,6 +822,11 @@ function updateModules(
   const allowedEntityIds = new Set(entities.map((entity) => entity.id));
   const moduleRoleAssignments = new Map<string, ModuleRole>();
   const clearedRoleAssignments = new Set<ModuleRole>();
+  const { selectedMiddleModuleIds, selectedMainModuleIds } = getMainModuleSelection(
+    extraction,
+    answers,
+    questions
+  );
 
   for (const question of questions) {
     if (
@@ -645,15 +865,29 @@ function updateModules(
             .filter((entityId): entityId is string => Boolean(entityId && allowedEntityIds.has(entityId)))
         : moduleItem.entityIds.filter((entityId) => allowedEntityIds.has(entityId));
 
+      let roleCandidate = moduleRoleAssignments.has(moduleItem.id)
+        ? moduleRoleAssignments.get(moduleItem.id)
+        : moduleItem.roleCandidate &&
+            clearedRoleAssignments.has(moduleItem.roleCandidate)
+            ? undefined
+            : moduleItem.roleCandidate;
+
+      if (selectedMiddleModuleIds.length > 0) {
+        if (selectedMainModuleIds.has(moduleItem.id)) {
+          if (!moduleRoleAssignments.has(moduleItem.id) && roleCandidate === 'auxiliary_stage') {
+            roleCandidate = undefined;
+          }
+        } else if (!roleCandidate || roleCandidate === 'core_stage') {
+          roleCandidate = getModuleRoleSignals(extraction, moduleItem, 'control_stage').patternHit
+            ? 'control_stage'
+            : 'auxiliary_stage';
+        }
+      }
+
       return {
         ...moduleItem,
         entityIds: Array.from(new Set(entityIds)),
-        roleCandidate: moduleRoleAssignments.has(moduleItem.id)
-          ? moduleRoleAssignments.get(moduleItem.id)
-          : moduleItem.roleCandidate &&
-              clearedRoleAssignments.has(moduleItem.roleCandidate)
-              ? undefined
-              : moduleItem.roleCandidate,
+        roleCandidate,
       };
     })
     .filter((moduleItem) => moduleItem.entityIds.length >= 2);
@@ -727,6 +961,7 @@ function applyRelationPruningAnswers(
 function resolveSpineCandidate(
   extraction: ExtractionResult,
   entities: Entity[],
+  inferredSpineCandidate: string[] | undefined,
   answers: CRSAnswer[],
   questions: CRSQuestion[]
 ) {
@@ -741,6 +976,10 @@ function resolveSpineCandidate(
 
   if (selectedEntityIds.length >= 2) {
     return filterSpineCandidate(selectedEntityIds, allowedEntityIds);
+  }
+
+  if (inferredSpineCandidate?.length) {
+    return filterSpineCandidate(inferredSpineCandidate, allowedEntityIds);
   }
 
   return filterSpineCandidate(extraction.spineCandidate, allowedEntityIds);
@@ -767,14 +1006,28 @@ export function refineWithAnswers(
     answers,
     questions
   );
-  const { relations, prunedRelationIds } = applyRelationPruningAnswers(
+  const { relations: prunedRelations, prunedRelationIds } = applyRelationPruningAnswers(
     feedbackResult.relations,
     answers,
     questions
   );
-  const weights = buildDefaultWeights(entities, relations);
+  const mainModuleSelectionResult = applyMainModuleSelectionAnswers(
+    extraction,
+    entities,
+    prunedRelations,
+    answers,
+    questions
+  );
   const modules = updateModules(extraction, entities, answers, questions);
-  const spineCandidate = resolveSpineCandidate(extraction, entities, answers, questions);
+  const spineCandidate = resolveSpineCandidate(
+    extraction,
+    entities,
+    mainModuleSelectionResult.inferredSpineCandidate,
+    answers,
+    questions
+  );
+  const relations = mainModuleSelectionResult.relations;
+  const weights = buildDefaultWeights(entities, relations);
 
   for (const question of questions) {
     if (question.type !== 'importance_ranking') {
@@ -798,6 +1051,14 @@ export function refineWithAnswers(
 
   if (spineCandidate?.length && spineCandidate.join('|') !== extraction.spineCandidate?.join('|')) {
     warnings.push('本地 QA 已确认主干候选');
+  }
+
+  if (mainModuleSelectionResult.selectedMiddleModuleIds.length > 0) {
+    warnings.push(
+      `本地 QA 已确认主干模块，并将 ${
+        extraction.modules.length - mainModuleSelectionResult.selectedMainModuleIds.size
+      } 个模块移出主干`
+    );
   }
 
   if (mergeNodeResult.mergeEntityIds.size > 0) {
@@ -834,6 +1095,10 @@ export function generateDefaultAnalysis(
   _config?: LLMConfig
 ): AnalysisResult {
   const allowedEntityIds = new Set(extraction.entities.map((entity) => entity.id));
+  const warnings = [...(extraction.warnings ?? [])];
+  if (isLikelyFlattenedLinearFlow(extraction)) {
+    warnings.push('当前文本更像单一路径流程，建议先确认主干模块后再生成草图');
+  }
   return {
     entities: extraction.entities,
     relations: extraction.relations,
@@ -847,6 +1112,6 @@ export function generateDefaultAnalysis(
       extraction.spineCandidate,
       allowedEntityIds
     ),
-    warnings: extraction.warnings,
+    warnings,
   };
 }

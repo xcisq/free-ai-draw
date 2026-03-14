@@ -83,6 +83,7 @@ export interface CRSQuestion {
     | 'module_grouping'
     | 'low_confidence'
     | 'importance_ranking'
+    | 'main_module_selection'
     | 'spine_selection'
     | 'relation_pruning'
     | 'module_role_assignment'

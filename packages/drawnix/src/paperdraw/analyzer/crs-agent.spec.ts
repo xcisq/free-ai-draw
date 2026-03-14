@@ -121,6 +121,34 @@ const ambiguousModuleRoleExtraction: ExtractionResult = {
   spineCandidate: ['a1', 'a2', 'a7'],
 };
 
+const flattenedLinearExtraction: ExtractionResult = {
+  entities: [
+    { id: 'f1', label: '原始文本', confidence: 0.95 },
+    { id: 'f2', label: '文本解析', confidence: 0.92 },
+    { id: 'f3', label: '关系抽取', confidence: 0.9 },
+    { id: 'f4', label: '结构校验', confidence: 0.88 },
+    { id: 'f5', label: '布局生成', confidence: 0.91 },
+    { id: 'f6', label: '路由优化', confidence: 0.89 },
+    { id: 'f7', label: '图形输出', confidence: 0.94 },
+    { id: 'f8', label: '结果展示', confidence: 0.93 },
+  ],
+  relations: [
+    { id: 'fr1', type: 'sequential', source: 'f1', target: 'f2' },
+    { id: 'fr2', type: 'sequential', source: 'f2', target: 'f3' },
+    { id: 'fr3', type: 'sequential', source: 'f3', target: 'f4' },
+    { id: 'fr4', type: 'sequential', source: 'f4', target: 'f5' },
+    { id: 'fr5', type: 'sequential', source: 'f5', target: 'f6' },
+    { id: 'fr6', type: 'sequential', source: 'f6', target: 'f7' },
+    { id: 'fr7', type: 'sequential', source: 'f7', target: 'f8' },
+  ],
+  modules: [
+    { id: 'fm1', label: '输入准备', entityIds: ['f1', 'f2'], order: 1, confidence: 0.9 },
+    { id: 'fm2', label: '语义分析', entityIds: ['f3', 'f4'], order: 2, confidence: 0.88 },
+    { id: 'fm3', label: '布局推理', entityIds: ['f5', 'f6'], order: 3, confidence: 0.87 },
+    { id: 'fm4', label: '输出生成', entityIds: ['f7', 'f8'], order: 4, confidence: 0.91 },
+  ],
+};
+
 describe('PaperDraw local QA agent', () => {
   it('generates questions from modules, low confidence items and importance candidates', () => {
     const questions = generateQuestions(extraction);
@@ -347,6 +375,61 @@ describe('PaperDraw local QA agent', () => {
     ).toBe('auxiliary_stage');
     expect(analysis.warnings).toEqual(
       expect.arrayContaining([expect.stringContaining('本地 QA 已确认 2 个模块角色')])
+    );
+  });
+
+  it('adds a main-module confirmation question for flattened linear flows', () => {
+    const questions = generateQuestions(flattenedLinearExtraction);
+
+    expect(
+      questions.some((question) => question.type === 'main_module_selection')
+    ).toBe(true);
+    expect(
+      questions.some((question) => question.type === 'spine_selection')
+    ).toBe(false);
+  });
+
+  it('moves unselected middle modules off the main spine after linear-flow confirmation', () => {
+    const questions = generateQuestions(flattenedLinearExtraction);
+    const mainModuleQuestion = questions.find(
+      (question) => question.type === 'main_module_selection'
+    )!;
+
+    const analysis = mergeLocalAnswers(
+      flattenedLinearExtraction,
+      [
+        {
+          questionId: mainModuleQuestion.id,
+          selectedOptions: ['语义分析'],
+        },
+      ],
+      questions
+    );
+
+    expect(analysis.spineCandidate).toEqual(['f1', 'f2', 'f3', 'f4', 'f7', 'f8']);
+    expect(
+      analysis.modules.find((moduleItem) => moduleItem.label === '布局推理')?.roleCandidate
+    ).toBe('auxiliary_stage');
+    expect(
+      analysis.relations.find((relation) => relation.id === 'fr4')?.roleCandidate
+    ).toBe('auxiliary');
+    expect(
+      analysis.relations.find((relation) => relation.id === 'fr1')?.roleCandidate
+    ).toBe('main');
+    expect(analysis.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('本地 QA 已确认主干模块'),
+      ])
+    );
+  });
+
+  it('warns before generating a draft when the extraction still looks like a single path', () => {
+    const analysis = generateDefaultAnalysis(flattenedLinearExtraction);
+
+    expect(analysis.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('当前文本更像单一路径流程'),
+      ])
     );
   });
 });
