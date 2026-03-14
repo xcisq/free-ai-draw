@@ -178,6 +178,16 @@ function getPatternHit(role: Array<{ role: NodeRole; patterns: RegExp[] }>, labe
   return role.find((candidate) => candidate.patterns.some((pattern) => pattern.test(label)))?.role;
 }
 
+function getModulePatternHit(label: string) {
+  return MODULE_ROLE_PATTERNS.find((candidate) =>
+    candidate.patterns.some((pattern) => pattern.test(label))
+  )?.role;
+}
+
+function isCoreStructureRole(role: NodeRole | undefined) {
+  return role === 'process' || role === 'aggregator' || role === 'simulator';
+}
+
 function buildSequentialGraph(
   analysis: AnalysisResult,
   excludedEdgeIds: Set<string> = new Set()
@@ -258,23 +268,26 @@ function inferModuleRole(
   index: number,
   totalModules: number
 ): ModuleRole {
-  for (const candidate of MODULE_ROLE_PATTERNS) {
-    if (candidate.patterns.some((pattern) => pattern.test(label))) {
-      return candidate.role;
-    }
-  }
-
   const counts = {
     input: memberRoles.filter((role) => role === 'input' || role === 'media').length,
     control: memberRoles.filter((role) => role === 'parameter').length,
     auxiliary: memberRoles.filter((role) => role === 'decoder').length,
+    core: memberRoles.filter((role) => isCoreStructureRole(role)).length,
     output: memberRoles.filter((role) => role === 'output' || role === 'state').length,
   };
+  const keywordRole = getModulePatternHit(label);
 
-  if (counts.control > 0 && counts.control >= memberRoles.length / 2) {
+  if (counts.control > 0 && counts.core > 0) {
+    return 'core_stage';
+  }
+  if (counts.auxiliary > 0 && counts.core > 0) {
+    return 'core_stage';
+  }
+
+  if (counts.control > 0 && counts.core === 0 && counts.control > memberRoles.length / 2) {
     return 'control_stage';
   }
-  if (counts.auxiliary > 0 && counts.auxiliary >= Math.max(1, memberRoles.length / 2)) {
+  if (counts.auxiliary > 0 && counts.core === 0 && counts.auxiliary > memberRoles.length / 2) {
     return 'auxiliary_stage';
   }
   if (counts.output > 0 && (index === totalModules - 1 || counts.output === memberRoles.length)) {
@@ -291,6 +304,13 @@ function inferModuleRole(
     return 'output_stage';
   }
 
+  if (keywordRole === 'control_stage' || keywordRole === 'auxiliary_stage') {
+    return counts.core > 0 ? 'core_stage' : keywordRole;
+  }
+  if (keywordRole) {
+    return keywordRole;
+  }
+
   return 'core_stage';
 }
 
@@ -299,12 +319,19 @@ function refineNodeRole(
   role: NodeRole,
   indegree: number,
   outdegree: number,
-  moduleRole?: ModuleRole
+  moduleRole?: ModuleRole,
+  explicitRole?: NodeRole
 ): NodeRole {
-  if (moduleRole === 'control_stage' && role !== 'simulator') {
+  const hasExplicitRole = Boolean(explicitRole);
+
+  if (moduleRole === 'control_stage' && !hasExplicitRole && role !== 'simulator') {
     return 'parameter';
   }
-  if (moduleRole === 'auxiliary_stage' && (role === 'process' || role === 'input')) {
+  if (
+    moduleRole === 'auxiliary_stage' &&
+    !hasExplicitRole &&
+    (role === 'process' || role === 'input')
+  ) {
     return 'decoder';
   }
   if (moduleRole === 'input_stage' && indegree === 0 && role !== 'simulator') {
@@ -835,7 +862,8 @@ export function buildLayoutIntent(
       initialRoleMap.get(entity.id) ?? 'process',
       baseGraph.indegree.get(entity.id) ?? 0,
       baseGraph.outdegree.get(entity.id) ?? 0,
-      moduleRole
+      moduleRole,
+      entity.roleCandidate
     );
     nodeRoleMap.set(entity.id, role);
     return {

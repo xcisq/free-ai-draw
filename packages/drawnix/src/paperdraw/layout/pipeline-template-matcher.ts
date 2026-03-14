@@ -75,11 +75,17 @@ function scoreTemplate(
         (features.inputContainerCount > 0 ? 0.2 : 0) +
         (features.inputModuleCount > 0 ? 0.08 : 0) +
         Math.min(features.spineLength / 8, 0.14) +
-        (features.branchAttachmentCount <= 1 ? 0.06 : 0)
+        (features.branchAttachmentCount === 0 ? 0.06 : 0)
       );
     case 'spine-lower-branch':
       return (
         (features.branchAttachmentCount > 0 ? 0.3 : 0) +
+        (features.branchAttachmentCount > 0 &&
+        features.mergeClusterCount === 0 &&
+        features.topControlCount === 0 &&
+        features.bottomAuxCount === 0
+          ? 0.16
+          : 0) +
         features.auxZoneScore * 0.24 +
         Math.min(features.branchCount / 4, 0.12) +
         Math.min(features.mergeClusterCount / 2, 0.12) +
@@ -216,11 +222,16 @@ export function matchPipelineTemplates(
     rootTemplateId =
       features.controlZoneScore >= 0.18 && features.auxZoneScore >= 0.18
         ? 'top-control-main-bottom-aux'
-        : features.inputZoneScore >= 0.25 && features.outputZoneScore >= 0.2
-        ? 'input-core-output'
-        : features.branchAttachmentCount > 0
+        : features.branchAttachmentCount > 0 &&
+            features.mergeClusterCount === 0 &&
+            features.controlZoneScore < 0.18 &&
+            features.auxZoneScore < 0.18
           ? 'spine-lower-branch'
-          : 'linear-spine';
+          : features.inputZoneScore >= 0.25 && features.outputZoneScore >= 0.2
+            ? 'input-core-output'
+            : features.branchAttachmentCount > 0
+              ? 'spine-lower-branch'
+              : 'linear-spine';
   }
 
   return {

@@ -282,4 +282,99 @@ describe('pipeline-layout-intent', () => {
     );
     expect(intent.layoutHints).toContain('has_merge_cluster');
   });
+
+  it('keeps mixed control and auxiliary modules on core stages instead of keyword-only rails', () => {
+    const mixedModuleAnalysis: AnalysisResult = {
+      entities: [
+        { id: 'm1', label: 'Input', roleCandidate: 'input' },
+        { id: 'm2', label: 'Guidance Token', roleCandidate: 'parameter' },
+        { id: 'm3', label: 'Feature Mixer', roleCandidate: 'aggregator' },
+        { id: 'm4', label: 'Core Simulator', roleCandidate: 'simulator' },
+        { id: 'm5', label: 'Aux Decoder', roleCandidate: 'decoder' },
+        { id: 'm6', label: 'Output', roleCandidate: 'output' },
+      ],
+      relations: [
+        { id: 'mr1', type: 'sequential', source: 'm1', target: 'm3', roleCandidate: 'main' },
+        { id: 'mr2', type: 'annotative', source: 'm2', target: 'm3', roleCandidate: 'control' },
+        { id: 'mr3', type: 'sequential', source: 'm3', target: 'm4', roleCandidate: 'main' },
+        { id: 'mr4', type: 'sequential', source: 'm4', target: 'm5', roleCandidate: 'auxiliary' },
+        { id: 'mr5', type: 'sequential', source: 'm4', target: 'm6', roleCandidate: 'main' },
+      ],
+      weights: {
+        m1: 0.9,
+        m2: 0.72,
+        m3: 0.88,
+        m4: 0.9,
+        m5: 0.68,
+        m6: 0.91,
+      },
+      modules: [
+        { id: 'mm1', label: 'Input Stage', entityIds: ['m1'], order: 1 },
+        { id: 'mm2', label: 'Control Guidance', entityIds: ['m2', 'm3'], order: 2 },
+        { id: 'mm3', label: 'Aux Decoder', entityIds: ['m4', 'm5'], order: 3 },
+        { id: 'mm4', label: 'Output Stage', entityIds: ['m6'], order: 4 },
+      ],
+      spineCandidate: ['m1', 'm3', 'm4', 'm6'],
+    };
+
+    const layout = basicLayout(mixedModuleAnalysis);
+    const intent = buildLayoutIntent(mixedModuleAnalysis, layout);
+    const nodeMap = new Map(intent.nodes.map((node) => [node.id, node]));
+    const moduleMap = new Map(intent.modules.map((moduleItem) => [moduleItem.id, moduleItem]));
+
+    expect(moduleMap.get('mm2')?.role).toBe('core_stage');
+    expect(moduleMap.get('mm3')?.role).toBe('core_stage');
+    expect(nodeMap.get('m2')?.preferredRail).toBe('top_control_rail');
+    expect(nodeMap.get('m3')?.preferredRail).toBe('main_rail');
+    expect(nodeMap.get('m4')?.preferredRail).toBe('main_rail');
+    expect(nodeMap.get('m5')?.preferredRail).toBe('bottom_aux_rail');
+  });
+
+  it('does not overwrite explicit node roles inside explicit control or auxiliary modules', () => {
+    const explicitRoleAnalysis: AnalysisResult = {
+      entities: [
+        { id: 'e1', label: 'Control Token', roleCandidate: 'parameter' },
+        { id: 'e2', label: 'Fusion Core', roleCandidate: 'aggregator' },
+        { id: 'e3', label: 'Aux Decoder', roleCandidate: 'decoder' },
+        { id: 'e4', label: 'Core Simulator', roleCandidate: 'simulator' },
+      ],
+      relations: [
+        { id: 'er1', type: 'annotative', source: 'e1', target: 'e2', roleCandidate: 'control' },
+        { id: 'er2', type: 'sequential', source: 'e2', target: 'e4', roleCandidate: 'main' },
+        { id: 'er3', type: 'sequential', source: 'e4', target: 'e3', roleCandidate: 'auxiliary' },
+      ],
+      weights: {
+        e1: 0.7,
+        e2: 0.89,
+        e3: 0.66,
+        e4: 0.91,
+      },
+      modules: [
+        {
+          id: 'em1',
+          label: 'Control Stage',
+          entityIds: ['e1', 'e2'],
+          order: 1,
+          roleCandidate: 'control_stage',
+        },
+        {
+          id: 'em2',
+          label: 'Auxiliary Stage',
+          entityIds: ['e3', 'e4'],
+          order: 2,
+          roleCandidate: 'auxiliary_stage',
+        },
+      ],
+      spineCandidate: ['e2', 'e4'],
+    };
+
+    const layout = basicLayout(explicitRoleAnalysis);
+    const intent = buildLayoutIntent(explicitRoleAnalysis, layout);
+    const nodeMap = new Map(intent.nodes.map((node) => [node.id, node]));
+
+    expect(nodeMap.get('e1')?.role).toBe('parameter');
+    expect(nodeMap.get('e2')?.role).toBe('aggregator');
+    expect(nodeMap.get('e3')?.role).toBe('decoder');
+    expect(nodeMap.get('e4')?.role).toBe('simulator');
+  });
 });

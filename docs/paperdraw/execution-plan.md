@@ -1,6 +1,6 @@
 # PaperDraw 优化执行计划
 
-> 版本：v1.5
+> 版本：v1.6
 > 日期：2026-03-14
 > 状态：执行中
 > 适用范围：`packages/drawnix/src/paperdraw/**` 及其相关文档、测试、评估链路
@@ -137,12 +137,12 @@ QA 当前也没有校正结构，只校正：
 
 ### 当前进行中
 
-- `P3-4`：继续降低 control / aux 模块对纯关键词推断的依赖
+- `P3-4` 第二轮：继续让 control / aux 模块更多依赖显式角色与 QA 结果
 
 ### 下一轮计划
 
-- `P3-4` 第二轮：让 control / aux 模块更多依赖显式角色与 QA 结果，而不是关键词兜底
 - `P5-2`：为开发态补一个最小调试视图，方便查看 extraction / analysis / intent 差异
+- `P4-2`：让 corridor 从概念走向真实 lane reservation 与合流 bundling
 
 ## 5.1 阶段 P0：建立可观测性与真实基线
 
@@ -385,6 +385,14 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 
 不能再由 profile 间接决定 `LR / TB` 主方向，主方向应优先由模板和结构语义决定。
 
+当前进度：
+
+- 混合 `parameter + core` 模块会优先保留为 `core_stage`，不再被 control 类标签直接推到上方控制区
+- 混合 `decoder + core` 模块会优先保留为 `core_stage`，不再被 aux 类标签直接推到底部辅助区
+- 显式节点 `roleCandidate` 不再被 `control_stage / auxiliary_stage` 的模块兜底逻辑静默覆盖
+- `spine-lower-branch` 开始优先消费 branch attachment 拓扑，不再轻易退化回 `input-core-output`
+- 下一轮补充：把 QA 返回的模块角色确认也并入这套优先级里
+
 ### 交付物
 
 - 新 LayoutIntent 生成逻辑
@@ -602,3 +610,10 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - 记录 `P3-3` 第一轮完成：`control-over-main / aux-under-main` 已进入 local template 与 skeleton
 - 将当前进行中阶段切换到 `P3-4`，开始降低 control / aux 模块对纯关键词推断的依赖
 - 更新下一轮计划：继续增强显式角色消费，并准备接入开发态调试视图
+
+### v1.6 - 2026-03-14
+
+- 记录 `P3-4` 第一轮完成：混合 control / aux 模块开始优先按成员结构判定，而不是按关键词标签硬切轨道
+- 记录显式节点角色优先级提升：`roleCandidate` 不再被模块级 control / aux 兜底逻辑静默改写
+- 记录模板匹配收口：单分支拓扑开始优先保留 `spine-lower-branch`，不再被 `input-core-output` 轻易吞掉
+- 将当前进行中阶段更新为 `P3-4` 第二轮，下一步接入更多 QA 结果并补调试视图
