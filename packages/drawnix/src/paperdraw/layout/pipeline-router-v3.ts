@@ -358,7 +358,7 @@ function buildPipelineRouteIntent(
   const frame = buildRouteFrame(layout, intent);
   const corridors: RouteCorridor[] = [
     { id: 'main_spine_corridor', axis: 'y', value: frame.mainY },
-    { id: 'merge_corridor', axis: 'x', value: frame.mainY },
+    { id: 'merge_corridor', axis: 'y', value: frame.mainY },
     { id: 'control_top_corridor', axis: 'y', value: frame.topControlY },
     { id: 'aux_bottom_corridor', axis: 'y', value: frame.bottomAuxY },
     { id: 'feedback_outer_corridor', axis: 'x', value: frame.feedbackRightX },
@@ -610,49 +610,111 @@ function buildObstacles(
   return obstacles;
 }
 
+function getCorridorValues(
+  routeIntent: RouteIntent,
+  corridorId: RouteCorridor['id'],
+  axis: RouteCorridor['axis']
+) {
+  return routeIntent.corridors
+    .filter((corridor) => corridor.id === corridorId && corridor.axis === axis)
+    .map((corridor) => corridor.value);
+}
+
+function buildMergeBusGuide(edge: LayoutEdge, routeIntent: RouteIntent, frame: RouteFrame) {
+  const start = edge.points[0];
+  const end = edge.points[1];
+  const targetSide = getConnectionSide(edge.targetConnection);
+  const sourceSide = getConnectionSide(edge.sourceConnection);
+  const busOffset =
+    PAPERDRAW_LAYOUT_DEFAULTS.routeInnerMargin -
+    PAPERDRAW_LAYOUT_DEFAULTS.routePipelineLaneOffset;
+
+  if (
+    targetSide === 'left' ||
+    targetSide === 'right' ||
+    (Math.abs(end[0] - start[0]) >= Math.abs(end[1] - start[1]) &&
+      sourceSide !== 'top' &&
+      sourceSide !== 'bottom')
+  ) {
+    const direction =
+      targetSide === 'left'
+        ? -1
+        : targetSide === 'right'
+          ? 1
+          : end[0] >= start[0]
+            ? -1
+            : 1;
+    return {
+      preferredXs: [end[0] + direction * busOffset],
+      preferredYs: [],
+      classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty + 6,
+    };
+  }
+
+  const direction =
+    targetSide === 'top'
+      ? -1
+      : targetSide === 'bottom'
+        ? 1
+        : end[1] >= start[1]
+          ? -1
+          : 1;
+  return {
+    preferredXs: [],
+    preferredYs: [end[1] + direction * busOffset],
+    classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty + 6,
+  };
+}
+
 function buildRouteGuide(
   edge: LayoutEdge,
   edgeClass: RouteEdgeClass,
-  frame: RouteFrame
+  frame: RouteFrame,
+  routeIntent: RouteIntent
 ): RouteGuide {
-  const start = edge.points[0];
-  const end = edge.points[1];
+  const spineCorridors = getCorridorValues(routeIntent, 'main_spine_corridor', 'y');
+  const controlCorridors = getCorridorValues(routeIntent, 'control_top_corridor', 'y');
+  const auxCorridors = getCorridorValues(routeIntent, 'aux_bottom_corridor', 'y');
+  const feedbackXCorridors = getCorridorValues(routeIntent, 'feedback_outer_corridor', 'x');
+  const feedbackYCorridors = getCorridorValues(routeIntent, 'feedback_outer_corridor', 'y');
+  const annotationCorridors = getCorridorValues(routeIntent, 'annotation_side_corridor', 'x');
   switch (edgeClass) {
     case 'spine':
       return {
         preferredXs: [],
-        preferredYs: [frame.mainY],
+        preferredYs: spineCorridors.length ? spineCorridors : [frame.mainY],
         classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuideLoosePenalty,
       };
     case 'control':
       return {
         preferredXs: [],
-        preferredYs: [frame.topControlY],
+        preferredYs: controlCorridors.length ? controlCorridors : [frame.topControlY],
         classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty,
       };
     case 'aux':
       return {
         preferredXs: [],
-        preferredYs: [frame.bottomAuxY],
+        preferredYs: auxCorridors.length ? auxCorridors : [frame.bottomAuxY],
         classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty,
       };
     case 'feedback':
       return {
-        preferredXs: [frame.feedbackRightX],
-        preferredYs: [frame.feedbackTopY],
+        preferredXs: feedbackXCorridors.length ? feedbackXCorridors : [frame.feedbackRightX],
+        preferredYs: feedbackYCorridors.length ? feedbackYCorridors : [frame.feedbackTopY],
         classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty + 12,
       };
     case 'annotation':
       return {
-        preferredXs: [frame.annotationSideX],
+        preferredXs: annotationCorridors.length ? annotationCorridors : [frame.annotationSideX],
         preferredYs: [],
         classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuidePenalty,
       };
     case 'merge':
+      return buildMergeBusGuide(edge, routeIntent, frame);
     default:
       return {
-        preferredXs: [Math.min(start[0], end[0]) + Math.abs(end[0] - start[0]) / 2],
-        preferredYs: [end[1]],
+        preferredXs: [],
+        preferredYs: [],
         classPenalty: PAPERDRAW_LAYOUT_DEFAULTS.routePipelineGuideLoosePenalty + 4,
       };
   }
@@ -820,12 +882,7 @@ function matchesGuideLine(value: number, guides: number[]) {
   return guides.some((guideValue) => Math.abs(guideValue - value) < 1e-6);
 }
 
-function computeGuidePenalty(
-  from: Point,
-  to: Point,
-  guide: RouteGuide,
-  previousDirection: SegmentDirection
-) {
+function isOnPreferredGuide(from: Point, to: Point, guide: RouteGuide) {
   const direction = getSegmentDirection(from, to);
   const onPreferredX =
     direction === 'vertical' &&
@@ -836,7 +893,16 @@ function computeGuidePenalty(
     matchesGuideLine(from[1], guide.preferredYs) &&
     matchesGuideLine(to[1], guide.preferredYs);
 
-  if (onPreferredX || onPreferredY) {
+  return onPreferredX || onPreferredY;
+}
+
+function computeGuidePenalty(
+  from: Point,
+  to: Point,
+  guide: RouteGuide,
+  previousDirection: SegmentDirection
+) {
+  if (isOnPreferredGuide(from, to, guide)) {
     return 0;
   }
 
@@ -863,6 +929,9 @@ function computeRouteCost(
   const crossings = countCrossingsWithExisting(from, to, routedSegments);
   const congestion = countCongestionWithExisting(from, to, routedSegments);
   const guidePenalty = computeGuidePenalty(from, to, guide, previousDirection);
+  const isBundledSegment =
+    (edgeClass === 'spine' || edgeClass === 'merge') &&
+    isOnPreferredGuide(from, to, guide);
   let reverseFlow = 0;
 
   if (edgeClass === 'spine' || edgeClass === 'merge') {
@@ -879,7 +948,7 @@ function computeRouteCost(
     bendPenalty +
     crossings * 120 +
     reverseFlow +
-    congestion * 40 +
+    congestion * (isBundledSegment ? 10 : 40) +
     guidePenalty
   );
 }
@@ -912,7 +981,7 @@ function routeEdgeWithAStar(
   const targetNode = nodeMap.get(edge.targetId)!;
   const start = getConnectionPoint(sourceNode, edge.sourceConnection);
   const end = getConnectionPoint(targetNode, edge.targetConnection);
-  const guide = buildRouteGuide(edge, edgeClass, frame);
+  const guide = buildRouteGuide(edge, edgeClass, frame, routeIntent);
   const obstacles = buildObstacles(layout, edge, routeIntent);
   const { xs, ys } = buildGridCoordinates(start, end, obstacles, guide, frame);
   const { nodeMap: gridNodeMap, adjacency } = buildGridGraph(start, end, xs, ys, obstacles);

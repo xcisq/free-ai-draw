@@ -442,4 +442,140 @@ describe('pipeline-router-v3', () => {
       feedbackRoute.some((point) => point[0] > maxX || point[1] < minY)
     ).toBe(true);
   });
+
+  it('bundles merge edges through a shared merge bus before the target', () => {
+    const layout: LayoutResult = {
+      direction: 'LR',
+      templateId: 'split-merge',
+      engine: 'pipeline_v1',
+      nodes: [
+        {
+          id: 'a',
+          label: 'Branch A',
+          x: 0,
+          y: 20,
+          width: 220,
+          height: 72,
+          weight: 0.8,
+          confidence: 0.9,
+        },
+        {
+          id: 'b',
+          label: 'Branch B',
+          x: 0,
+          y: 300,
+          width: 220,
+          height: 72,
+          weight: 0.8,
+          confidence: 0.9,
+        },
+        {
+          id: 'm',
+          label: 'Merge',
+          x: 620,
+          y: 160,
+          width: 220,
+          height: 72,
+          weight: 0.9,
+          confidence: 0.92,
+        },
+        {
+          id: 'o',
+          label: 'Output',
+          x: 1040,
+          y: 160,
+          width: 220,
+          height: 72,
+          weight: 0.88,
+          confidence: 0.9,
+        },
+      ],
+      groups: [],
+      edges: [
+        {
+          id: 'am',
+          type: 'sequential',
+          sourceId: 'a',
+          targetId: 'm',
+          shape: 'straight',
+          sourceConnection: [1, 0.5],
+          targetConnection: [0, 0.5],
+          points: [
+            [220, 56],
+            [620, 196],
+          ],
+        },
+        {
+          id: 'bm',
+          type: 'sequential',
+          sourceId: 'b',
+          targetId: 'm',
+          shape: 'straight',
+          sourceConnection: [1, 0.5],
+          targetConnection: [0, 0.5],
+          points: [
+            [220, 336],
+            [620, 196],
+          ],
+        },
+        {
+          id: 'mo',
+          type: 'sequential',
+          sourceId: 'm',
+          targetId: 'o',
+          shape: 'straight',
+          sourceConnection: [1, 0.5],
+          targetConnection: [0, 0.5],
+          points: [
+            [840, 196],
+            [1040, 196],
+          ],
+        },
+      ],
+    };
+    const intent = createIntent(layout, {
+      dominantSpine: ['a', 'm', 'o'],
+      mergeNodes: ['m'],
+      mergeClusters: [
+        {
+          mergeNodeId: 'm',
+          sourceIds: ['a', 'b'],
+        },
+      ],
+      edgeRoles: {
+        am: 'main',
+        bm: 'auxiliary',
+        mo: 'main',
+      },
+    });
+    const model = buildLayoutConstraintModel(layout, {
+      mode: 'global',
+      engine: 'pipeline_v1',
+      profile: 'double',
+      quality: 'quality',
+    });
+
+    const routed = routePipelineLayoutV3(layout, model, intent, {
+      templateId: 'split-merge',
+    });
+    const mergeA = routed.edges.find((edge) => edge.id === 'am')!.routing!;
+    const mergeB = routed.edges.find((edge) => edge.id === 'bm')!.routing!;
+
+    const getVerticalBusXs = (points: number[][]) =>
+      points
+        .slice(0, -1)
+        .flatMap((point, index) => {
+          const next = points[index + 1];
+          if (!next || point[0] !== next[0]) {
+            return [];
+          }
+          return point[0] < 620 ? [point[0]] : [];
+        });
+
+    const mergeABusXs = getVerticalBusXs(mergeA as number[][]);
+    const mergeBBusXs = getVerticalBusXs(mergeB as number[][]);
+    const sharedBusXs = mergeABusXs.filter((x) => mergeBBusXs.includes(x));
+
+    expect(sharedBusXs.length).toBeGreaterThan(0);
+  });
 });

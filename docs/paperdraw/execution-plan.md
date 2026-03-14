@@ -1,6 +1,6 @@
 # PaperDraw 优化执行计划
 
-> 版本：v1.9
+> 版本：v1.10
 > 日期：2026-03-14
 > 状态：执行中
 > 适用范围：`packages/drawnix/src/paperdraw/**` 及其相关文档、测试、评估链路
@@ -137,11 +137,12 @@ QA 当前也没有校正结构，只校正：
 
 ### 当前进行中
 
-- `P4-2`：让 corridor 从概念走向真实 lane reservation 与合流 bundling
+- `P4-3`：增加 bundling 与 merge bus，继续压低箭头杂乱感
 
 ### 下一轮计划
 
-- `P4-3`：增加 bundling 与 merge bus，继续压低箭头杂乱感
+- `P4-3` 第二轮：继续增强 spine bundling 与分支汇入前对齐
+- `P4-4`：限制低价值边视觉权重，优先缩短说明性边
 - `P5-3`：把调试视图纳入回归口径，形成固定验收门槛
 
 ## 5.1 阶段 P0：建立可观测性与真实基线
@@ -437,6 +438,13 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - outer feedback 通道
 - annotation side 通道
 
+当前进度：
+
+- `pipeline-router-v3` 已开始真实消费 corridor 数据，不再只是挂在 `routeIntent` 中
+- 主干、控制区、辅助区、反馈区、注释侧边通道都已进入 guide 生成逻辑
+- merge 边已补共享 bus 偏好，并通过单测验证汇入前可以走同一条 bus
+- 下一轮补充：继续增强 spine bundling，减少主干附近的平行乱线
+
 #### P4-3 增加 bundling 与 bus
 
 新增：
@@ -645,3 +653,9 @@ QA 从“实体层提问”升级为“结构层提问”，优先问：
 - 记录 `P5-2` 第二轮完成：调试面板已接入当前 `layout` 阶段摘要，可查看 `engine / templateId / routingEngine / fallback / metrics`
 - 记录新增路由诊断：调试面板开始提示路由回退、边交叉残留与弯折偏多等 warning
 - 将当前进行中阶段切换到 `P4-2`，下一步开始推进 corridor reservation 与合流 bundling
+
+### v1.10 - 2026-03-14
+
+- 记录 `P4-2` 第一轮完成：`pipeline-router-v3` 已开始真实消费 corridor 数据，主干/控制/辅助/反馈/注释通道进入 guide 逻辑
+- 记录 merge bus 初版落地：merge 边开始优先共享目标前的 bus 通道，并新增单测验证合流
+- 将当前进行中阶段切换到 `P4-3`，下一步继续增强 spine bundling 与分支汇入前对齐
