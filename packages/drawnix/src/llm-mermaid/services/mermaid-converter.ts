@@ -83,6 +83,79 @@ export class MermaidConverter {
   }
 
   /**
+   * 直接从 Mermaid 代码中提取图表结构信息
+   */
+  extractGraphInfoFromCode(mermaidCode: string): GraphInfo {
+    const code = extractMermaidCode(mermaidCode);
+    const nodes = new Map<string, GraphNode>();
+    const edges: GraphEdge[] = [];
+    const groups = new Map<string, GraphGroup>();
+    const groupStack: string[] = [];
+
+    code.split('\n').forEach((rawLine) => {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('%%')) {
+        return;
+      }
+
+      if (line.startsWith('subgraph ')) {
+        const group = this.parseGroup(line, groups.size);
+        groups.set(group.id, group);
+        groupStack.push(group.id);
+        return;
+      }
+
+      if (line === 'end') {
+        groupStack.pop();
+        return;
+      }
+
+      if (/^(classDef|class|style|linkStyle|click)\b/.test(line)) {
+        return;
+      }
+
+      const currentGroupId = groupStack[groupStack.length - 1];
+      const nodeRefs = this.extractNodeReferences(line);
+
+      nodeRefs.forEach((nodeRef) => {
+        this.upsertNode(nodes, nodeRef, currentGroupId, groups);
+      });
+
+      if (nodeRefs.length >= 2) {
+        nodeRefs.slice(0, -1).forEach((sourceRef, index) => {
+          const targetRef = nodeRefs[index + 1];
+          if (!sourceRef || !targetRef) {
+            return;
+          }
+
+          edges.push({
+            id: `edge-${sourceRef.id}-${targetRef.id}-${edges.length}`,
+            source: sourceRef.id,
+            target: targetRef.id,
+          });
+        });
+      }
+    });
+
+    const nodeList = Array.from(nodes.values());
+    nodeList.forEach((node) => {
+      node.inDegree = edges.filter((edge) => edge.target === node.id).length;
+      node.outDegree = edges.filter((edge) => edge.source === node.id).length;
+    });
+
+    const totalDegree = nodeList.reduce((sum, node) => sum + node.inDegree + node.outDegree, 0);
+
+    return {
+      nodes: nodeList,
+      edges,
+      groups: Array.from(groups.values()),
+      depth: this.calculateDepth(nodeList, edges),
+      avgDegree: nodeList.length > 0 ? totalDegree / nodeList.length : 0,
+      nodeCount: nodeList.length,
+    };
+  }
+
+  /**
    * 从 Plait 元素中提取图表结构信息
    */
   extractGraphInfo(elements: PlaitElement[]): GraphInfo {
@@ -262,6 +335,119 @@ export class MermaidConverter {
     }
 
     return maxDepth;
+  }
+
+  private parseGroup(line: string, order: number): GraphGroup {
+    const match = line.match(/^subgraph\s+([A-Za-z0-9_-]+)?(?:\s+\[(.+)\]|\s+"(.+)"|\s+(.+))?$/);
+    const id = match?.[1] || `group-${order + 1}`;
+    const label = match?.[2] || match?.[3] || match?.[4] || id;
+
+    return {
+      id,
+      label: label.trim(),
+      memberIds: [],
+      order,
+    };
+  }
+
+  private extractNodeReferences(line: string): Array<{
+    id: string;
+    label: string;
+    type: GraphNode['type'];
+  }> {
+    const normalizedLine = line
+      .replace(/\|[^|]*\|/g, '')
+      .replace(/-->|---|-.->|==>|==/g, '|');
+
+    return normalizedLine
+      .split('|')
+      .map((segment) => segment.trim())
+      .filter(Boolean)
+      .map((segment) => this.parseNodeReference(segment))
+      .filter((node): node is { id: string; label: string; type: GraphNode['type'] } => !!node);
+  }
+
+  private parseNodeReference(segment: string):
+    | {
+      id: string;
+      label: string;
+      type: GraphNode['type'];
+    }
+    | null {
+    const cleanedSegment = segment.replace(/;+$/, '').trim();
+    const idMatch = cleanedSegment.match(/^([A-Za-z0-9_-]+)/);
+
+    if (!idMatch) {
+      return null;
+    }
+
+    const id = idMatch[1];
+    const classMatch = cleanedSegment.match(/:::([A-Za-z0-9_-]+)/);
+    const label = this.extractNodeLabel(cleanedSegment, id);
+    const inferredType = this.inferNodeTypeFromText(label, classMatch?.[1]);
+
+    return {
+      id,
+      label,
+      type: inferredType,
+    };
+  }
+
+  private extractNodeLabel(segment: string, fallback: string): string {
+    const remainder = segment.slice(fallback.length).replace(/:::[A-Za-z0-9_-]+/, '').trim();
+    if (!remainder) {
+      return fallback;
+    }
+
+    const sanitized = remainder
+      .replace(/^[\[\(\{<"\s]+/, '')
+      .replace(/[\]\)\}>"\s]+$/, '')
+      .replace(/^["']|["']$/g, '')
+      .trim();
+
+    return sanitized || fallback;
+  }
+
+  private inferNodeTypeFromText(
+    label: string,
+    className?: string
+  ): 'input' | 'output' | 'process' | 'state' {
+    const lowerText = `${className || ''} ${label}`.toLowerCase();
+    if (lowerText.includes('输入') || lowerText.includes('input')) return 'input';
+    if (lowerText.includes('输出') || lowerText.includes('output')) return 'output';
+    if (lowerText.includes('状态') || lowerText.includes('state')) return 'state';
+    return 'process';
+  }
+
+  private upsertNode(
+    nodes: Map<string, GraphNode>,
+    nodeRef: { id: string; label: string; type: GraphNode['type'] },
+    currentGroupId: string | undefined,
+    groups: Map<string, GraphGroup>
+  ) {
+    const existingNode = nodes.get(nodeRef.id);
+
+    if (!existingNode) {
+      nodes.set(nodeRef.id, {
+        id: nodeRef.id,
+        label: nodeRef.label,
+        inDegree: 0,
+        outDegree: 0,
+        groupId: currentGroupId,
+        type: nodeRef.type,
+      });
+    } else {
+      existingNode.label = existingNode.label || nodeRef.label;
+      existingNode.groupId = existingNode.groupId || currentGroupId;
+      existingNode.type = existingNode.type || nodeRef.type;
+    }
+
+    if (currentGroupId) {
+      const group = groups.get(currentGroupId);
+      if (group && !group.memberIds.includes(nodeRef.id)) {
+        group.memberIds.push(nodeRef.id);
+      }
+    }
   }
 
   /**

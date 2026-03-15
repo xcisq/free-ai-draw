@@ -1,5 +1,5 @@
 import Stack from '../../stack';
-import { FontColorIcon } from '../../icons';
+import { AIMermaidIcon, FontColorIcon } from '../../icons';
 import {
   ATTACHED_ELEMENT_CLASS_NAME,
   getRectangleByElements,
@@ -45,11 +45,15 @@ import { Freehand } from '../../../plugins/freehand/type';
 import { PopupLinkButton } from './link-button';
 import { ArrowMarkButton } from './arrow-mark-button';
 import { MoreOptionsButton } from './more-options-button';
+import { Popover, PopoverContent, PopoverTrigger } from '../../popover/popover';
+import { BoardStylePanel } from '../../../llm-mermaid/components/board-style-panel';
+import { ToolButton } from '../../tool-button';
 
 export const PopupToolbar = () => {
   const board = useBoard();
   const { t } = useI18n();
   const selectedElements = getSelectedElements(board);
+  const [stylePanelOpen, setStylePanelOpen] = useState(false);
   const [movingOrDragging, setMovingOrDragging] = useState(false);
   const movingOrDraggingRef = useRef(movingOrDragging);
   const open =
@@ -105,6 +109,9 @@ export const PopupToolbar = () => {
       isLine,
     };
   }
+
+  const boardContainer = PlaitBoard.getBoardContainer(board);
+
   useEffect(() => {
     if (open) {
       const hasSelected = selectedElements.length > 0;
@@ -172,6 +179,12 @@ export const PopupToolbar = () => {
       board.pointerMove = pointerMove;
     };
   }, [board]);
+
+  useEffect(() => {
+    if (!open) {
+      setStylePanelOpen(false);
+    }
+  }, [open]);
 
   return (
     <>
@@ -257,6 +270,41 @@ export const PopupToolbar = () => {
               </>
             )}
             <MoreOptionsButton board={board} key={6} />
+            <MoreOptionsButton board={board} key={6} />
+            <Popover
+              open={stylePanelOpen}
+              onOpenChange={setStylePanelOpen}
+              placement="bottom-start"
+              sideOffset={10}
+            >
+              <PopoverTrigger asChild>
+                <ToolButton
+                  type="icon"
+                  visible={true}
+                  icon={AIMermaidIcon}
+                  aria-label="AI 样式"
+                  title="AI 样式优化"
+                  className="popup-ai-style-button"
+                  selected={stylePanelOpen}
+                  showAriaLabel={true}
+                  onClick={() => {
+                    setStylePanelOpen((value) => !value);
+                  }}
+                />
+              </PopoverTrigger>
+              <PopoverContent
+                container={boardContainer}
+                className={classNames(
+                  'popup-ai-style-content',
+                  ATTACHED_ELEMENT_CLASS_NAME
+                )}
+              >
+                <BoardStylePanel
+                  board={board}
+                  selectedElements={selectedElements}
+                />
+              </PopoverContent>
+            </Popover>
           </Stack.Row>
         </Island>
       )}

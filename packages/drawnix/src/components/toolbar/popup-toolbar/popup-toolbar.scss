@@ -90,6 +90,20 @@
             }
         }
     }
+
+    .popup-ai-style-button {
+        min-width: auto;
+        padding: 0 10px;
+
+        .tool-icon__label {
+            margin-left: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+    }
+}
+.popup-ai-style-content {
+    z-index: 40;
 }
 .stroke-setting {
     &.has-stroke-style {

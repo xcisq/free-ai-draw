@@ -8,11 +8,10 @@ import type { GenerationContext, Message } from '../types';
 import { llmChatService } from '../services/llm-chat-service';
 import {
   buildMermaidUserPrompt,
-  extractMermaidCode,
   getInitialPrompt,
-  validateMermaidCode,
 } from '../services/prompt-templates';
 import { sanitizeUserInput, validateUserInput } from '../utils/message-validator';
+import { mermaidStabilizerService, MermaidStabilizationError } from '../services/mermaid-stabilizer';
 
 interface SendMessageOptions {
   requestContent?: string;
@@ -167,9 +166,37 @@ export function useLLMChat(initialSystemPrompt?: string): UseLLMChatResult {
           });
         }
 
-        const extractedMermaidCode = extractMermaidCode(responseContent);
-        const mermaidValidation = validateMermaidCode(extractedMermaidCode);
-        const hasValidMermaidCode = mermaidValidation.isValid;
+        let stabilizedMermaidCode: string | null = null;
+
+        try {
+          const stabilizedResult = await mermaidStabilizerService.stabilizeResponse(responseContent, {
+            allowLLMRepair: true,
+            originalRequest: requestContent,
+            signal: controller.signal,
+          });
+
+          stabilizedMermaidCode = stabilizedResult.mermaidCode;
+
+          if (stabilizedResult.source !== 'original') {
+            console.warn('[llm-mermaid] assistant mermaid auto-repaired', {
+              source: stabilizedResult.source,
+              fixes: stabilizedResult.appliedFixes,
+            });
+          }
+        } catch (stabilizationError) {
+          if (stabilizationError instanceof MermaidStabilizationError) {
+            console.warn('[llm-mermaid] assistant mermaid stabilization failed', {
+              stage: stabilizationError.stage,
+              details: stabilizationError.details,
+            });
+          }
+
+          setError(
+            stabilizationError instanceof Error
+              ? stabilizationError
+              : new Error('AI 返回结果中未提取到稳定的 Mermaid 代码')
+          );
+        }
 
         setMessages((prev) => {
           const last = prev[prev.length - 1];
@@ -181,27 +208,17 @@ export function useLLMChat(initialSystemPrompt?: string): UseLLMChatResult {
             ...prev.slice(0, -1),
             {
               ...last,
-              content: hasValidMermaidCode ? extractedMermaidCode : responseContent,
-              type: hasValidMermaidCode ? 'mermaid' : 'text',
+              content: stabilizedMermaidCode || responseContent,
+              type: stabilizedMermaidCode ? 'mermaid' : 'text',
               metadata: {
                 ...last.metadata,
                 isStreaming: false,
                 isComplete: true,
-                mermaidCode: hasValidMermaidCode ? extractedMermaidCode : undefined,
+                mermaidCode: stabilizedMermaidCode || undefined,
               },
             },
           ];
         });
-
-        if (!hasValidMermaidCode) {
-          setError(
-            new Error(
-              mermaidValidation.errors.length > 0
-                ? `生成结果不是有效的 Mermaid 代码：${mermaidValidation.errors.join('，')}`
-                : 'AI 返回结果中未提取到 Mermaid 代码，请重试或补充更明确的描述'
-            )
-          );
-        }
       } catch (err) {
         setMessages((prev) => {
           const last = prev[prev.length - 1];

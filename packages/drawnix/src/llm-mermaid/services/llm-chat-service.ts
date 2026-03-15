@@ -5,6 +5,7 @@
 
 import type { Message, ChatOptions, ChatChunk } from '../types';
 import { getLLMMermaidConfig } from '../utils/env-config';
+import { getInitialPrompt } from './prompt-templates';
 
 /**
  * LLM API 请求格式
@@ -201,11 +202,71 @@ export class LLMChatService {
    * 生成 Mermaid 代码
    */
   async generateMermaid(prompt: string): Promise<string> {
+    return this.sendPrompt(prompt, this.getSystemPrompt());
+  }
+
+  /**
+   * 生成样式方案
+   */
+  async generateStyle(prompt: string): Promise<string> {
+    return this.sendPrompt(prompt, this.getStyleSystemPrompt());
+  }
+
+  /**
+   * 定向修复 Mermaid 代码
+   */
+  async repairMermaid(prompt: string, options?: ChatOptions): Promise<string> {
+    return this.sendPrompt(prompt, this.getRepairSystemPrompt(), options);
+  }
+
+  /**
+   * 获取系统提示词
+   */
+  private getSystemPrompt(): string {
+    return getInitialPrompt();
+  }
+
+  /**
+   * 获取样式优化系统提示词
+   */
+  private getStyleSystemPrompt(): string {
+    return `你是一个专业的 Mermaid 图表样式设计助手。
+
+你的任务是根据当前 Mermaid 代码和用户的样式需求，返回修改后的完整 Mermaid 代码。
+
+请遵循以下规则：
+1. 不改变节点结构、节点 ID、连接关系和 subgraph 层级
+2. 优先通过 classDef、class、::: 来实现样式调整
+3. 如需虚线边框，请使用 stroke-dasharray
+4. 仅输出完整 Mermaid 代码，不要添加解释`;
+  }
+
+  /**
+   * 获取 Mermaid 修复系统提示词
+   */
+  private getRepairSystemPrompt(): string {
+    return `你是一个 Mermaid 语法修复助手。
+
+你的任务是修复已有 Mermaid 代码中的语法、括号、引号、classDef/class 绑定和截断问题。
+
+请严格遵循以下规则：
+1. 优先保留原有语义、节点 ID、连接关系和 subgraph 结构
+2. 仅修复会导致 Mermaid 解析失败的问题，不要重写整张图
+3. 如果缺少图类型声明，默认补成 flowchart LR
+4. 仅输出修复后的完整 Mermaid 代码
+5. 不要输出 markdown 代码块，不要解释`;
+  }
+
+  private async sendPrompt(
+    prompt: string,
+    systemPrompt: string,
+    options?: ChatOptions
+  ): Promise<string> {
     const messages: Message[] = [
       {
         id: 'system',
         role: 'system',
-        content: this.getSystemPrompt(),
+        content: systemPrompt,
         timestamp: Date.now(),
         type: 'text',
       },
@@ -218,53 +279,7 @@ export class LLMChatService {
       },
     ];
 
-    const response = await this.chat(messages);
-    return response;
-  }
-
-  /**
-   * 生成样式方案
-   */
-  async generateStyle(
-    graphInfo: string,
-    styleRequest: string
-  ): Promise<string> {
-    const messages: Message[] = [
-      {
-        id: 'system',
-        role: 'system',
-        content: '你是一个专业的图表样式设计师，擅长为 Mermaid 流程图设计美观的配色方案。',
-        timestamp: Date.now(),
-        type: 'text',
-      },
-      {
-        id: 'user',
-        role: 'user',
-        content: `请为以下图表生成样式方案：\n\n图表信息：${graphInfo}\n\n用户需求：${styleRequest}\n\n请只输出 classDef 样式定义代码，不要包含其他解释。`,
-        timestamp: Date.now(),
-        type: 'text',
-      },
-    ];
-
-    const response = await this.chat(messages);
-    return response;
-  }
-
-  /**
-   * 获取系统提示词
-   */
-  private getSystemPrompt(): string {
-    return `你是一个专业的论文框架图生成助手。你的任务是根据用户的描述生成 Mermaid 代码，用于创建论文 Pipeline 框架图。
-
-遵循以下原则：
-1. 使用矩形节点（stadium 或 rounded）表示处理步骤
-2. 使用 subgraph 进行模块分组
-3. 不使用复杂箭头标签
-4. 使用 classDef 定义样式类
-5. 支持的节点类型：矩形 ([...]) 和 圆角矩形 ([(...)])
-6. 布局方向根据用户要求选择 LR（从左到右）或 TB（从上到下）
-
-输出格式：仅输出 Mermaid 代码，不要包含任何解释文字。`;
+    return this.chat(messages, options);
   }
 
   /**

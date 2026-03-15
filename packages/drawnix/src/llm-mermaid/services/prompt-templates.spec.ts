@@ -5,12 +5,16 @@
 import { describe, it, expect } from '@jest/globals';
 import {
   buildMermaidUserPrompt,
+  extractJsonBlock,
   getInitialPrompt,
+  getBoardStyleMultipleSchemesPrompt,
   getMermaidGenerationPrompt,
+  getDefaultStyleRecommendationPrompt,
   getStyleOptimizationPrompt,
   extractMermaidCode,
   validateMermaidCode,
   getStyleAdjustmentPrompt,
+  getMermaidRepairPrompt,
 } from './prompt-templates';
 import type { GenerationContext, GraphInfo } from '../types';
 
@@ -21,6 +25,7 @@ describe('PromptTemplates', () => {
       expect(prompt).toBeTruthy();
       expect(prompt.length).toBeGreaterThan(0);
       expect(prompt).toContain('Mermaid');
+      expect(prompt).toContain('原始文本');
     });
   });
 
@@ -81,6 +86,36 @@ describe('PromptTemplates', () => {
     });
   });
 
+  describe('getDefaultStyleRecommendationPrompt', () => {
+    it('应该生成完整 Mermaid 样式推荐提示词', () => {
+      const graphInfo: GraphInfo = {
+        nodes: [
+          { id: 'A', label: 'Input', inDegree: 0, outDegree: 1, type: 'input' },
+          { id: 'B', label: 'Encoder', inDegree: 1, outDegree: 1, type: 'process' },
+        ],
+        edges: [{ id: 'e1', source: 'A', target: 'B' }],
+        groups: [{ id: 'g1', label: 'Encoder', memberIds: ['B'] }],
+        depth: 2,
+        avgDegree: 1,
+        nodeCount: 2,
+      };
+
+      const prompt = getDefaultStyleRecommendationPrompt(
+        'flowchart LR\nA[Input] --> B[Encoder]',
+        graphInfo,
+        {
+          usageScenario: 'paper',
+          theme: 'academic',
+        }
+      );
+
+      expect(prompt).toContain('学术论文插图');
+      expect(prompt).toContain('学术风格');
+      expect(prompt).toContain('完整 Mermaid 代码');
+      expect(prompt).toContain('flowchart LR');
+    });
+  });
+
   describe('extractMermaidCode', () => {
     it('应该从 markdown 代码块中提取 Mermaid 代码', () => {
       const text = '```mermaid\nflowchart LR\nA --> B\n```';
@@ -107,6 +142,48 @@ describe('PromptTemplates', () => {
     });
   });
 
+  describe('getBoardStyleMultipleSchemesPrompt', () => {
+    it('应该生成 JSON 方案提示词', () => {
+      const prompt = getBoardStyleMultipleSchemesPrompt(
+        {
+          total: 6,
+          originalTotal: 4,
+          shapeCount: 4,
+          lineCount: 2,
+          textCount: 0,
+          relatedLineCount: 2,
+          includeConnectedLines: true,
+          fills: ['#ffffff'],
+          strokes: ['#333333'],
+        },
+        '更专业一点',
+        3
+      );
+
+      expect(prompt).toContain('严格输出 JSON');
+      expect(prompt).toContain('原始选中数：4');
+      expect(prompt).toContain('实际优化数：6');
+      expect(prompt).toContain('自动补入关联线：2');
+      expect(prompt).toContain('更专业一点');
+      expect(prompt).toContain('"schemes"');
+      expect(prompt).toContain('lineShape');
+      expect(prompt).toContain('straight / elbow');
+      expect(prompt).toContain('不要使用 curve');
+    });
+  });
+
+  describe('extractJsonBlock', () => {
+    it('应该从 json 代码块中提取 JSON', () => {
+      const json = extractJsonBlock('```json\n{"schemes":[]}\n```');
+      expect(json).toBe('{"schemes":[]}');
+    });
+
+    it('应该从纯文本中提取对象内容', () => {
+      const json = extractJsonBlock('说明文字 {"schemes":[{"id":"1"}]}');
+      expect(json).toBe('{"schemes":[{"id":"1"}]}');
+    });
+  });
+
   describe('buildMermaidUserPrompt', () => {
     it('应该把结构化上下文和用户需求拼成完整请求', () => {
       const prompt = buildMermaidUserPrompt('突出评估阶段', {
@@ -119,7 +196,16 @@ describe('PromptTemplates', () => {
       expect(prompt).toContain('从上到下');
       expect(prompt).toContain('演示文稿');
       expect(prompt).toContain('突出评估阶段');
-      expect(prompt).toContain('请严格输出完整 Mermaid 代码');
+      expect(prompt).toContain('用户原始文本');
+      expect(prompt).toContain('<<<USER_TEXT');
+      expect(prompt).toContain('请基于上面的用户原始文本生成对应图表');
+    });
+
+    it('应该明确要求模型基于用户文本抽取流程关系', () => {
+      const prompt = buildMermaidUserPrompt('本文方法首先进行特征提取，然后做分类预测。');
+
+      expect(prompt).toContain('抽取流程阶段、模块、输入输出和依赖关系');
+      expect(prompt).toContain('不要脱离这段文本另起一套通用流程图');
     });
   });
 
@@ -152,6 +238,13 @@ describe('PromptTemplates', () => {
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain('方括号不匹配');
     });
+
+    it('应该检测未完整的连接语句', () => {
+      const invalidCode = 'flowchart LR\nA -->';
+      const result = validateMermaidCode(invalidCode);
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('存在未完整的连接语句');
+    });
   });
 
   describe('getStyleAdjustmentPrompt', () => {
@@ -160,6 +253,43 @@ describe('PromptTemplates', () => {
       const prompt = getStyleAdjustmentPrompt(currentMermaid, '把 A 节点改成蓝色');
       expect(prompt).toContain(currentMermaid);
       expect(prompt).toContain('把 A 节点改成蓝色');
+    });
+
+    it('应该携带图表信息并要求返回完整 Mermaid 代码', () => {
+      const prompt = getStyleAdjustmentPrompt(
+        'flowchart LR\nA --> B',
+        '给 Encoder 模块加个虚线边框',
+        {
+          nodes: [
+            { id: 'A', label: 'Input', inDegree: 0, outDegree: 1, type: 'input' },
+            { id: 'B', label: 'Encoder', inDegree: 1, outDegree: 0, type: 'process' },
+          ],
+          edges: [{ id: 'e1', source: 'A', target: 'B' }],
+          groups: [{ id: 'g1', label: 'Encoder', memberIds: ['B'] }],
+          depth: 2,
+          avgDegree: 1,
+          nodeCount: 2,
+        }
+      );
+
+      expect(prompt).toContain('图表信息');
+      expect(prompt).toContain('stroke-dasharray');
+      expect(prompt).toContain('完整 Mermaid 代码');
+    });
+  });
+
+  describe('getMermaidRepairPrompt', () => {
+    it('应该要求只返回修复后的 Mermaid 代码', () => {
+      const prompt = getMermaidRepairPrompt({
+        brokenMermaid: 'A[开始] --> B[结束',
+        errors: ['缺少 Mermaid 类型声明', '方括号不匹配'],
+        originalRequest: '生成一个简单流程图',
+      });
+
+      expect(prompt).toContain('生成一个简单流程图');
+      expect(prompt).toContain('缺少 Mermaid 类型声明');
+      expect(prompt).toContain('方括号不匹配');
+      expect(prompt).toContain('只输出完整 Mermaid 代码');
     });
   });
 });

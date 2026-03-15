@@ -1,0 +1,15 @@
+.board-style-context-menu,
+.board-style-context-menu__panel {
+  position: fixed;
+  z-index: 2023;
+}
+
+.board-style-context-menu {
+  &__menu {
+    min-width: 180px;
+  }
+
+  &__panel {
+    max-width: min(360px, calc(100vw - 24px));
+  }
+}

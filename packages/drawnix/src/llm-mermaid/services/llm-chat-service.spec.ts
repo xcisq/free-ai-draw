@@ -120,4 +120,37 @@ describe('LLMChatService', () => {
 
     expect(contents.join('')).toBe('flowchart LR\nA --> B');
   });
+
+  it('repairMermaid 应该使用 Mermaid 修复系统提示词', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 'chat-2',
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: 'flowchart LR\nA --> B',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 8,
+          completion_tokens: 8,
+          total_tokens: 16,
+        },
+      }),
+    } as Response);
+
+    const service = new LLMChatService();
+    await service.repairMermaid('修复这段 Mermaid');
+
+    const [requestUrl, requestInit] = fetchMock.mock.calls[0]!;
+    const requestBody = JSON.parse((requestInit as RequestInit).body as string);
+
+    expect(requestUrl).toBe('https://example.com/v1/chat/completions');
+    expect(requestBody.messages[0].content).toContain('Mermaid 语法修复助手');
+    expect(requestBody.messages[1].content).toBe('修复这段 Mermaid');
+  });
 });

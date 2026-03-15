@@ -47,6 +47,12 @@
           cursor: not-allowed;
         }
 
+        &.is-active {
+          border-color: var(--primary-color, #4A90E2);
+          background-color: var(--primary-light, #e3f2fd);
+          color: var(--primary-color, #4A90E2);
+        }
+
         &.preview-panel-insert {
           background-color: var(--primary-color, #4A90E2);
           color: white;
@@ -63,6 +69,96 @@
           height: 14px;
         }
       }
+    }
+  }
+
+  .preview-panel-style-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    background:
+      linear-gradient(180deg, rgba(245, 248, 255, 0.95), rgba(255, 255, 255, 0.98));
+
+    .preview-panel-style-presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .preview-panel-style-chip {
+      padding: 6px 12px;
+      border: 1px solid rgba(74, 144, 226, 0.18);
+      border-radius: 999px;
+      background: rgba(74, 144, 226, 0.08);
+      color: #22558f;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover:not(:disabled) {
+        border-color: rgba(74, 144, 226, 0.45);
+        background: rgba(74, 144, 226, 0.14);
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+
+    .preview-panel-style-request {
+      display: flex;
+      gap: 10px;
+    }
+
+    .preview-panel-style-input {
+      flex: 1;
+      min-width: 0;
+      padding: 8px 12px;
+      border: 1px solid var(--border-color, #d8dde6);
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+      &:focus {
+        border-color: var(--primary-color, #4A90E2);
+        box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.12);
+      }
+
+      &:disabled {
+        background-color: #f4f6f8;
+        cursor: not-allowed;
+      }
+    }
+
+    .preview-panel-style-submit {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 8px;
+      background-color: #1f6feb;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+
+      &:hover:not(:disabled) {
+        background-color: #1456b8;
+      }
+
+      &:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+    }
+
+    .preview-panel-style-status {
+      font-size: 12px;
+      color: #5f6b7a;
     }
   }
 

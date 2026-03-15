@@ -138,6 +138,7 @@ export const LLMMermaidDialog = ({ container }: LLMMermaidDialogProps) => {
             mermaidCode={mermaidCode}
             onInsert={handleInsert}
             disabled={!isReady}
+            generationContext={generationContext}
           />
         </div>
       </div>

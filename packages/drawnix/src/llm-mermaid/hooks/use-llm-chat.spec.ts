@@ -7,6 +7,23 @@ jest.mock('../services/llm-chat-service', () => ({
   },
 }));
 
+jest.mock('../services/mermaid-stabilizer', () => ({
+  mermaidStabilizerService: {
+    stabilizeResponse: jest.fn(async (content: string) => ({
+      mermaidCode: content,
+      elements: [],
+      validation: {
+        isValid: true,
+        errors: [],
+        warnings: [],
+      },
+      source: 'original',
+      appliedFixes: [],
+    })),
+  },
+  MermaidStabilizationError: class MermaidStabilizationError extends Error {},
+}));
+
 import { llmChatService } from '../services/llm-chat-service';
 import { useLLMChat } from './use-llm-chat';
 

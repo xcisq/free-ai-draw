@@ -32,3 +32,15 @@ export type {
   GraphGroup,
   ValidationResult,
 } from './style';
+
+export type {
+  BoardStyleSelector,
+  BoardStrokeStyle,
+  BoardLineShape,
+  BoardArrowMarker,
+  BoardStyleScheme,
+  ElementStyleMap,
+  BoardStyleSchemeOption,
+  BoardStyleSchemesResult,
+  SelectedElementsSummary,
+} from './board-style';

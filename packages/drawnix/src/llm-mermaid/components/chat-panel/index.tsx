@@ -144,7 +144,7 @@ export const ChatPanel = ({
         <MessageInput
           onSend={handleSend}
           disabled={disabled || isStreaming}
-          placeholder="描述你想生成的流程图... (Ctrl/Cmd + Enter 发送)"
+          placeholder="输入需求，或直接粘贴一段要可视化的文本... (Ctrl/Cmd + Enter 发送)"
         />
       </div>
     </div>

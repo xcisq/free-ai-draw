@@ -40,6 +40,7 @@ import { LinkPopup } from './components/popup/link-popup/link-popup';
 import { I18nProvider } from './i18n';
 import { Tutorial } from './components/tutorial';
 import { LASER_POINTER_CLASS_NAME } from './utils/laser-pointer';
+import { BoardStyleContextMenu } from './llm-mermaid/components/board-style-context-menu';
 
 export type DrawnixProps = {
   value: PlaitElement[];
@@ -152,6 +153,7 @@ export const Drawnix: React.FC<DrawnixProps> = ({
             <ZoomToolbar></ZoomToolbar>
             <ThemeToolbar></ThemeToolbar>
             <PopupToolbar></PopupToolbar>
+            <BoardStyleContextMenu></BoardStyleContextMenu>
             <LinkPopup></LinkPopup>
             <ClosePencilToolbar></ClosePencilToolbar>
             <TTDDialog container={containerRef.current}></TTDDialog>

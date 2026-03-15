@@ -6,14 +6,18 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { PlaitElement } from '@plait/core';
 import type { Message } from '../types';
-import { mermaidConverter } from '../services/mermaid-converter';
 import { llmChatService } from '../services/llm-chat-service';
 import {
   buildMermaidUserPrompt,
-  extractMermaidCode,
   validateMermaidCode,
 } from '../services/prompt-templates';
 import type { GenerationContext, ValidationResult } from '../types';
+import { mermaidStabilizerService, MermaidStabilizationError } from '../services/mermaid-stabilizer';
+
+interface UpdateCodeOptions {
+  allowLLMRepair?: boolean;
+  signal?: AbortSignal;
+}
 
 export interface UseMermaidPreviewResult {
   mermaidCode: string;
@@ -21,9 +25,11 @@ export interface UseMermaidPreviewResult {
   isConverting: boolean;
   validation: ValidationResult | null;
   isValid: boolean;
+  error: string | null;
   generateFromChat: (userMessages: Message[], context: GenerationContext) => Promise<void>;
-  updateCode: (code: string) => Promise<void>;
+  updateCode: (code: string, options?: UpdateCodeOptions) => Promise<string>;
   clear: () => void;
+  clearError: () => void;
 }
 
 const DEFAULT_CONTEXT: GenerationContext = {
@@ -38,6 +44,7 @@ export function useMermaidPreview(): UseMermaidPreviewResult {
   const [elements, setElements] = useState<PlaitElement[]>([]);
   const [isConverting, setIsConverting] = useState(false);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const isGeneratingRef = useRef(false);
 
   // 验证代码
@@ -67,25 +74,21 @@ export function useMermaidPreview(): UseMermaidPreviewResult {
 
         // 调用 LLM 生成 Mermaid 代码
         const response = await llmChatService.generateMermaid(prompt);
+        const stabilized = await mermaidStabilizerService.stabilizeResponse(response, {
+          allowLLMRepair: true,
+          originalRequest: prompt,
+        });
 
-        // 提取 Mermaid 代码
-        const extractedCode = extractMermaidCode(response);
-
-        // 设置代码
-        setMermaidCode(extractedCode);
-        setValidation(validateMermaidCode(extractedCode));
-
-        // 转换为元素
-        if (extractedCode) {
-          const convertedElements = await mermaidConverter.convertToElements(extractedCode);
-          setElements(convertedElements);
-        } else {
-          setElements([]);
-        }
+        setMermaidCode(stabilized.mermaidCode);
+        setValidation(stabilized.validation);
+        setElements(stabilized.elements);
+        setError(null);
       } catch (error) {
         console.error('Failed to generate from chat:', error);
         setMermaidCode('');
         setElements([]);
+        setValidation(null);
+        setError(error instanceof Error ? error.message : 'Mermaid 代码生成失败');
       } finally {
         setIsConverting(false);
         isGeneratingRef.current = false;
@@ -95,23 +98,53 @@ export function useMermaidPreview(): UseMermaidPreviewResult {
   );
 
   // 更新 Mermaid 代码
-  const updateCode = useCallback(async (code: string) => {
+  const updateCode = useCallback(async (code: string, options: UpdateCodeOptions = {}) => {
     setMermaidCode(code);
+    setError(null);
 
     if (code.trim()) {
       setIsConverting(true);
       try {
-        const convertedElements = await mermaidConverter.convertToElements(code);
-        setElements(convertedElements);
+        const stabilized = await mermaidStabilizerService.stabilizeCode(code, {
+          allowLLMRepair: options.allowLLMRepair,
+          signal: options.signal,
+        });
+
+        if (stabilized.source !== 'original') {
+          console.warn('[llm-mermaid] preview mermaid auto-repaired', {
+            source: stabilized.source,
+            fixes: stabilized.appliedFixes,
+          });
+        }
+
+        setMermaidCode(stabilized.mermaidCode);
+        setValidation(stabilized.validation);
+        setElements(stabilized.elements);
+        return stabilized.mermaidCode;
       } catch (error) {
-        console.error('Failed to convert Mermaid code:', error);
+        if (error instanceof MermaidStabilizationError) {
+          console.warn('[llm-mermaid] preview mermaid stabilization failed', {
+            stage: error.stage,
+            details: error.details,
+          });
+        } else {
+          console.error('Failed to convert Mermaid code:', error);
+        }
+
+        const nextValidation = validateMermaidCode(code);
+        setValidation(nextValidation);
         setElements([]);
+        setError(error instanceof Error ? error.message : 'Mermaid 代码预览失败');
+        return code;
       } finally {
         setIsConverting(false);
       }
     } else {
       setElements([]);
+      setValidation(null);
+      setError(null);
     }
+    return '';
   }, []);
 
   // 清空
@@ -119,6 +152,11 @@ export function useMermaidPreview(): UseMermaidPreviewResult {
     setMermaidCode('');
     setElements([]);
     setValidation(null);
+    setError(null);
+  }, []);
+
+  const clearError = useCallback(() => {
+    setError(null);
   }, []);
 
   return {
@@ -127,8 +165,10 @@ export function useMermaidPreview(): UseMermaidPreviewResult {
     isConverting,
     validation,
     isValid: validation?.isValid ?? false,
+    error,
     generateFromChat,
     updateCode,
     clear,
+    clearError,
   };
 }

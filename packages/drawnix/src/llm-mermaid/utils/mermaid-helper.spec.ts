@@ -1,8 +1,10 @@
 import { describe, expect, it } from '@jest/globals';
 import {
   clearStyles,
+  createMermaidRepairCandidates,
   extractStyles,
   fixMermaidCode,
+  normalizeMermaidCode,
 } from './mermaid-helper';
 
 describe('mermaid-helper', () => {
@@ -34,5 +36,17 @@ describe('mermaid-helper', () => {
     );
 
     expect(cleaned).toBe('flowchart LR\nA --> B');
+  });
+
+  it('应该补全明显缺失的右括号', () => {
+    const normalized = normalizeMermaidCode('flowchart LR\nA[开始] --> B[结束');
+    expect(normalized.code).toContain('B["结束"]');
+    expect(normalized.appliedFixes).toContain('补全明显缺失的行内括号');
+  });
+
+  it('应该生成多个本地修复候选', () => {
+    const candidates = createMermaidRepairCandidates('A["开始"] --> B["结束"]');
+    expect(candidates[0]).toContain('flowchart LR');
+    expect(candidates.length).toBeGreaterThan(1);
   });
 });

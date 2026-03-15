@@ -1,0 +1,219 @@
+.board-style-panel {
+  width: 320px;
+  max-height: 70vh;
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid rgba(31, 111, 235, 0.14);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(244, 248, 255, 0.98), rgba(255, 255, 255, 0.98));
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.14);
+
+  &__header {
+    margin-bottom: 12px;
+  }
+
+  &__title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1f2d3d;
+  }
+
+  &__subtitle,
+  &__last-request {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #617085;
+  }
+
+  &__selection-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+
+    span {
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(31, 111, 235, 0.08);
+      color: #35507b;
+      font-size: 11px;
+      font-weight: 600;
+    }
+  }
+
+  &__selection-toggle {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 12px;
+    color: #4b5563;
+    font-size: 12px;
+    line-height: 1.5;
+    cursor: pointer;
+
+    input {
+      margin-top: 2px;
+      accent-color: #1f6feb;
+    }
+  }
+
+  &__input-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  &__input-hint {
+    margin-top: 8px;
+    color: #617085;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  &__input {
+    flex: 1;
+    min-width: 0;
+    padding: 9px 12px;
+    border: 1px solid #d4dce7;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    outline: none;
+    resize: vertical;
+    font-family: inherit;
+
+    &:focus {
+      border-color: #1f6feb;
+      box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.12);
+    }
+  }
+
+  &__submit,
+  &__quick-chip,
+  &__error button {
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  &__submit {
+    min-height: 38px;
+    padding: 0 14px;
+    background: #1f6feb;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  &__quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  &__quick-chip {
+    padding: 6px 10px;
+    background: rgba(31, 111, 235, 0.08);
+    color: #1f6feb;
+    font-size: 12px;
+  }
+
+  &__status,
+  &__empty {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.04);
+    color: #5f6b7a;
+    font-size: 12px;
+  }
+
+  &__error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #fff1f1;
+    color: #bf2b2b;
+    font-size: 12px;
+
+    button {
+      padding: 6px 10px;
+      background: rgba(191, 43, 43, 0.08);
+      color: inherit;
+    }
+  }
+
+  &__scheme-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  &__scheme-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    padding: 12px;
+    border: 1px solid rgba(31, 111, 235, 0.12);
+    border-radius: 12px;
+    background: #fff;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+      border-color: rgba(31, 111, 235, 0.28);
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    &:focus-visible {
+      border-color: rgba(31, 111, 235, 0.4);
+      box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.14);
+      outline: none;
+    }
+  }
+
+  &__scheme-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 13px;
+
+    span {
+      color: #617085;
+      font-size: 12px;
+    }
+  }
+
+  &__scheme-description {
+    color: #4b5563;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  &__scheme-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__scheme-tag {
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.06);
+    color: #334155;
+    font-size: 11px;
+  }
+}

@@ -3,11 +3,22 @@ import { PreviewPanel } from './index';
 
 const mockUpdateCode = jest.fn();
 const mockClear = jest.fn();
+const mockClearError = jest.fn();
+const mockApplyPreset = jest.fn();
+const mockOptimizeByPrompt = jest.fn();
+const mockResetStyleState = jest.fn();
 const mockPreviewState = {
   elements: [] as unknown[],
   isConverting: false,
   validation: null as null | { isValid: boolean; errors: string[]; warnings: string[] },
   isValid: false,
+  error: null as null | string,
+};
+const mockStyleState = {
+  isOptimizing: false,
+  styleError: null as null | string,
+  lastStyleRequest: null as null | string,
+  recommendedStyles: [] as Array<{ nodeId: string }>,
 };
 
 jest.mock('../../hooks/use-mermaid-preview', () => ({
@@ -15,6 +26,16 @@ jest.mock('../../hooks/use-mermaid-preview', () => ({
     ...mockPreviewState,
     updateCode: mockUpdateCode,
     clear: mockClear,
+    clearError: mockClearError,
+  }),
+}));
+
+jest.mock('../../hooks/use-style-optimization', () => ({
+  useStyleOptimization: () => ({
+    ...mockStyleState,
+    applyPreset: mockApplyPreset,
+    optimizeByPrompt: mockOptimizeByPrompt,
+    resetStyleState: mockResetStyleState,
   }),
 }));
 
@@ -33,11 +54,21 @@ jest.mock('./mermaid-code-view', () => ({
 describe('PreviewPanel', () => {
   beforeEach(() => {
     mockUpdateCode.mockReset();
+    mockUpdateCode.mockImplementation(async (code: string) => code);
     mockClear.mockReset();
+    mockClearError.mockReset();
+    mockApplyPreset.mockReset();
+    mockOptimizeByPrompt.mockReset();
+    mockResetStyleState.mockReset();
     mockPreviewState.elements = [];
     mockPreviewState.isConverting = false;
     mockPreviewState.validation = null;
     mockPreviewState.isValid = false;
+    mockPreviewState.error = null;
+    mockStyleState.isOptimizing = false;
+    mockStyleState.styleError = null;
+    mockStyleState.lastStyleRequest = null;
+    mockStyleState.recommendedStyles = [];
   });
 
   it('初始空态不会错误显示 Mermaid 无效', async () => {
@@ -55,10 +86,16 @@ describe('PreviewPanel', () => {
 
     await waitFor(() => {
       expect(mockUpdateCode).toHaveBeenCalledWith(
-        expect.stringContaining('flowchart LR')
+        expect.stringContaining('flowchart LR'),
+        expect.objectContaining({
+          allowLLMRepair: true,
+        })
       );
       expect(mockUpdateCode).toHaveBeenCalledWith(
-        expect.stringContaining('A --> B')
+        expect.stringContaining('A --> B'),
+        expect.objectContaining({
+          allowLLMRepair: true,
+        })
       );
     });
 
@@ -69,7 +106,7 @@ describe('PreviewPanel', () => {
     });
   });
 
-  it('校验失败时展示真实错误，并允许关闭', () => {
+  it('校验失败时展示真实错误，并允许关闭', async () => {
     mockPreviewState.validation = {
       isValid: false,
       errors: ['缺少 Mermaid 类型声明'],
@@ -79,10 +116,59 @@ describe('PreviewPanel', () => {
 
     render(<PreviewPanel mermaidCode="A --> B" />);
 
+    await waitFor(() => {
+      expect(mockUpdateCode).toHaveBeenCalled();
+    });
     expect(screen.getAllByText('缺少 Mermaid 类型声明')).toHaveLength(2);
 
     fireEvent.click(screen.getByRole('button', { name: '关闭' }));
 
     expect(mockClear).toHaveBeenCalledTimes(1);
+  });
+
+  it('预览修复失败时允许只关闭错误提示，不清空代码', async () => {
+    mockPreviewState.error = 'Mermaid 代码已尝试自动修复，但仍无法稳定预览：存在未完整的连接语句';
+
+    render(<PreviewPanel mermaidCode="flowchart LR\nA -->" />);
+
+    await waitFor(() => {
+      expect(mockUpdateCode).toHaveBeenCalled();
+    });
+    expect(screen.getAllByText(/已尝试自动修复/)).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }));
+
+    expect(mockClearError).toHaveBeenCalledTimes(1);
+    expect(mockClear).not.toHaveBeenCalled();
+  });
+
+  it('有 Mermaid 内容时可以打开样式优化并应用预设', async () => {
+    render(<PreviewPanel mermaidCode="flowchart LR\nA --> B" />);
+
+    await waitFor(() => {
+      expect(mockUpdateCode).toHaveBeenCalled();
+    });
+    expect(screen.getByRole('button', { name: '样式优化' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '学术' }));
+
+    await waitFor(() => {
+      expect(mockApplyPreset).toHaveBeenCalledWith('academic');
+    });
+  });
+
+  it('样式优化报错时允许关闭错误提示', async () => {
+    mockStyleState.styleError = '样式优化失败';
+
+    render(<PreviewPanel mermaidCode="flowchart LR\nA --> B" />);
+
+    await waitFor(() => {
+      expect(mockUpdateCode).toHaveBeenCalled();
+    });
+    expect(screen.getAllByText('样式优化失败')).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }));
+
+    expect(mockResetStyleState).toHaveBeenCalledTimes(1);
   });
 });
