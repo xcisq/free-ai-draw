@@ -40,6 +40,10 @@ export interface MessageMetadata {
   styleScheme?: StyleScheme;
   /** 生成上下文 */
   generationContext?: GenerationContext;
+  /** 是否正在流式生成 */
+  isStreaming?: boolean;
+  /** 是否已完成 */
+  isComplete?: boolean;
 }
 
 /**
@@ -80,23 +84,3 @@ export interface StyleScheme {
   shadow: boolean;
   shadowBlur: number;
 }
-
-/**
- * 从 config.ts 导入的类型
- */
-export interface GenerationContext {
-  layoutDirection: LayoutDirection;
-  usageScenario: UsageScenario;
-  nodeCount: number;
-  theme: string;
-}
-
-/**
- * 布局方向
- */
-export type LayoutDirection = 'LR' | 'TB';
-
-/**
- * 使用场景
- */
-export type UsageScenario = 'paper' | 'presentation' | 'document';

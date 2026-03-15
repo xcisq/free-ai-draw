@@ -4,11 +4,21 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
+import { useBoard } from '@plait-board/react-board';
+import {
+  getViewportOrigination,
+  PlaitBoard,
+  PlaitElement,
+  PlaitGroupElement,
+  Point,
+  RectangleClient,
+  WritableClipboardOperationType,
+} from '@plait/core';
 import { useDrawnix } from '../../hooks/use-drawnix';
 import { useI18n } from '../../i18n';
 import { ChatPanel } from './chat-panel';
 import { PreviewPanel } from './preview-panel';
-import type { GenerationContext } from '../../types';
+import type { GenerationContext } from '../types';
 import './llm-mermaid-dialog.scss';
 
 export interface LLMMermaidDialogProps {
@@ -16,7 +26,8 @@ export interface LLMMermaidDialogProps {
 }
 
 export const LLMMermaidDialog = ({ container }: LLMMermaidDialogProps) => {
-  const { appState, setAppState, board } = useDrawnix();
+  const board = useBoard();
+  const { appState, setAppState } = useDrawnix();
   const { t } = useI18n();
   const [isReady, setIsReady] = useState(false);
   const [mermaidCode, setMermaidCode] = useState('');
@@ -46,27 +57,50 @@ export const LLMMermaidDialog = ({ container }: LLMMermaidDialogProps) => {
   // 处理插入到画布
   const handleInsert = useCallback(
     (elements: unknown[]) => {
+      const typedElements = elements as PlaitElement[];
       if (!board || elements.length === 0) {
         return;
       }
 
       try {
-        // 将元素添加到画布中心
-        const viewport = board.viewport;
-        const centerX = viewport.width / 2 - viewport.x;
-        const centerY = viewport.height / 2 - viewport.y;
+        const boardContainerRect =
+          PlaitBoard.getBoardContainer(board).getBoundingClientRect();
+        const focusPoint = [
+          boardContainerRect.width / 2,
+          boardContainerRect.height / 2,
+        ];
+        const zoom = board.viewport.zoom;
+        const origination = getViewportOrigination(board);
+        const centerX = origination![0] + focusPoint[0] / zoom;
+        const centerY = origination![1] + focusPoint[1] / zoom;
 
-        // 计算元素组的边界框
-        // 简化处理：直接添加到画布中心
-        board.addElements(elements);
+        const elementRectangle = RectangleClient.getBoundingRectangle(
+          elements
+            .filter((ele) => !PlaitGroupElement.isGroup(ele))
+            .map((ele) =>
+              RectangleClient.getRectangleByPoints(ele.points as Point[])
+            )
+        );
+        const startPoint = [
+          centerX - elementRectangle.width / 2,
+          centerY - elementRectangle.height / 2,
+        ] as Point;
 
-        // 更新视图以显示新添加的元素
-        board.fitToSelection();
+        board.insertFragment(
+          {
+            elements: JSON.parse(JSON.stringify(elements)),
+          },
+          startPoint,
+          WritableClipboardOperationType.paste
+        );
+
+        // 插入成功后关闭对话框
+        handleClose();
       } catch (err) {
         console.error('Insert elements failed:', err);
       }
     },
-    [board]
+    [board, appState, setAppState]
   );
 
   useEffect(() => {
@@ -114,3 +148,5 @@ export const LLMMermaidDialog = ({ container }: LLMMermaidDialogProps) => {
     </div>
   );
 };
+
+export default LLMMermaidDialog;

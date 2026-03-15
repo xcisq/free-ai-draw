@@ -91,3 +91,15 @@ export interface GraphGroup {
   /** 分组顺序 */
   order?: number;
 }
+
+/**
+ * 验证结果
+ */
+export interface ValidationResult {
+  /** 是否有效 */
+  isValid: boolean;
+  /** 错误列表 */
+  errors: string[];
+  /** 警告列表 */
+  warnings: string[];
+}

@@ -10,28 +10,25 @@ export type {
   MessageMetadata,
   ChatChunk,
   ChatOptions,
+  StyleScheme,
 } from './chat';
-
-export type { LayoutDirection, UsageScenario } from './chat';
 
 // 配置相关类型
 export type {
   LLMConfig,
   EnvLLMConfig,
-  GenerationContext,
   ThemePreset,
   NodeShapePreset,
+  GenerationContext,
+  LayoutDirection,
+  UsageScenario,
 } from './config';
-
-export type { LayoutDirection, UsageScenario } from './config';
 
 // 样式相关类型
 export type {
-  StyleScheme,
   GraphInfo,
   GraphNode,
   GraphEdge,
   GraphGroup,
+  ValidationResult,
 } from './style';
-
-// 类型已从各模块导出，无需重复导出
