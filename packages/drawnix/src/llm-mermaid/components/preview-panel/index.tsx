@@ -26,6 +26,7 @@ export const PreviewPanel = ({
   const {
     elements,
     isConverting,
+    validation,
     isValid,
     updateCode,
     clear,
@@ -33,15 +34,22 @@ export const PreviewPanel = ({
 
   // 使用 isLoading 别名以保持一致性
   const isLoading = isConverting;
-  const error = isValid ? null : { message: 'Mermaid 代码无效' };
+  const error =
+    localCode.trim().length > 0 && validation && !isValid
+      ? { message: validation.errors[0] || 'Mermaid 代码无效' }
+      : null;
 
   // 同步外部代码变化
   useEffect(() => {
-    if (externalMermaidCode && externalMermaidCode !== localCode) {
-      setLocalCode(externalMermaidCode);
-      updateCode(externalMermaidCode);
+    if (!externalMermaidCode.trim()) {
+      setLocalCode('');
+      clear();
+      return;
     }
-  }, [externalMermaidCode, localCode, updateCode]);
+
+    setLocalCode(externalMermaidCode);
+    updateCode(externalMermaidCode);
+  }, [clear, externalMermaidCode, updateCode]);
 
   // 处理 Mermaid 代码变化
   const handleCodeChange = useCallback(
@@ -166,12 +174,15 @@ export const PreviewPanel = ({
         )}
       </div>
 
-      {error && !isValid && localCode.length > 0 && (
+      {error && (
         <div className="preview-panel-error-banner">
           <span className="error-message">{error.message}</span>
           <button
             className="error-dismiss"
-            onClick={() => clear()}
+            onClick={() => {
+              setLocalCode('');
+              clear();
+            }}
             disabled={disabled}
           >
             关闭

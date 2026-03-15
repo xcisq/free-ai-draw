@@ -5,6 +5,15 @@
 
 import type { GenerationContext, GraphInfo, LayoutDirection, UsageScenario } from '../types';
 
+const DEFAULT_GENERATION_CONTEXT: GenerationContext = {
+  layoutDirection: 'LR',
+  usageScenario: 'paper',
+  nodeCount: 5,
+  theme: 'academic',
+  layoutArea: 'medium',
+  density: 'balanced',
+};
+
 /**
  * 获取初始系统提示词
  */
@@ -47,6 +56,26 @@ export function getMermaidGenerationPrompt(context: GenerationContext): string {
 5. 使用 --> 连接节点
 
 输出格式：仅输出 Mermaid 代码，不要包含任何解释文字。`;
+}
+
+/**
+ * 将用户输入与结构化配置组合为 Mermaid 生成请求
+ */
+export function buildMermaidUserPrompt(
+  userInput: string,
+  context: Partial<GenerationContext> = {}
+): string {
+  const mergedContext: GenerationContext = {
+    ...DEFAULT_GENERATION_CONTEXT,
+    ...context,
+  };
+
+  return `${getMermaidGenerationPrompt(mergedContext)}
+
+用户需求：
+${userInput.trim()}
+
+请严格输出完整 Mermaid 代码，不要补充额外说明。`;
 }
 
 /**
@@ -163,11 +192,45 @@ export function extractMermaidCode(text: string): string {
   );
 
   if (startIndex !== -1) {
-    return lines.slice(startIndex).join('\n').trim();
+    const mermaidLines: string[] = [];
+
+    for (const line of lines.slice(startIndex)) {
+      if (isLikelyMermaidLine(line, mermaidLines.length === 0)) {
+        mermaidLines.push(line);
+        continue;
+      }
+
+      if (mermaidLines.length > 0) {
+        break;
+      }
+    }
+
+    if (mermaidLines.length > 0) {
+      return mermaidLines.join('\n').trim();
+    }
   }
 
   // 返回原文本
   return text.trim();
+}
+
+function isLikelyMermaidLine(line: string, isFirstLine: boolean): boolean {
+  const trimmed = line.trim();
+
+  if (!trimmed) {
+    return true;
+  }
+
+  if (isFirstLine) {
+    return /^(flowchart|graph|stateDiagram|classDiagram|sequenceDiagram|erDiagram|gantt|pie|journey)/.test(
+      trimmed
+    );
+  }
+
+  return /^(subgraph|end|classDef|class|style|linkStyle|click|%%)\b/.test(trimmed)
+    || /-->|---|-.->|==>|==/.test(trimmed)
+    || /^\w[\w-]*\s*(?:\[[^\]]*\]|\([^)]+\)|\{[^}]+\}|:::.*)?$/.test(trimmed)
+    || /^\w[\w-]*\s*:::/.test(trimmed);
 }
 
 /**
@@ -176,8 +239,10 @@ export function extractMermaidCode(text: string): string {
 export function validateMermaidCode(code: string): {
   isValid: boolean;
   errors: string[];
+  warnings: string[];
 } {
   const errors: string[] = [];
+  const warnings: string[] = [];
   const trimmedCode = code.trim();
 
   if (!trimmedCode) {
@@ -204,5 +269,6 @@ export function validateMermaidCode(code: string): {
   return {
     isValid: errors.length === 0,
     errors,
+    warnings,
   };
 }

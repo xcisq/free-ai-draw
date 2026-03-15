@@ -3,13 +3,14 @@
  * 封装 OpenAI 兼容 API 调用，支持流式响应和错误处理
  */
 
-import type { Message, MessageRole, ChatOptions, ChatChunk } from '../types';
+import type { Message, ChatOptions, ChatChunk } from '../types';
 import { getLLMMermaidConfig } from '../utils/env-config';
 
 /**
  * LLM API 请求格式
  */
 interface ChatRequest {
+  model: string;
   messages: Array<{
     role: 'system' | 'user' | 'assistant';
     content: string;
@@ -84,6 +85,7 @@ export class LLMChatService {
     }
 
     const requestBody: ChatRequest = {
+      model: this.config.model,
       messages: messages.map(m => ({
         role: m.role as 'system' | 'user' | 'assistant',
         content: m.content,
@@ -101,6 +103,7 @@ export class LLMChatService {
           'Authorization': `Bearer ${this.config.apiKey}`,
         },
         body: JSON.stringify(requestBody),
+        signal: options?.signal,
       });
 
       if (!response.ok) {
@@ -128,6 +131,7 @@ export class LLMChatService {
     }
 
     const requestBody: ChatRequest = {
+      model: this.config.model,
       messages: messages.map(m => ({
         role: m.role as 'system' | 'user' | 'assistant',
         content: m.content,
@@ -145,6 +149,7 @@ export class LLMChatService {
           'Authorization': `Bearer ${this.config.apiKey}`,
         },
         body: JSON.stringify(requestBody),
+        signal: options?.signal,
       });
 
       if (!response.ok) {
@@ -168,8 +173,9 @@ export class LLMChatService {
         buffer = lines.pop() || '';
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim();
+          const normalizedLine = line.trim();
+          if (normalizedLine.startsWith('data: ')) {
+            const data = normalizedLine.slice(6).trim();
             if (data === '[DONE]') continue;
 
             try {

@@ -14,7 +14,11 @@ export function fixMermaidCode(code: string): string {
   fixedCode = extractMermaidCode(fixedCode);
 
   // 修复 2: 确保有类型声明
-  if (!/^flowchart|graph|stateDiagram|classDiagram|sequenceDiagram|erDiagram|gantt|pie|journey/.test(fixedCode)) {
+  if (
+    !/^(flowchart|graph|stateDiagram|classDiagram|sequenceDiagram|erDiagram|gantt|pie|journey)\b/m.test(
+      fixedCode
+    )
+  ) {
     // 如果没有类型声明，尝试添加默认的 flowchart LR
     fixedCode = `flowchart LR\n${fixedCode}`;
   }
@@ -115,23 +119,32 @@ export function extractStyles(code: string): Array<{
   styles: Record<string, string>;
 }> {
   const styles: Array<{ className: string; styles: Record<string, string> }> = [];
-  const classDefRegex = /classDef\s+(\w+)\s*\{([^}]+)\}/g;
-  let match;
+  const classDefLines = code
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('classDef '));
 
-  while ((match = classDefRegex.exec(code)) !== null) {
-    const className = match[1];
-    const stylesContent = match[2];
+  classDefLines.forEach((line) => {
+    const inlineMatch = line.match(/^classDef\s+(\w+)\s+(.+)$/);
+    if (!inlineMatch) {
+      return;
+    }
+
+    const className = inlineMatch[1];
+    const stylesContent = inlineMatch[2]
+      .replace(/^\{/, '')
+      .replace(/\}$/, '');
 
     const styleProps: Record<string, string> = {};
-    const styleRegex = /(\w+):\s*([^;]+);?/g;
-    let styleMatch;
+    const styleRegex = /([\w-]+):\s*([^,;]+)\s*[,;]?/g;
+    let styleMatch: RegExpExecArray | null;
 
     while ((styleMatch = styleRegex.exec(stylesContent)) !== null) {
       styleProps[styleMatch[1]] = styleMatch[2].trim();
     }
 
     styles.push({ className, styles: styleProps });
-  }
+  });
 
   return styles;
 }
@@ -167,7 +180,11 @@ export function applyStylesToCode(code: string, styleScheme: {
  * 清理 Mermaid 代码中的样式定义
  */
 export function clearStyles(code: string): string {
-  return code.replace(/classDef\s+\w+\s*\{[^}]*\}/g, '');
+  return code
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('classDef '))
+    .join('\n')
+    .trim();
 }
 
 /**

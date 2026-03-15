@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from '@jest/globals';
 import {
+  buildMermaidUserPrompt,
   getInitialPrompt,
   getMermaidGenerationPrompt,
   getStyleOptimizationPrompt,
@@ -96,8 +97,29 @@ describe('PromptTemplates', () => {
     it('应该从纯文本中提取 Mermaid 代码', () => {
       const text = '这是我的图：\nflowchart LR\nA --> B\n结束';
       const code = extractMermaidCode(text);
-      expect(code).toContain('flowchart LR');
-      expect(code).toContain('A --> B');
+      expect(code).toBe('flowchart LR\nA --> B');
+    });
+
+    it('应该忽略 Mermaid 代码后的说明文字', () => {
+      const text = 'flowchart LR\nA[开始] --> B[结束]\n说明：这是一个简单流程图';
+      const code = extractMermaidCode(text);
+      expect(code).toBe('flowchart LR\nA[开始] --> B[结束]');
+    });
+  });
+
+  describe('buildMermaidUserPrompt', () => {
+    it('应该把结构化上下文和用户需求拼成完整请求', () => {
+      const prompt = buildMermaidUserPrompt('突出评估阶段', {
+        layoutDirection: 'TB',
+        usageScenario: 'presentation',
+        theme: 'professional',
+        nodeCount: 6,
+      });
+
+      expect(prompt).toContain('从上到下');
+      expect(prompt).toContain('演示文稿');
+      expect(prompt).toContain('突出评估阶段');
+      expect(prompt).toContain('请严格输出完整 Mermaid 代码');
     });
   });
 
@@ -107,6 +129,7 @@ describe('PromptTemplates', () => {
       const result = validateMermaidCode(validCode);
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
+      expect(result.warnings).toHaveLength(0);
     });
 
     it('应该检测空的代码', () => {

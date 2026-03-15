@@ -1,16 +1,20 @@
 /**
  * Board 预览组件
- * 使用 Plait Board 渲染 Mermaid 转换后的元素
+ * 使用项目现有的 Wrapper + Board 只读渲染 Mermaid 转换结果
  */
 
-import { useEffect, useRef, useState } from 'react';
-import { PlaitBoard, PlaitBoardOptions, ThemeColorMode } from '@plait/core';
-import { createEditor } from './editor-factory';
+import { useMemo, useState } from 'react';
+import { withGroup } from '@plait/common';
+import { Board, Wrapper } from '@plait-board/react-board';
+import { PlaitBoard, PlaitElement, PlaitPlugin, PlaitTheme } from '@plait/core';
+import { withDraw } from '@plait/draw';
+import { MindThemeColors, withMind } from '@plait/mind';
+import { withCommonPlugin } from '../../../plugins/with-common';
 import './board-preview.scss';
 
 export interface BoardPreviewProps {
   elements: unknown[];
-  theme?: ThemeColorMode;
+  theme?: PlaitTheme;
   isLoading?: boolean;
   error?: string | null;
   onBoardReady?: (board: PlaitBoard | null) => void;
@@ -18,77 +22,43 @@ export interface BoardPreviewProps {
 
 export const BoardPreview = ({
   elements,
-  theme = 'light',
+  theme,
   isLoading = false,
   error = null,
   onBoardReady,
 }: BoardPreviewProps) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const boardRef = useRef<PlaitBoard | null>(null);
   const [isReady, setIsReady] = useState(false);
-
-  // 初始化 Board
-  useEffect(() => {
-    if (!containerRef.current || boardRef.current) {
-      return;
-    }
-
-    const options: PlaitBoardOptions = {
-      readonly: true,
-      themeColors: {
-        primary: '#4A90E2',
-        background: '#ffffff',
-        text: '#333333',
-      },
-    };
-
-    try {
-      const board = createEditor(containerRef.current, elements, options);
-      boardRef.current = board;
-      setIsReady(true);
-      onBoardReady?.(board);
-    } catch (err) {
-      console.error('Board initialization failed:', err);
-    }
-
-    return () => {
-      if (boardRef.current) {
-        boardRef.current.destroy();
-        boardRef.current = null;
-      }
-    };
-  }, [onBoardReady]);
-
-  // 更新元素
-  useEffect(() => {
-    if (boardRef.current && elements.length > 0) {
-      try {
-        // 清空现有元素
-        boardRef.current.children = [];
-
-        // 添加新元素
-        elements.forEach((element) => {
-          boardRef.current?.addElements(element);
-        });
-
-        // 自适应视图
-        boardRef.current.fitToSelection();
-      } catch (err) {
-        console.error('Update board elements failed:', err);
-      }
-    }
-  }, [elements]);
-
-  // 更新主题
-  useEffect(() => {
-    if (boardRef.current) {
-      boardRef.current.theme = theme;
-    }
-  }, [theme]);
+  const plugins = useMemo<PlaitPlugin[]>(
+    () => [withDraw, withMind, withGroup, withCommonPlugin],
+    []
+  );
+  const value = useMemo(() => elements as PlaitElement[], [elements]);
 
   return (
     <div className="board-preview">
-      <div className="board-preview-container" ref={containerRef} />
+      <div
+        className="board-preview-container"
+        style={{ opacity: error ? 0.15 : 1 }}
+      >
+        <Wrapper
+          value={value}
+          theme={theme}
+          options={{
+            readonly: true,
+            hideScrollbar: false,
+            disabledScrollOnNonFocus: true,
+            themeColors: MindThemeColors,
+          }}
+          plugins={plugins}
+        >
+          <Board
+            afterInit={(board) => {
+              setIsReady(true);
+              onBoardReady?.(board);
+            }}
+          ></Board>
+        </Wrapper>
+      </div>
 
       {isLoading && (
         <div className="board-preview-loading">
@@ -104,7 +74,7 @@ export const BoardPreview = ({
         </div>
       )}
 
-      {!isReady && !isLoading && !error && elements.length === 0 && (
+      {isReady && !isLoading && !error && value.length === 0 && (
         <div className="board-preview-empty">
           <svg
             className="empty-icon"
@@ -129,9 +99,7 @@ export const BoardPreview = ({
               strokeLinecap="round"
             />
           </svg>
-          <span className="empty-text">
-            生成的流程图预览将显示在这里
-          </span>
+          <span className="empty-text">生成的流程图预览将显示在这里</span>
         </div>
       )}
     </div>

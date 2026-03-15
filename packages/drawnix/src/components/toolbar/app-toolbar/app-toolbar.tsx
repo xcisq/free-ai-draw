@@ -112,6 +112,7 @@ export const AppToolbar = () => {
             }}
             disabled={isRedoDisabled}
           />
+          <LLMMermaidButton />
           {selectedElements.length > 0 && (
             <ToolButton
               className="duplicate"

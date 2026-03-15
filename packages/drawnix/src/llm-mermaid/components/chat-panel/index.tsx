@@ -3,41 +3,56 @@
  * 集成消息列表、输入框和预设表单
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { MessageList } from './message-list';
 import { MessageInput } from './message-input';
 import { StructuredInputForm } from './structured-input-form';
 import { useLLMChat } from '../../hooks/use-llm-chat';
+import { buildMermaidUserPrompt } from '../../services/prompt-templates';
 import type { GenerationContext } from '../../types';
 import './index.scss';
 
 export interface ChatPanelProps {
   onContextChange?: (context: Partial<GenerationContext>) => void;
   onMermaidGenerated?: (code: string) => void;
+  onReset?: () => void;
   disabled?: boolean;
 }
+
+const DEFAULT_GENERATION_CONTEXT: Partial<GenerationContext> = {
+  layoutDirection: 'LR',
+  usageScenario: 'paper',
+  theme: 'academic',
+  nodeCount: 5,
+  layoutArea: 'medium',
+  density: 'balanced',
+};
 
 export const ChatPanel = ({
   onContextChange,
   onMermaidGenerated,
+  onReset,
   disabled = false,
 }: ChatPanelProps) => {
-  const { messages, isStreaming, error, sendMessage, regenerate, clearError } = useLLMChat();
+  const { messages, isStreaming, error, sendMessage, regenerate, clearError, reset } = useLLMChat();
+  const [generationContext, setGenerationContext] = useState<Partial<GenerationContext>>(
+    DEFAULT_GENERATION_CONTEXT
+  );
+  const [formResetKey, setFormResetKey] = useState(0);
 
   // 处理上下文变化
   const handleContextChange = (context: Partial<GenerationContext>) => {
+    setGenerationContext(context);
     onContextChange?.(context);
   };
 
   // 处理发送消息
   const handleSend = async (content: string) => {
     try {
-      await sendMessage(content);
-      // 检查是否生成了 Mermaid 代码
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage?.metadata?.mermaidCode) {
-        onMermaidGenerated?.(lastMessage.metadata.mermaidCode);
-      }
+      await sendMessage(content, {
+        requestContent: buildMermaidUserPrompt(content, generationContext),
+        generationContext,
+      });
     } catch (err) {
       // 错误已由 useLLMChat Hook 处理
       console.error('Send message failed:', err);
@@ -48,14 +63,18 @@ export const ChatPanel = ({
   const handleRegenerate = async () => {
     try {
       await regenerate();
-      // 检查是否生成了 Mermaid 代码
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage?.metadata?.mermaidCode) {
-        onMermaidGenerated?.(lastMessage.metadata.mermaidCode);
-      }
     } catch (err) {
       console.error('Regenerate failed:', err);
     }
+  };
+
+  const handleClear = () => {
+    reset();
+    setGenerationContext(DEFAULT_GENERATION_CONTEXT);
+    setFormResetKey((value) => value + 1);
+    onContextChange?.(DEFAULT_GENERATION_CONTEXT);
+    onMermaidGenerated?.('');
+    onReset?.();
   };
 
   // 检测 Mermaid 代码生成
@@ -76,10 +95,7 @@ export const ChatPanel = ({
         <h3 className="chat-panel-title">AI 对话</h3>
         <button
           className="chat-panel-clear"
-          onClick={() => {
-            // 清空对话的回调
-            window.location.reload();
-          }}
+          onClick={handleClear}
           disabled={disabled || isStreaming}
           title="清空对话"
         >
@@ -97,6 +113,7 @@ export const ChatPanel = ({
 
       <div className="chat-panel-content">
         <StructuredInputForm
+          key={formResetKey}
           onContextChange={handleContextChange}
           disabled={disabled || isStreaming}
         />

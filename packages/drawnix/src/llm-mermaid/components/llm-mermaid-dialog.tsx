@@ -14,7 +14,7 @@ import {
   RectangleClient,
   WritableClipboardOperationType,
 } from '@plait/core';
-import { useDrawnix } from '../../hooks/use-drawnix';
+import { DialogType, useDrawnix } from '../../hooks/use-drawnix';
 import { useI18n } from '../../i18n';
 import { ChatPanel } from './chat-panel';
 import { PreviewPanel } from './preview-panel';
@@ -40,7 +40,7 @@ export const LLMMermaidDialog = ({ container }: LLMMermaidDialogProps) => {
     density: 'balanced',
   });
 
-  const isOpen = appState.openDialogType === 'llmMermaid';
+  const isOpen = appState.openDialogType === DialogType.llmMermaid;
 
   const handleClose = () => {
     setAppState({
@@ -54,11 +54,15 @@ export const LLMMermaidDialog = ({ container }: LLMMermaidDialogProps) => {
     setMermaidCode(code);
   }, []);
 
+  const handleReset = useCallback(() => {
+    setMermaidCode('');
+  }, []);
+
   // 处理插入到画布
   const handleInsert = useCallback(
     (elements: unknown[]) => {
       const typedElements = elements as PlaitElement[];
-      if (!board || elements.length === 0) {
+      if (!board || typedElements.length === 0) {
         return;
       }
 
@@ -75,7 +79,7 @@ export const LLMMermaidDialog = ({ container }: LLMMermaidDialogProps) => {
         const centerY = origination![1] + focusPoint[1] / zoom;
 
         const elementRectangle = RectangleClient.getBoundingRectangle(
-          elements
+          typedElements
             .filter((ele) => !PlaitGroupElement.isGroup(ele))
             .map((ele) =>
               RectangleClient.getRectangleByPoints(ele.points as Point[])
@@ -88,7 +92,7 @@ export const LLMMermaidDialog = ({ container }: LLMMermaidDialogProps) => {
 
         board.insertFragment(
           {
-            elements: JSON.parse(JSON.stringify(elements)),
+            elements: JSON.parse(JSON.stringify(typedElements)),
           },
           startPoint,
           WritableClipboardOperationType.paste
@@ -123,6 +127,7 @@ export const LLMMermaidDialog = ({ container }: LLMMermaidDialogProps) => {
           <ChatPanel
             onContextChange={setGenerationContext}
             onMermaidGenerated={handleMermaidGenerated}
+            onReset={handleReset}
             disabled={!isReady}
           />
         </div>

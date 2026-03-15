@@ -205,6 +205,15 @@ const ruTranslations: Translations = {
   'dialog.paperdraw.engine.pipeline': 'Шаблонный конвейерный макет',
   'dialog.paperdraw.engine.legacy': 'Совместимый макет',
 
+  'toolbar.llmMermaid': 'AI Pipeline',
+  'dialog.llmMermaid.title': 'AI Pipeline помощник',
+  'dialog.llmMermaid.chat': 'AI чат',
+  'dialog.llmMermaid.preview': 'Предпросмотр',
+  'dialog.llmMermaid.placeholder': 'Опишите схему, которую хотите создать...',
+  'dialog.llmMermaid.insert': 'Вставить',
+  'dialog.llmMermaid.close': 'Закрыть',
+  'dialog.close': 'Закрыть',
+
   'tutorial.title': 'Drawnix',
   'tutorial.description':
     'Универсальная доска: майнд-карты, блок-схемы, свободное рисование и многое другое',

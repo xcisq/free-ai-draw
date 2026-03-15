@@ -201,6 +201,15 @@ const arTranslations: Translations = {
     'dialog.paperdraw.engine.pipeline': 'تخطيط قالب المسار',
     'dialog.paperdraw.engine.legacy': 'تخطيط متوافق',
 
+    'toolbar.llmMermaid': 'AI Pipeline',
+    'dialog.llmMermaid.title': 'مساعد AI Pipeline',
+    'dialog.llmMermaid.chat': 'محادثة AI',
+    'dialog.llmMermaid.preview': 'معاينة',
+    'dialog.llmMermaid.placeholder': 'صف المخطط الذي تريد إنشاءه...',
+    'dialog.llmMermaid.insert': 'إدراج',
+    'dialog.llmMermaid.close': 'إغلاق',
+    'dialog.close': 'إغلاق',
+
     'tutorial.title': 'Drawnix',
     'tutorial.description': 'سبورة شاملة تتضمن الخرائط الذهنية والمخططات الانسيابية والرسم الحر وغير ذلك',
     'tutorial.dataDescription': 'تُحفظ جميع البيانات محليًا في متصفحك',

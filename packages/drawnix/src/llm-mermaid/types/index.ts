@@ -10,7 +10,6 @@ export type {
   MessageMetadata,
   ChatChunk,
   ChatOptions,
-  StyleScheme,
 } from './chat';
 
 // 配置相关类型
@@ -26,6 +25,7 @@ export type {
 
 // 样式相关类型
 export type {
+  StyleScheme,
   GraphInfo,
   GraphNode,
   GraphEdge,

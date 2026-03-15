@@ -2,6 +2,9 @@
  * 对话相关类型定义
  */
 
+import type { GenerationContext } from './config';
+import type { StyleScheme } from './style';
+
 /**
  * 聊天消息角色
  */
@@ -39,7 +42,9 @@ export interface MessageMetadata {
   /** 样式方案 */
   styleScheme?: StyleScheme;
   /** 生成上下文 */
-  generationContext?: GenerationContext;
+  generationContext?: Partial<GenerationContext>;
+  /** 实际发送给 LLM 的请求内容 */
+  requestContent?: string;
   /** 是否正在流式生成 */
   isStreaming?: boolean;
   /** 是否已完成 */
@@ -69,18 +74,6 @@ export interface ChatOptions {
   temperature?: number;
   /** 最大 token 数 */
   maxTokens?: number;
-}
-
-/**
- * 从 style.ts 导入的类型（避免循环依赖）
- */
-export interface StyleScheme {
-  nodeId: string;
-  fill: string;
-  stroke: string;
-  strokeWidth: number;
-  color: string;
-  fontSize: number;
-  shadow: boolean;
-  shadowBlur: number;
+  /** 中断信号 */
+  signal?: AbortSignal;
 }

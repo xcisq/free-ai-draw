@@ -203,6 +203,15 @@ const viTranslations: Translations = {
     'dialog.paperdraw.engine.pipeline': 'Bố cục mẫu pipeline',
     'dialog.paperdraw.engine.legacy': 'Bố cục tương thích',
 
+    'toolbar.llmMermaid': 'AI Pipeline',
+    'dialog.llmMermaid.title': 'Trợ lý AI Pipeline',
+    'dialog.llmMermaid.chat': 'Trò chuyện AI',
+    'dialog.llmMermaid.preview': 'Xem trước',
+    'dialog.llmMermaid.placeholder': 'Mô tả sơ đồ bạn muốn tạo...',
+    'dialog.llmMermaid.insert': 'Chèn',
+    'dialog.llmMermaid.close': 'Đóng',
+    'dialog.close': 'Đóng',
+
     'tutorial.title': 'DPIT Draw MindMap',
     'tutorial.description': 'Bảng trắng tất cả trong một, bao gồm sơ đồ tư duy, lưu đồ, vẽ tự do và hơn thế nữa',
     'tutorial.dataDescription': 'Tất cả dữ liệu được lưu trữ cục bộ trong trình duyệt của bạn',

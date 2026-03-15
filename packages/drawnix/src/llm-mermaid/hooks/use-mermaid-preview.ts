@@ -6,9 +6,13 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { PlaitElement } from '@plait/core';
 import type { Message } from '../types';
-import { mermaidConverter, MermaidConverter } from '../services/mermaid-converter';
+import { mermaidConverter } from '../services/mermaid-converter';
 import { llmChatService } from '../services/llm-chat-service';
-import { getMermaidGenerationPrompt, extractMermaidCode, validateMermaidCode } from '../services/prompt-templates';
+import {
+  buildMermaidUserPrompt,
+  extractMermaidCode,
+  validateMermaidCode,
+} from '../services/prompt-templates';
 import type { GenerationContext, ValidationResult } from '../types';
 
 export interface UseMermaidPreviewResult {
@@ -53,8 +57,13 @@ export function useMermaidPreview(): UseMermaidPreviewResult {
       isGeneratingRef.current = true;
 
       try {
-        // 构建提示词
-        const prompt = getMermaidGenerationPrompt(context);
+        const lastUserMessage = [...userMessages]
+          .reverse()
+          .find((message) => message.role === 'user');
+        const prompt = buildMermaidUserPrompt(
+          lastUserMessage?.content || '请生成一个论文 pipeline 流程图',
+          context
+        );
 
         // 调用 LLM 生成 Mermaid 代码
         const response = await llmChatService.generateMermaid(prompt);
@@ -64,6 +73,7 @@ export function useMermaidPreview(): UseMermaidPreviewResult {
 
         // 设置代码
         setMermaidCode(extractedCode);
+        setValidation(validateMermaidCode(extractedCode));
 
         // 转换为元素
         if (extractedCode) {
