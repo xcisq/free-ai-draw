@@ -656,3 +656,22 @@ export const PaperDrawIcon = createIcon(
     </g>
   </svg>
 );
+
+export const AIMermaidIcon = createIcon(
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="none" fill="currentColor">
+      {/* Robot/AI icon */}
+      <rect x="2" y="3" width="12" height="10" rx="1" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="5" cy="6" r="0.5" fill="currentColor" />
+      <circle cx="11" cy="6" r="0.5" fill="currentColor" />
+      <path d="M5 10H11" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+      {/* Antenna */}
+      <path d="M5 3V1.5M11 3V1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="5" cy="1" r="0.5" fill="currentColor" />
+      <circle cx="11" cy="1" r="0.5" fill="currentColor" />
+      {/* Sparkles (AI magic) */}
+      <path d="M14 2L13.5 2.5L14 3L14.5 2.5L14 2Z" fill="currentColor" opacity="0.6" />
+      <path d="M1 12L0.5 12.5L1 13L1.5 12.5L1 12Z" fill="currentColor" opacity="0.6" />
+    </g>
+  </svg>
+);

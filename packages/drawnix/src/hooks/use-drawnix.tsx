@@ -14,6 +14,7 @@ export enum DialogType {
   mermaidToDrawnix = 'mermaidToDrawnix',
   markdownToDrawnix = 'markdownToDrawnix',
   paperdrawToFlowchart = 'paperdrawToFlowchart',
+  llmMermaid = 'llmMermaid',
 }
 
 export type DrawnixPointerType =

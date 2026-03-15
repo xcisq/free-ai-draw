@@ -202,6 +202,17 @@ const enTranslations: Translations = {
   'dialog.paperdraw.engine.pipeline': 'Pipeline Template Layout',
   'dialog.paperdraw.engine.legacy': 'Compatibility Layout',
 
+  // LLM Mermaid
+  'toolbar.llmMermaid': 'AI Pipeline',
+  'dialog.llmMermaid.title': 'AI Pipeline Assistant',
+  'dialog.llmMermaid.chat': 'Chat',
+  'dialog.llmMermaid.preview': 'Preview',
+  'dialog.llmMermaid.placeholder': 'Describe the flowchart you want to generate...',
+  'dialog.llmMermaid.insert': 'Insert',
+  'dialog.llmMermaid.close': 'Close',
+
+  'dialog.close': 'Close',
+
   'tutorial.title': 'Drawnix',
   'tutorial.description':
     'All-in-one whiteboard, including mind maps, flowcharts, free drawing, and more',

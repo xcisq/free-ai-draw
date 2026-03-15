@@ -8,6 +8,10 @@ const PaperDrawDialog = lazy(
   () => import('../../paperdraw/components/paperdraw-dialog')
 );
 
+const LLMMermaidDialog = lazy(
+  () => import('../../llm-mermaid/components/llm-mermaid-dialog')
+);
+
 export const TTDDialog = ({ container }: { container: HTMLElement | null }) => {
   const { appState, setAppState } = useDrawnix();
   return (
@@ -50,6 +54,21 @@ export const TTDDialog = ({ container }: { container: HTMLElement | null }) => {
         <DialogContent className="Dialog ttd-dialog" container={container}>
           <Suspense fallback={<div style={{ padding: 16 }}>Loading...</div>}>
             <PaperDrawDialog />
+          </Suspense>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={appState.openDialogType === DialogType.llmMermaid}
+        onOpenChange={(open) => {
+          setAppState({
+            ...appState,
+            openDialogType: open ? DialogType.llmMermaid : null,
+          });
+        }}
+      >
+        <DialogContent className="Dialog ttd-dialog llm-mermaid-dialog" container={container}>
+          <Suspense fallback={<div style={{ padding: 16 }}>Loading...</div>}>
+            <LLMMermaidDialog container={container} />
           </Suspense>
         </DialogContent>
       </Dialog>

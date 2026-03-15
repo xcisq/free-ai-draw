@@ -1,0 +1,70 @@
+/**
+ * LLM Mermaid 对话框样式
+ * 左右分栏布局：左侧 40% 对话区，右侧 60% 预览区
+ */
+
+.llm-mermaid-dialog {
+  min-width: 800px;
+  min-height: 600px;
+  display: flex;
+  flex-direction: column;
+
+  .llm-mermaid-content {
+    display: flex;
+    flex: 1;
+    gap: 16px;
+    min-height: 500px;
+  }
+
+  .llm-mermaid-left {
+    width: 40%;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .llm-mermaid-right {
+    width: 60%;
+    min-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .llm-mermaid-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .llm-mermaid-section-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary, #333);
+  }
+
+  .llm-mermaid-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: var(--text-secondary, #666);
+  }
+
+  .llm-mermaid-error {
+    padding: 12px;
+    background-color: var(--error-background, #fee2e2);
+    border: 1px solid var(--error-border, #fecaca);
+    border-radius: 4px;
+    color: var(--error-text, #991b1b);
+    font-size: 14px;
+  }
+
+  .llm-mermaid-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding-top: 8px;
+  }
+}

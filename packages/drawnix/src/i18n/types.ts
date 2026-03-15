@@ -182,6 +182,17 @@ export interface Translations {
   'dialog.paperdraw.engine.pipeline': string;
   'dialog.paperdraw.engine.legacy': string;
 
+  // LLM Mermaid
+  'toolbar.llmMermaid': string;
+  'dialog.llmMermaid.title': string;
+  'dialog.llmMermaid.chat': string;
+  'dialog.llmMermaid.preview': string;
+  'dialog.llmMermaid.placeholder': string;
+  'dialog.llmMermaid.insert': string;
+  'dialog.llmMermaid.close': string;
+
+  'dialog.close': string;
+
   'tutorial.title': string;
   'tutorial.description': string;
   'tutorial.dataDescription': string;

@@ -1,0 +1,100 @@
+.mermaid-code-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--code-background, #f8f8fa);
+  border-radius: 6px;
+  overflow: hidden;
+
+  .code-view-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background-color: var(--code-header-background, #f0f0f2);
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+
+    .code-view-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary, #666);
+    }
+
+    .code-view-actions {
+      display: flex;
+      gap: 4px;
+
+      .code-view-action {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border: none;
+        border-radius: 4px;
+        background-color: transparent;
+        color: var(--text-secondary, #666);
+        cursor: pointer;
+        transition: all 0.2s;
+
+        &:hover:not(:disabled) {
+          background-color: var(--button-hover-background, rgba(0,0,0,0.08));
+          color: var(--text-primary, #333);
+        }
+
+        &:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+
+        svg {
+          width: 16px;
+          height: 16px;
+        }
+      }
+    }
+  }
+
+  .code-view-textarea {
+    flex: 1;
+    width: 100%;
+    min-height: 200px;
+    max-height: 400px;
+    padding: 12px;
+    border: none;
+    background-color: var(--code-editor-background, #fff);
+    color: var(--code-text, #333);
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+
+    &::placeholder {
+      color: var(--placeholder-color, #999);
+    }
+
+    &:readonly {
+      cursor: default;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  .code-view-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 6px 12px;
+    background-color: var(--code-footer-background, #f0f0f2);
+    border-top: 1px solid var(--border-color, #e0e0e0);
+
+    .code-view-stats {
+      font-size: 11px;
+      color: var(--text-tertiary, #999);
+    }
+  }
+}

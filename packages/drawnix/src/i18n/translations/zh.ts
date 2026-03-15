@@ -195,6 +195,17 @@ const zhTranslations: Translations = {
   'dialog.paperdraw.engine.pipeline': '论文模板布局',
   'dialog.paperdraw.engine.legacy': '兼容布局',
 
+  // LLM Mermaid
+  'toolbar.llmMermaid': 'AI Pipeline',
+  'dialog.llmMermaid.title': 'AI Pipeline 助手',
+  'dialog.llmMermaid.chat': 'AI 对话',
+  'dialog.llmMermaid.preview': '预览',
+  'dialog.llmMermaid.placeholder': '描述你想生成的流程图...',
+  'dialog.llmMermaid.insert': '插入',
+  'dialog.llmMermaid.close': '关闭',
+
+  'dialog.close': '关闭',
+
   'tutorial.title': 'XAI Board',
   'tutorial.description': 'XAI 课题组专用绘图工具',
   'tutorial.dataDescription': '支持思维导图、流程图等多种绘图方式，数据本地存储，安全可靠。',
