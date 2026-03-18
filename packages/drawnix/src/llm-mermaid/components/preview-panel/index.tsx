@@ -24,7 +24,7 @@ export const PreviewPanel = ({
   disabled = false,
   generationContext,
 }: PreviewPanelProps) => {
-  const [viewMode, setViewMode] = useState<'board' | 'code' | 'split'>('split');
+  const [viewMode, setViewMode] = useState<'board' | 'code' | 'split'>('board');
   const [localCode, setLocalCode] = useState(externalMermaidCode);
   const [isStylePanelOpen, setIsStylePanelOpen] = useState(false);
   const [styleRequest, setStyleRequest] = useState('');

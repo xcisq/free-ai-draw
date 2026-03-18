@@ -2,39 +2,57 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: var(--panel-background, #fff);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.96));
 
   .chat-panel-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border-color, #e0e0e0);
-    background-color: var(--header-background, #f8f9fa);
+    gap: 12px;
+    padding: 18px 18px 14px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+    background:
+      radial-gradient(circle at top left, rgba(31, 111, 235, 0.08), transparent 38%),
+      rgba(248, 250, 252, 0.96);
+
+    .chat-panel-header-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
 
     .chat-panel-title {
       margin: 0;
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-primary, #333);
+      font-size: 18px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .chat-panel-subtitle {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #64748b;
     }
 
     .chat-panel-clear {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 24px;
-      height: 24px;
-      border: none;
-      border-radius: 4px;
-      background-color: transparent;
-      color: var(--text-secondary, #666);
+      width: 32px;
+      height: 32px;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 10px;
+      background-color: rgba(255, 255, 255, 0.85);
+      color: #64748b;
       cursor: pointer;
       transition: all 0.2s;
 
       &:hover:not(:disabled) {
-        background-color: var(--danger-light, #fee);
-        color: var(--danger-color, #e74c3c);
+        background-color: #fff1f2;
+        color: #e11d48;
+        border-color: rgba(225, 29, 72, 0.2);
       }
 
       &:disabled {
@@ -54,7 +72,7 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding: 12px;
+    padding: 12px 14px 14px;
 
     .chat-panel-error {
       display: flex;
@@ -101,8 +119,8 @@
   }
 
   .chat-panel-footer {
-    padding: 12px;
-    border-top: 1px solid var(--border-color, #e0e0e0);
-    background-color: var(--footer-background, #f8f9fa);
+    padding: 12px 16px 16px;
+    border-top: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(248, 250, 252, 0.96);
   }
 }

@@ -1,23 +1,25 @@
 .message-input {
   display: flex;
   gap: 8px;
-  padding: 8px 0;
+  padding: 0;
 
   .message-textarea {
     flex: 1;
-    min-height: 36px;
-    max-height: 120px;
-    padding: 8px 12px;
-    border: 1px solid var(--border-color, #ddd);
-    border-radius: 6px;
+    min-height: 52px;
+    max-height: 160px;
+    padding: 12px 14px;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 14px;
     font-size: 14px;
     font-family: inherit;
     resize: none;
     outline: none;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    background: rgba(255, 255, 255, 0.96);
 
     &:focus {
-      border-color: var(--primary-color, #4A90E2);
+      border-color: rgba(31, 111, 235, 0.6);
+      box-shadow: 0 0 0 4px rgba(31, 111, 235, 0.12);
     }
 
     &:disabled {
@@ -34,11 +36,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 48px;
+    height: 48px;
     border: none;
-    border-radius: 6px;
-    background-color: var(--primary-color, #4A90E2);
+    border-radius: 14px;
+    background: linear-gradient(180deg, #1f6feb, #1456b8);
     color: white;
     cursor: pointer;
     transition: background-color 0.2s, opacity 0.2s;

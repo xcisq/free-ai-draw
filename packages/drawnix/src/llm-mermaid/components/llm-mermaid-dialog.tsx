@@ -17,6 +17,7 @@ import {
 import { DialogType, useDrawnix } from '../../hooks/use-drawnix';
 import { useI18n } from '../../i18n';
 import { ChatPanel } from './chat-panel';
+import { StructuredInputForm } from './chat-panel/structured-input-form';
 import { PreviewPanel } from './preview-panel';
 import type { GenerationContext } from '../types';
 import './llm-mermaid-dialog.scss';
@@ -31,14 +32,9 @@ export const LLMMermaidDialog = ({ container }: LLMMermaidDialogProps) => {
   const { t } = useI18n();
   const [isReady, setIsReady] = useState(false);
   const [mermaidCode, setMermaidCode] = useState('');
-  const [generationContext, setGenerationContext] = useState<Partial<GenerationContext>>({
-    layoutDirection: 'LR',
-    usageScenario: 'paper',
-    theme: 'academic',
-    nodeCount: 5,
-    layoutArea: 'medium',
-    density: 'balanced',
-  });
+  const [generationContext, setGenerationContext] = useState<Partial<GenerationContext>>(
+    DEFAULT_GENERATION_CONTEXT
+  );
 
   const isOpen = appState.openDialogType === DialogType.llmMermaid;
 
@@ -56,6 +52,7 @@ export const LLMMermaidDialog = ({ container }: LLMMermaidDialogProps) => {
 
   const handleReset = useCallback(() => {
     setMermaidCode('');
+    setGenerationContext(DEFAULT_GENERATION_CONTEXT);
   }, []);
 
   // 处理插入到画布
@@ -120,32 +117,49 @@ export const LLMMermaidDialog = ({ container }: LLMMermaidDialogProps) => {
   }
 
   return (
-    <div className="llm-mermaid-dialog">
-      <div className="llm-mermaid-content">
-        {/* 左侧对话区 */}
-        <div className="llm-mermaid-left">
+    <div className="llm-mermaid-workbench">
+      <div className="llm-mermaid-workbench-header">
+        <div className="llm-mermaid-workbench-copy">
+          <span className="llm-mermaid-workbench-eyebrow">Mermaid AI Workspace</span>
+          <h2 className="llm-mermaid-workbench-title">论文图前置生成工作台</h2>
+          <p className="llm-mermaid-workbench-description">
+            先用自然语言描述原始文本和构图意图，系统会在必要时先澄清，再生成 Mermaid。
+          </p>
+        </div>
+      </div>
+
+      <div className="llm-mermaid-workbench-content">
+        <section className="llm-mermaid-pane llm-mermaid-pane-chat">
           <ChatPanel
-            onContextChange={setGenerationContext}
+            generationContext={generationContext}
+            onContextResolved={setGenerationContext}
             onMermaidGenerated={handleMermaidGenerated}
             onReset={handleReset}
             disabled={!isReady}
           />
-        </div>
+        </section>
 
-        {/* 右侧预览区 */}
-        <div className="llm-mermaid-right">
+        <aside className="llm-mermaid-pane llm-mermaid-pane-intent">
+          <StructuredInputForm
+            context={generationContext}
+            onContextChange={setGenerationContext}
+            disabled={!isReady}
+          />
+        </aside>
+
+        <section className="llm-mermaid-pane llm-mermaid-pane-preview">
           <PreviewPanel
             mermaidCode={mermaidCode}
             onInsert={handleInsert}
             disabled={!isReady}
             generationContext={generationContext}
           />
-        </div>
+        </section>
       </div>
 
-      <div className="llm-mermaid-actions">
+      <div className="llm-mermaid-workbench-actions">
         <button
-          className="llm-mermaid-btn llm-mermaid-btn-secondary"
+          className="llm-mermaid-workbench-close"
           onClick={handleClose}
         >
           {t('dialog.close') || '关闭'}
@@ -156,3 +170,16 @@ export const LLMMermaidDialog = ({ container }: LLMMermaidDialogProps) => {
 };
 
 export default LLMMermaidDialog;
+
+const DEFAULT_GENERATION_CONTEXT: Partial<GenerationContext> = {
+  layoutDirection: 'LR',
+  usageScenario: 'paper',
+  theme: 'academic',
+  nodeCount: 5,
+  layoutArea: 'medium',
+  density: 'balanced',
+  structurePattern: 'mixed',
+  layoutIntentText: '',
+  emphasisTargets: [],
+  clarificationStatus: 'none',
+};

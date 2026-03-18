@@ -11,6 +11,7 @@ export interface MessageItemProps {
   message: Message;
   isLastAssistant?: boolean;
   onRegenerate?: () => void;
+  onQuickReply?: (content: string) => void;
   disabled?: boolean;
 }
 
@@ -18,6 +19,7 @@ export const MessageItem = ({
   message,
   isLastAssistant = false,
   onRegenerate,
+  onQuickReply,
   disabled = false,
 }: MessageItemProps) => {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -33,6 +35,10 @@ export const MessageItem = ({
   const isAssistant = message.role === 'assistant';
   const isLoading = message.metadata?.isStreaming;
   const hasMermaid = !!message.metadata?.mermaidCode;
+  const hasQuickReplies =
+    isAssistant &&
+    message.metadata?.interactionPhase === 'clarifying' &&
+    !!message.metadata?.quickReplies?.length;
 
   // 处理重新生成
   const handleRegenerate = () => {
@@ -123,6 +129,20 @@ export const MessageItem = ({
           <span className="message-text">{message.content}</span>
         )}
       </div>
+      {hasQuickReplies && (
+        <div className="message-quick-replies">
+          {message.metadata?.quickReplies?.map((reply) => (
+            <button
+              key={reply}
+              className="message-quick-reply"
+              onClick={() => onQuickReply?.(reply)}
+              disabled={disabled}
+            >
+              {reply}
+            </button>
+          ))}
+        </div>
+      )}
       {isLoading && message.content && <span className="message-cursor">|</span>}
     </div>
   );

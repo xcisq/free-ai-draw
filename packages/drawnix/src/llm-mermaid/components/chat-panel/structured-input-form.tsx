@@ -1,144 +1,206 @@
 /**
- * 预设引导表单组件
- * 收集布局方向、样式偏好、目标用途等预设信息
+ * 意图控制面板
+ * 以快捷偏好和自然语言补充方式收集结构意图
  */
 
-import { useState } from 'react';
-import { useI18n } from '../../../i18n';
-import type { GenerationContext, LayoutDirection, UsageScenario, ThemePreset } from '../../types';
+import type { GenerationContext, StructurePattern, ThemePreset, UsageScenario } from '../../types';
 import './structured-input-form.scss';
 
 export interface StructuredInputFormProps {
+  context?: Partial<GenerationContext>;
   onContextChange: (context: Partial<GenerationContext>) => void;
   disabled?: boolean;
 }
 
-export const StructuredInputForm = ({ onContextChange, disabled = false }: StructuredInputFormProps) => {
-  const { t } = useI18n();
-  const [context, setContext] = useState<Partial<GenerationContext>>({
-    layoutDirection: 'LR',
-    usageScenario: 'paper',
-    theme: 'academic',
-    nodeCount: 5,
-    layoutArea: 'medium',
-    density: 'balanced',
-  });
+const DEFAULT_CONTEXT: Partial<GenerationContext> = {
+  layoutDirection: 'LR',
+  usageScenario: 'paper',
+  theme: 'academic',
+  nodeCount: 5,
+  layoutArea: 'medium',
+  density: 'balanced',
+  structurePattern: 'mixed',
+  layoutIntentText: '',
+  emphasisTargets: [],
+  clarificationStatus: 'none',
+};
+
+const STRUCTURE_OPTIONS: Array<{ value: StructurePattern; label: string; description: string }> = [
+  { value: 'branched', label: '主干 + 分支', description: '主线清晰，局部带支路' },
+  { value: 'convergent', label: '并行后汇聚', description: '多路处理后收束到结果' },
+  { value: 'multi-lane', label: '上下辅轨', description: '主干之外还有上/下辅助带' },
+  { value: 'feedback', label: '反馈回路', description: '包含回写、闭环或迭代' },
+  { value: 'mixed', label: '混合结构', description: '允许组合多种局部结构' },
+];
+
+const USAGE_OPTIONS: Array<{ value: UsageScenario; label: string }> = [
+  { value: 'paper', label: '论文插图' },
+  { value: 'presentation', label: '演示文稿' },
+  { value: 'document', label: '技术文档' },
+];
+
+const THEME_OPTIONS: Array<{ value: ThemePreset; label: string }> = [
+  { value: 'academic', label: '学术' },
+  { value: 'professional', label: '专业' },
+  { value: 'minimal', label: '极简' },
+  { value: 'lively', label: '活泼' },
+];
+
+export const StructuredInputForm = ({
+  context,
+  onContextChange,
+  disabled = false,
+}: StructuredInputFormProps) => {
+  const mergedContext = {
+    ...DEFAULT_CONTEXT,
+    ...context,
+  };
 
   const updateContext = (updates: Partial<GenerationContext>) => {
-    const newContext = { ...context, ...updates };
-    setContext(newContext);
-    onContextChange(newContext);
+    onContextChange({
+      ...mergedContext,
+      ...updates,
+    });
   };
+
+  const emphasisValue = (mergedContext.emphasisTargets || []).join('，');
 
   return (
     <div className="structured-input-form">
-      <div className="form-row">
-        <label className="form-label">布局方向</label>
-        <div className="form-options">
+      <div className="structured-input-header">
+        <h3 className="structured-input-title">意图控制</h3>
+        <p className="structured-input-subtitle">
+          主阅读方向约束整体视觉趋势，局部结构仍可以并行、汇聚或上下分层。
+        </p>
+      </div>
+
+      <section className="intent-card">
+        <div className="intent-card-label">主阅读方向</div>
+        <div className="chip-group">
           <button
-            className={`form-option ${context.layoutDirection === 'LR' ? 'active' : ''}`}
+            className={`chip ${mergedContext.layoutDirection === 'LR' ? 'active' : ''}`}
             onClick={() => !disabled && updateContext({ layoutDirection: 'LR' })}
             disabled={disabled}
           >
-            从左到右
+            整体从左到右
           </button>
           <button
-            className={`form-option ${context.layoutDirection === 'TB' ? 'active' : ''}`}
+            className={`chip ${mergedContext.layoutDirection === 'TB' ? 'active' : ''}`}
             onClick={() => !disabled && updateContext({ layoutDirection: 'TB' })}
             disabled={disabled}
           >
-            从上到下
+            整体从上到下
           </button>
         </div>
-      </div>
+      </section>
 
-      <div className="form-row">
-        <label className="form-label">使用场景</label>
-        <div className="form-options">
-          <button
-            className={`form-option ${context.usageScenario === 'paper' ? 'active' : ''}`}
-            onClick={() => !disabled && updateContext({ usageScenario: 'paper' })}
-            disabled={disabled}
-          >
-            论文插图
-          </button>
-          <button
-            className={`form-option ${context.usageScenario === 'presentation' ? 'active' : ''}`}
-            onClick={() => !disabled && updateContext({ usageScenario: 'presentation' })}
-            disabled={disabled}
-          >
-            演示文稿
-          </button>
-          <button
-            className={`form-option ${context.usageScenario === 'document' ? 'active' : ''}`}
-            onClick={() => !disabled && updateContext({ usageScenario: 'document' })}
-            disabled={disabled}
-          >
-            技术文档
-          </button>
+      <section className="intent-card">
+        <div className="intent-card-label">结构偏好</div>
+        <div className="structure-grid">
+          {STRUCTURE_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              className={`structure-option ${
+                mergedContext.structurePattern === option.value ? 'active' : ''
+              }`}
+              onClick={() => !disabled && updateContext({ structurePattern: option.value })}
+              disabled={disabled}
+            >
+              <span className="structure-option-label">{option.label}</span>
+              <span className="structure-option-description">{option.description}</span>
+            </button>
+          ))}
         </div>
-      </div>
+      </section>
 
-      <div className="form-row">
-        <label className="form-label">样式风格</label>
-        <div className="form-options">
-          <button
-            className={`form-option ${context.theme === 'professional' ? 'active' : ''}`}
-            onClick={() => !disabled && updateContext({ theme: 'professional' })}
-            disabled={disabled}
-          >
-            专业
-          </button>
-          <button
-            className={`form-option ${context.theme === 'lively' ? 'active' : ''}`}
-            onClick={() => !disabled && updateContext({ theme: 'lively' })}
-            disabled={disabled}
-          >
-            活泼
-          </button>
-          <button
-            className={`form-option ${context.theme === 'academic' ? 'active' : ''}`}
-            onClick={() => !disabled && updateContext({ theme: 'academic' })}
-            disabled={disabled}
-          >
-            学术
-          </button>
-          <button
-            className={`form-option ${context.theme === 'minimal' ? 'active' : ''}`}
-            onClick={() => !disabled && updateContext({ theme: 'minimal' })}
-            disabled={disabled}
-          >
-            极简
-          </button>
+      <section className="intent-card">
+        <div className="intent-card-label">使用场景</div>
+        <div className="chip-group">
+          {USAGE_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              className={`chip ${mergedContext.usageScenario === option.value ? 'active' : ''}`}
+              onClick={() => !disabled && updateContext({ usageScenario: option.value })}
+              disabled={disabled}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
-      </div>
+      </section>
 
-      <div className="form-row">
-        <label className="form-label">密集程度</label>
-        <div className="form-options">
-          <button
-            className={`form-option ${context.density === 'dense' ? 'active' : ''}`}
-            onClick={() => !disabled && updateContext({ density: 'dense' })}
-            disabled={disabled}
-          >
-            紧密
-          </button>
-          <button
-            className={`form-option ${context.density === 'balanced' ? 'active' : ''}`}
-            onClick={() => !disabled && updateContext({ density: 'balanced' })}
-            disabled={disabled}
-          >
-            平衡
-          </button>
-          <button
-            className={`form-option ${context.density === 'sparse' ? 'active' : ''}`}
-            onClick={() => !disabled && updateContext({ density: 'sparse' })}
-            disabled={disabled}
-          >
-            稀疏
-          </button>
+      <section className="intent-card">
+        <div className="intent-card-label">风格与密度</div>
+        <div className="chip-row">
+          <div className="chip-group">
+            {THEME_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                className={`chip ${mergedContext.theme === option.value ? 'active' : ''}`}
+                onClick={() => !disabled && updateContext({ theme: option.value })}
+                disabled={disabled}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <div className="chip-group">
+            {[
+              ['dense', '紧凑'],
+              ['balanced', '平衡'],
+              ['sparse', '疏朗'],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                className={`chip ${mergedContext.density === value ? 'active' : ''}`}
+                onClick={() =>
+                  !disabled &&
+                  updateContext({ density: value as GenerationContext['density'] })
+                }
+                disabled={disabled}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      </section>
+
+      <section className="intent-card">
+        <label className="intent-card-label" htmlFor="layout-intent-text">
+          补充构图要求
+        </label>
+        <textarea
+          id="layout-intent-text"
+          className="intent-textarea"
+          value={mergedContext.layoutIntentText || ''}
+          onChange={(event) => updateContext({ layoutIntentText: event.target.value })}
+          disabled={disabled}
+          placeholder="例如：整体从左到右，但中间两路并行，最后汇聚到评估模块。"
+          rows={4}
+        />
+      </section>
+
+      <section className="intent-card">
+        <label className="intent-card-label" htmlFor="emphasis-targets">
+          重点强调
+        </label>
+        <input
+          id="emphasis-targets"
+          className="intent-input"
+          value={emphasisValue}
+          onChange={(event) =>
+            updateContext({
+              emphasisTargets: event.target.value
+                .split(/[，,、]/)
+                .map((item) => item.trim())
+                .filter(Boolean),
+            })
+          }
+          disabled={disabled}
+          placeholder="例如：评估阶段，核心方法，最终输出"
+        />
+      </section>
     </div>
   );
 };

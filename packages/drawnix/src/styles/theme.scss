@@ -1,5 +1,4 @@
-@import "open-color/open-color.scss";
-@import "./variables.module.scss";
+@use "./open-color-shim" as *;
 
 .drawnix {
   --focus-highlight-color: #{$oc-blue-2};
@@ -19,13 +18,6 @@
   --xlg-icon-size: 1.25rem;
   --popup-label-size: 1.25rem;
   --editor-container-padding: 1rem;
-
-  @media screen and (min-device-width: 1921px) {
-    --lg-button-size: 2.5rem;
-    --lg-icon-size: 1.25rem;
-    --default-button-size: 2.25rem;
-    --default-icon-size: 1.25rem;
-  }
 
   --space-factor: 0.25rem;
   --dx-space-1: 4px;
@@ -88,4 +80,11 @@
   --color-border-outline-variant: #c5c5d0;
 
   --default-border-color: var(--color-surface-high);
+
+  @media screen and (min-device-width: 1921px) {
+    --lg-button-size: 2.5rem;
+    --lg-icon-size: 1.25rem;
+    --default-button-size: 2.25rem;
+    --default-icon-size: 1.25rem;
+  }
 }

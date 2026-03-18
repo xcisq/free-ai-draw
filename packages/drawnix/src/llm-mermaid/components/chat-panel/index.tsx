@@ -1,56 +1,36 @@
 /**
  * Chat Panel 主组件
- * 集成消息列表、输入框和预设表单
+ * 负责自然对话、澄清回复和 Mermaid 生成
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { MessageList } from './message-list';
 import { MessageInput } from './message-input';
-import { StructuredInputForm } from './structured-input-form';
 import { useLLMChat } from '../../hooks/use-llm-chat';
-import { buildMermaidUserPrompt } from '../../services/prompt-templates';
 import type { GenerationContext } from '../../types';
 import './index.scss';
 
 export interface ChatPanelProps {
-  onContextChange?: (context: Partial<GenerationContext>) => void;
+  generationContext?: Partial<GenerationContext>;
+  onContextResolved?: (context: Partial<GenerationContext>) => void;
   onMermaidGenerated?: (code: string) => void;
   onReset?: () => void;
   disabled?: boolean;
 }
 
-const DEFAULT_GENERATION_CONTEXT: Partial<GenerationContext> = {
-  layoutDirection: 'LR',
-  usageScenario: 'paper',
-  theme: 'academic',
-  nodeCount: 5,
-  layoutArea: 'medium',
-  density: 'balanced',
-};
-
 export const ChatPanel = ({
-  onContextChange,
+  generationContext,
+  onContextResolved,
   onMermaidGenerated,
   onReset,
   disabled = false,
 }: ChatPanelProps) => {
   const { messages, isStreaming, error, sendMessage, regenerate, clearError, reset } = useLLMChat();
-  const [generationContext, setGenerationContext] = useState<Partial<GenerationContext>>(
-    DEFAULT_GENERATION_CONTEXT
-  );
-  const [formResetKey, setFormResetKey] = useState(0);
-
-  // 处理上下文变化
-  const handleContextChange = (context: Partial<GenerationContext>) => {
-    setGenerationContext(context);
-    onContextChange?.(context);
-  };
 
   // 处理发送消息
   const handleSend = async (content: string) => {
     try {
       await sendMessage(content, {
-        requestContent: buildMermaidUserPrompt(content, generationContext),
         generationContext,
       });
     } catch (err) {
@@ -70,9 +50,6 @@ export const ChatPanel = ({
 
   const handleClear = () => {
     reset();
-    setGenerationContext(DEFAULT_GENERATION_CONTEXT);
-    setFormResetKey((value) => value + 1);
-    onContextChange?.(DEFAULT_GENERATION_CONTEXT);
     onMermaidGenerated?.('');
     onReset?.();
   };
@@ -89,10 +66,20 @@ export const ChatPanel = ({
     }
   }, [messages, isStreaming, onMermaidGenerated]);
 
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.metadata?.normalizedContext) {
+      onContextResolved?.(lastMessage.metadata.normalizedContext);
+    }
+  }, [messages, onContextResolved]);
+
   return (
     <div className="chat-panel">
       <div className="chat-panel-header">
-        <h3 className="chat-panel-title">AI 对话</h3>
+        <div className="chat-panel-header-copy">
+          <h3 className="chat-panel-title">结构对话</h3>
+          <p className="chat-panel-subtitle">先说原始文本，再补充你想要的论文图构图方式。</p>
+        </div>
         <button
           className="chat-panel-clear"
           onClick={handleClear}
@@ -112,16 +99,11 @@ export const ChatPanel = ({
       </div>
 
       <div className="chat-panel-content">
-        <StructuredInputForm
-          key={formResetKey}
-          onContextChange={handleContextChange}
-          disabled={disabled || isStreaming}
-        />
-
         <MessageList
           messages={messages}
           isStreaming={isStreaming}
           onRegenerate={handleRegenerate}
+          onQuickReply={handleSend}
           disabled={disabled}
         />
 
@@ -144,7 +126,7 @@ export const ChatPanel = ({
         <MessageInput
           onSend={handleSend}
           disabled={disabled || isStreaming}
-          placeholder="输入需求，或直接粘贴一段要可视化的文本... (Ctrl/Cmd + Enter 发送)"
+          placeholder="输入原始文本，或直接描述你希望的论文图构图方式... (Ctrl/Cmd + Enter 发送)"
         />
       </div>
     </div>

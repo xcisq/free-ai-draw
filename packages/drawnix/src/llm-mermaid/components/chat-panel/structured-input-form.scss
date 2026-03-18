@@ -1,54 +1,169 @@
 .structured-input-form {
-  padding: 12px;
-  background-color: var(--form-background, #fafafa);
-  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 100%;
+  padding: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(31, 111, 235, 0.08), transparent 36%),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(255, 255, 255, 0.96));
 
-  .form-row {
-    margin-bottom: 16px;
-
-    &:last-child {
-      margin-bottom: 0;
-    }
-  }
-
-  .form-label {
-    display: block;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-secondary, #666);
-    margin-bottom: 6px;
-  }
-
-  .form-options {
+  .structured-input-header {
     display: flex;
+    flex-direction: column;
     gap: 6px;
   }
 
-  .form-option {
-    flex: 1;
-    padding: 6px 12px;
-    border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
-    background-color: var(--button-background, #fff);
-    font-size: 13px;
-    color: var(--text-primary, #333);
+  .structured-input-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .structured-input-subtitle {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #64748b;
+  }
+
+  .intent-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  .intent-card-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: #475569;
+    text-transform: uppercase;
+  }
+
+  .chip-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .chip {
+    padding: 8px 12px;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 999px;
+    background: #fff;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
 
     &:hover:not(:disabled) {
-      border-color: var(--primary-color, #4A90E2);
-      background-color: var(--primary-light, #e3f2fd);
+      border-color: rgba(31, 111, 235, 0.4);
+      background: rgba(239, 246, 255, 0.96);
+      color: #0f172a;
     }
 
     &.active {
-      background-color: var(--primary-color, #4A90E2);
-      color: white;
-      border-color: var(--primary-color, #4A90E2);
+      border-color: #1f6feb;
+      background: #1f6feb;
+      color: #fff;
+      box-shadow: 0 8px 16px rgba(31, 111, 235, 0.2);
     }
 
     &:disabled {
-      opacity: 0.5;
+      opacity: 0.45;
       cursor: not-allowed;
     }
+  }
+
+  .structure-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .structure-option {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 14px;
+    background: #fff;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover:not(:disabled) {
+      border-color: rgba(31, 111, 235, 0.38);
+      background: rgba(239, 246, 255, 0.86);
+    }
+
+    &.active {
+      border-color: rgba(31, 111, 235, 0.62);
+      background: linear-gradient(180deg, rgba(239, 246, 255, 0.96), rgba(219, 234, 254, 0.92));
+      box-shadow: 0 10px 18px rgba(31, 111, 235, 0.12);
+    }
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+  }
+
+  .structure-option-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .structure-option-description {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #64748b;
+  }
+
+  .intent-textarea,
+  .intent-input {
+    width: 100%;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid rgba(148, 163, 184, 0.26);
+    border-radius: 12px;
+    background: #fff;
+    color: #0f172a;
+    font-size: 13px;
+    line-height: 1.5;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+    &:focus {
+      border-color: rgba(31, 111, 235, 0.65);
+      box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.12);
+    }
+
+    &:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      background: #f8fafc;
+    }
+  }
+
+  .intent-textarea {
+    resize: vertical;
+    min-height: 96px;
   }
 }

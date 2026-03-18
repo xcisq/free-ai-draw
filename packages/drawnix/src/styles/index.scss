@@ -1,6 +1,7 @@
-@import './../../../../node_modules/@plait/draw/styles/styles.scss';
-@import './../../../../node_modules/@plait/mind/styles/styles.scss';
-@import './theme.scss';
+@use './variables.module.scss' as *;
+@use './../../../../node_modules/@plait/draw/styles/styles.scss' as plait-draw-styles;
+@use './../../../../node_modules/@plait/mind/styles/styles.scss' as plait-mind-styles;
+@use './theme.scss' as theme;
 
 .drawnix {
     height: 100%;
@@ -159,4 +160,3 @@
         cursor: inherit !important;
     }
 }
-

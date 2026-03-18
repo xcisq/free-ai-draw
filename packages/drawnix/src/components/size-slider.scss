@@ -1,4 +1,4 @@
-@import "open-color/open-color.scss";
+@use "../styles/open-color-shim" as *;
 
 .slider-container {
     padding: 10px 0px;

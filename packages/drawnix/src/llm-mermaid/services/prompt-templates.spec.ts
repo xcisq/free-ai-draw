@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from '@jest/globals';
 import {
+  buildMermaidIntentPlanningPrompt,
   buildMermaidUserPrompt,
   extractJsonBlock,
   getInitialPrompt,
@@ -38,13 +39,20 @@ describe('PromptTemplates', () => {
         theme: 'academic',
         layoutArea: 'medium',
         density: 'balanced',
+        structurePattern: 'branched',
+        layoutIntentText: '整体从左到右，但局部两路并行后汇聚',
+        emphasisTargets: ['评估阶段'],
+        clarificationStatus: 'resolved',
       };
 
       const prompt = getMermaidGenerationPrompt(context);
-      expect(prompt).toContain('从左到右');
+      expect(prompt).toContain('整体从左到右');
       expect(prompt).toContain('学术论文插图');
       expect(prompt).toContain('约 5 个');
       expect(prompt).toContain('学术风格');
+      expect(prompt).toContain('局部存在并行');
+      expect(prompt).toContain('两路并行后汇聚');
+      expect(prompt).toContain('评估阶段');
     });
 
     it('应该处理 TB 布局方向', () => {
@@ -53,10 +61,13 @@ describe('PromptTemplates', () => {
         usageScenario: 'presentation',
         nodeCount: 3,
         theme: 'professional',
+        structurePattern: 'mixed',
+        emphasisTargets: [],
+        clarificationStatus: 'none',
       };
 
       const prompt = getMermaidGenerationPrompt(context);
-      expect(prompt).toContain('从上到下');
+      expect(prompt).toContain('整体从上到下');
     });
   });
 
@@ -191,9 +202,11 @@ describe('PromptTemplates', () => {
         usageScenario: 'presentation',
         theme: 'professional',
         nodeCount: 6,
+        structurePattern: 'convergent',
+        clarificationStatus: 'resolved',
       });
 
-      expect(prompt).toContain('从上到下');
+      expect(prompt).toContain('整体从上到下');
       expect(prompt).toContain('演示文稿');
       expect(prompt).toContain('突出评估阶段');
       expect(prompt).toContain('用户原始文本');
@@ -206,6 +219,43 @@ describe('PromptTemplates', () => {
 
       expect(prompt).toContain('抽取流程阶段、模块、输入输出和依赖关系');
       expect(prompt).toContain('不要脱离这段文本另起一套通用流程图');
+    });
+
+    it('细化当前 Mermaid 时应包含增量调整语义', () => {
+      const prompt = buildMermaidUserPrompt(
+        '把评估支路放到下方并在末端汇聚',
+        {
+          layoutDirection: 'LR',
+          structurePattern: 'mixed',
+          clarificationStatus: 'resolved',
+        },
+        {
+          requestKind: 'refine',
+          currentMermaid: 'flowchart LR\nA --> B\nB --> C',
+        }
+      );
+
+      expect(prompt).toContain('当前已有 Mermaid');
+      expect(prompt).toContain('增量细化');
+      expect(prompt).toContain('flowchart LR');
+    });
+  });
+
+  describe('buildMermaidIntentPlanningPrompt', () => {
+    it('应该明确要求先输出 JSON 而不是 Mermaid', () => {
+      const prompt = buildMermaidIntentPlanningPrompt({
+        userInput: '整体从左到右，但中间两路并行，最后汇聚到评估模块',
+        currentContext: {
+          layoutDirection: 'LR',
+          structurePattern: 'mixed',
+        },
+        requestKind: 'generate',
+      });
+
+      expect(prompt).toContain('不要直接输出 Mermaid');
+      expect(prompt).toContain('严格输出 JSON');
+      expect(prompt).toContain('最新用户输入');
+      expect(prompt).toContain('两路并行');
     });
   });
 

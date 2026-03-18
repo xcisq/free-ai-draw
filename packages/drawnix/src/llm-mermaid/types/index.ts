@@ -8,6 +8,8 @@ export type {
   MessageType,
   Message,
   MessageMetadata,
+  InteractionPhase,
+  RequestKind,
   ChatChunk,
   ChatOptions,
 } from './chat';
@@ -21,6 +23,8 @@ export type {
   GenerationContext,
   LayoutDirection,
   UsageScenario,
+  StructurePattern,
+  ClarificationStatus,
 } from './config';
 
 // 样式相关类型

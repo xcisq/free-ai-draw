@@ -14,11 +14,10 @@
   },
   "exports": {
     ".": {
+      "types": "./index.d.ts",
       "import": "./index.mjs",
-      "require": "./index.js",
-      "types": "./index.d.ts"
+      "require": "./index.js"
     },
     "./index.css": "./index.css"
   }
 }
-

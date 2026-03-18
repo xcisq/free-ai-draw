@@ -1,21 +1,20 @@
 /**
  * LLM 对话状态管理 Hook
- * 封装对话消息、流式响应和错误处理
+ * 封装意图规划、澄清交互、流式生成和错误处理
  */
 
-import { useCallback, useRef, useState } from 'react';
-import type { GenerationContext, Message } from '../types';
+import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import type { GenerationContext, Message, RequestKind } from '../types';
 import { llmChatService } from '../services/llm-chat-service';
-import {
-  buildMermaidUserPrompt,
-  getInitialPrompt,
-} from '../services/prompt-templates';
+import { buildMermaidUserPrompt, getInitialPrompt } from '../services/prompt-templates';
 import { sanitizeUserInput, validateUserInput } from '../utils/message-validator';
 import { mermaidStabilizerService, MermaidStabilizationError } from '../services/mermaid-stabilizer';
+import { planMermaidIntent } from '../services/intent-planner';
 
 interface SendMessageOptions {
   requestContent?: string;
   generationContext?: Partial<GenerationContext>;
+  requestKind?: 'generate' | 'refine';
 }
 
 function createId() {
@@ -63,9 +62,6 @@ export function useLLMChat(initialSystemPrompt?: string): UseLLMChatResult {
       }
 
       const sanitizedContent = sanitizeUserInput(content);
-      const requestContent =
-        options?.requestContent?.trim() ||
-        buildMermaidUserPrompt(sanitizedContent, options?.generationContext);
       const lastMessage = history[history.length - 1];
 
       if (
@@ -77,6 +73,14 @@ export function useLLMChat(initialSystemPrompt?: string): UseLLMChatResult {
         return;
       }
 
+      const baseContext = mergeGenerationContext(
+        getLatestKnownContext(history),
+        options?.generationContext
+      );
+      const currentMermaid = getLatestMermaidCode(history);
+      const requestKind: RequestKind =
+        options?.requestKind || (currentMermaid ? 'refine' : 'generate');
+
       const userMessage: Message = {
         id: createId(),
         role: 'user',
@@ -84,9 +88,15 @@ export function useLLMChat(initialSystemPrompt?: string): UseLLMChatResult {
         timestamp: Date.now(),
         type: 'text',
         metadata: {
-          requestContent,
-          generationContext: options?.generationContext,
+          generationContext: baseContext,
+          normalizedContext: baseContext,
           isComplete: true,
+          interactionPhase: options?.requestContent
+            ? requestKind === 'refine'
+              ? 'refining'
+              : 'generating'
+            : 'planning',
+          requestKind: options?.requestContent ? requestKind : 'plan',
         },
       };
 
@@ -97,132 +107,104 @@ export function useLLMChat(initialSystemPrompt?: string): UseLLMChatResult {
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      const assistantMessageId = createId();
-
       try {
-        const systemMessage: Message = {
-          id: 'system',
-          role: 'system',
-          content: initialSystemPrompt || getInitialPrompt(),
-          timestamp: Date.now(),
-          type: 'text',
-        };
+        let normalizedContext = baseContext;
+        let requestContent = options?.requestContent?.trim() || '';
 
-        const chatMessages = [systemMessage, ...history, userMessage].map((message) => {
-          if (message.role === 'user' && message.metadata?.requestContent) {
-            return {
-              ...message,
-              content: message.metadata.requestContent,
-            };
-          }
-
-          return message;
-        });
-
-        let responseContent = '';
-
-        for await (const chunk of llmChatService.chatStream(chatMessages, {
-          signal: controller.signal,
-        })) {
-          const deltaContent = chunk.choices[0]?.delta?.content || '';
-
-          if (!deltaContent) {
-            continue;
-          }
-
-          responseContent += deltaContent;
-
-          setMessages((prev) => {
-            const last = prev[prev.length - 1];
-            if (last?.id === assistantMessageId) {
-              return [
-                ...prev.slice(0, -1),
-                {
-                  ...last,
-                  content: responseContent,
-                  metadata: {
-                    ...last.metadata,
-                    isStreaming: true,
-                    isComplete: false,
-                  },
-                },
-              ];
-            }
-
-            const assistantMessage: Message = {
-              id: assistantMessageId,
-              role: 'assistant',
-              content: responseContent,
-              timestamp: Date.now(),
-              type: 'text',
-              metadata: {
-                isStreaming: true,
-                isComplete: false,
-                generationContext: options?.generationContext,
-              },
-            };
-
-            return [...prev, assistantMessage];
-          });
-        }
-
-        let stabilizedMermaidCode: string | null = null;
-
-        try {
-          const stabilizedResult = await mermaidStabilizerService.stabilizeResponse(responseContent, {
-            allowLLMRepair: true,
-            originalRequest: requestContent,
+        if (!requestContent) {
+          const intentPlan = await planMermaidIntent({
+            userInput: sanitizedContent,
+            currentContext: baseContext,
+            currentMermaid,
+            conversationHistory: history,
+            requestKind,
             signal: controller.signal,
           });
 
-          stabilizedMermaidCode = stabilizedResult.mermaidCode;
-
-          if (stabilizedResult.source !== 'original') {
-            console.warn('[llm-mermaid] assistant mermaid auto-repaired', {
-              source: stabilizedResult.source,
-              fixes: stabilizedResult.appliedFixes,
-            });
-          }
-        } catch (stabilizationError) {
-          if (stabilizationError instanceof MermaidStabilizationError) {
-            console.warn('[llm-mermaid] assistant mermaid stabilization failed', {
-              stage: stabilizationError.stage,
-              details: stabilizationError.details,
-            });
-          }
-
-          setError(
-            stabilizationError instanceof Error
-              ? stabilizationError
-              : new Error('AI 返回结果中未提取到稳定的 Mermaid 代码')
+          normalizedContext = mergeGenerationContext(
+            baseContext,
+            intentPlan.normalizedContext
           );
+
+          if (intentPlan.mode === 'clarify') {
+            setMessages((prev) => {
+              const next = prev.map((message) =>
+                message.id === userMessage.id
+                  ? {
+                      ...message,
+                      metadata: {
+                        ...message.metadata,
+                        generationContext: normalizedContext,
+                        normalizedContext,
+                      },
+                    }
+                  : message
+              );
+
+              return [
+                ...next,
+                {
+                  id: createId(),
+                  role: 'assistant',
+                  content:
+                    intentPlan.clarificationQuestion ||
+                    '你更希望这张图的局部结构是并行展开，还是最后汇聚成一个主输出？',
+                  timestamp: Date.now(),
+                  type: 'text',
+                  metadata: {
+                    generationContext: normalizedContext,
+                    normalizedContext,
+                    isComplete: true,
+                    interactionPhase: 'clarifying',
+                    requestKind: 'plan',
+                    quickReplies: intentPlan.quickReplies,
+                  },
+                },
+              ];
+            });
+
+            return;
+          }
+
+          requestContent = buildMermaidUserPrompt(sanitizedContent, normalizedContext, {
+            currentMermaid,
+            requestKind,
+          });
         }
 
-        setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          if (last?.id !== assistantMessageId) {
-            return prev;
-          }
+        const hydratedUserMessage: Message = {
+          ...userMessage,
+          metadata: {
+            ...userMessage.metadata,
+            requestContent,
+            generationContext: normalizedContext,
+            normalizedContext,
+            interactionPhase: requestKind === 'refine' ? 'refining' : 'generating',
+            requestKind,
+          },
+        };
 
-          return [
-            ...prev.slice(0, -1),
-            {
-              ...last,
-              content: stabilizedMermaidCode || responseContent,
-              type: stabilizedMermaidCode ? 'mermaid' : 'text',
-              metadata: {
-                ...last.metadata,
-                isStreaming: false,
-                isComplete: true,
-                mermaidCode: stabilizedMermaidCode || undefined,
-              },
-            },
-          ];
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === userMessage.id ? hydratedUserMessage : message
+          )
+        );
+
+        await streamAssistantResponse({
+          history,
+          userMessage: hydratedUserMessage,
+          normalizedContext,
+          requestContent,
+          requestKind,
+          systemPrompt: initialSystemPrompt || getInitialPrompt(),
+          controller,
+          setMessages,
+          setError,
         });
       } catch (err) {
         setMessages((prev) => {
           const last = prev[prev.length - 1];
-          if (last?.id === assistantMessageId) {
+          if (last?.metadata?.isStreaming) {
             return prev.slice(0, -1);
           }
           return prev;
@@ -267,7 +249,11 @@ export function useLLMChat(initialSystemPrompt?: string): UseLLMChatResult {
       lastUserMessage.content,
       {
         requestContent: lastUserMessage.metadata?.requestContent,
-        generationContext: lastUserMessage.metadata?.generationContext,
+        generationContext:
+          lastUserMessage.metadata?.normalizedContext ||
+          lastUserMessage.metadata?.generationContext,
+        requestKind:
+          lastUserMessage.metadata?.requestKind === 'refine' ? 'refine' : 'generate',
       },
       history
     );
@@ -281,5 +267,193 @@ export function useLLMChat(initialSystemPrompt?: string): UseLLMChatResult {
     regenerate,
     clearError,
     reset,
+  };
+}
+
+async function streamAssistantResponse(options: {
+  history: Message[];
+  userMessage: Message;
+  normalizedContext: Partial<GenerationContext>;
+  requestContent: string;
+  requestKind: RequestKind;
+  systemPrompt: string;
+  controller: AbortController;
+  setMessages: Dispatch<SetStateAction<Message[]>>;
+  setError: Dispatch<SetStateAction<Error | null>>;
+}) {
+  const {
+    history,
+    userMessage,
+    normalizedContext,
+    requestContent,
+    requestKind,
+    systemPrompt,
+    controller,
+    setMessages,
+    setError,
+  } = options;
+  const assistantMessageId = createId();
+  const systemMessage: Message = {
+    id: 'system',
+    role: 'system',
+    content: systemPrompt,
+    timestamp: Date.now(),
+    type: 'text',
+  };
+
+  const chatMessages = [systemMessage, ...history, userMessage].map((message) => {
+    if (message.role === 'user' && message.metadata?.requestContent) {
+      return {
+        ...message,
+        content: message.metadata.requestContent,
+      };
+    }
+
+    return message;
+  });
+
+  let responseContent = '';
+
+  for await (const chunk of llmChatService.chatStream(chatMessages, {
+    signal: controller.signal,
+  })) {
+    const deltaContent = chunk.choices[0]?.delta?.content || '';
+    if (!deltaContent) {
+      continue;
+    }
+
+    responseContent += deltaContent;
+
+    setMessages((prev) => {
+      const last = prev[prev.length - 1];
+      if (last?.id === assistantMessageId) {
+        return [
+          ...prev.slice(0, -1),
+          {
+            ...last,
+            content: responseContent,
+            metadata: {
+              ...last.metadata,
+              isStreaming: true,
+              isComplete: false,
+            },
+          },
+        ];
+      }
+
+      return [
+        ...prev,
+        {
+          id: assistantMessageId,
+          role: 'assistant',
+          content: responseContent,
+          timestamp: Date.now(),
+          type: 'text',
+          metadata: {
+            isStreaming: true,
+            isComplete: false,
+            generationContext: normalizedContext,
+            normalizedContext,
+            interactionPhase: requestKind === 'refine' ? 'refining' : 'generating',
+            requestKind,
+          },
+        },
+      ];
+    });
+  }
+
+  let stabilizedMermaidCode: string | null = null;
+
+  try {
+    const stabilizedResult = await mermaidStabilizerService.stabilizeResponse(responseContent, {
+      allowLLMRepair: true,
+      originalRequest: requestContent,
+      signal: controller.signal,
+    });
+
+    stabilizedMermaidCode = stabilizedResult.mermaidCode;
+
+    if (stabilizedResult.source !== 'original') {
+      console.warn('[llm-mermaid] assistant mermaid auto-repaired', {
+        source: stabilizedResult.source,
+        fixes: stabilizedResult.appliedFixes,
+      });
+    }
+  } catch (stabilizationError) {
+    if (stabilizationError instanceof MermaidStabilizationError) {
+      console.warn('[llm-mermaid] assistant mermaid stabilization failed', {
+        stage: stabilizationError.stage,
+        details: stabilizationError.details,
+      });
+    }
+
+    setError(
+      stabilizationError instanceof Error
+        ? stabilizationError
+        : new Error('AI 返回结果中未提取到稳定的 Mermaid 代码')
+    );
+  }
+
+  setMessages((prev) => {
+    const last = prev[prev.length - 1];
+    if (last?.id !== assistantMessageId) {
+      return prev;
+    }
+
+    return [
+      ...prev.slice(0, -1),
+      {
+        ...last,
+        content: stabilizedMermaidCode || responseContent,
+        type: stabilizedMermaidCode ? 'mermaid' : 'text',
+        metadata: {
+          ...last.metadata,
+          isStreaming: false,
+          isComplete: true,
+          mermaidCode: stabilizedMermaidCode || undefined,
+        },
+      },
+    ];
+  });
+}
+
+function getLatestKnownContext(messages: Message[]) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const metadata = messages[index]?.metadata;
+    if (metadata?.normalizedContext) {
+      return metadata.normalizedContext;
+    }
+    if (metadata?.generationContext) {
+      return metadata.generationContext;
+    }
+  }
+
+  return {};
+}
+
+function getLatestMermaidCode(messages: Message[]) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const mermaidCode = messages[index]?.metadata?.mermaidCode;
+    if (mermaidCode) {
+      return mermaidCode;
+    }
+  }
+
+  return '';
+}
+
+function mergeGenerationContext(
+  base: Partial<GenerationContext>,
+  incoming: Partial<GenerationContext> | undefined
+): Partial<GenerationContext> {
+  return {
+    ...base,
+    ...incoming,
+    emphasisTargets:
+      incoming?.emphasisTargets?.length || base.emphasisTargets?.length
+        ? [...new Set([...(base.emphasisTargets || []), ...(incoming?.emphasisTargets || [])])]
+        : [],
+    layoutIntentText:
+      incoming?.layoutIntentText?.trim() || base.layoutIntentText || '',
   };
 }

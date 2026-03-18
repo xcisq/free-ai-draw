@@ -7,7 +7,8 @@ import type {
   BoardStyleSelector,
   GenerationContext,
   GraphInfo,
-  LayoutDirection,
+  RequestKind,
+  StructurePattern,
   ThemePreset,
   UsageScenario,
 } from '../types';
@@ -19,6 +20,10 @@ const DEFAULT_GENERATION_CONTEXT: GenerationContext = {
   theme: 'academic',
   layoutArea: 'medium',
   density: 'balanced',
+  structurePattern: 'mixed',
+  layoutIntentText: '',
+  emphasisTargets: [],
+  clarificationStatus: 'none',
 };
 
 /**
@@ -31,15 +36,17 @@ export function getInitialPrompt(): string {
 1. 用户输入的正文、段落、方法描述或需求文本，是图的主要语义来源
 2. 先从用户文本中抽取输入、处理阶段、输出、依赖关系和层级，再组织成图
 3. 如果用户文本本身已经包含顺序、模块名或关系，请优先忠实反映，不要脱离文本另起一套流程
-4. 只有当文本信息明显不足时，才做最小必要补全
-5. 使用矩形节点（stadium 或 rounded）表示处理步骤
-6. 使用 subgraph 进行模块分组
-7. 不使用复杂箭头标签
-8. 使用 classDef 定义样式类
-9. 支持的节点类型：矩形 ([...]) 和 圆角矩形 ([(...)])
-10. 布局方向根据用户要求选择 LR（从左到右）或 TB（从上到下）
-11. 尽量使用简单、稳定的 Mermaid flowchart 语法，避免冷门特性
-12. 节点文本如包含中文、空格或特殊字符，请使用 Mermaid 支持的安全写法
+4. 用户提到的“从左到右/从上到下”默认表示整体主视觉趋势，不代表所有节点都必须严格排成单轴直线
+5. 如果用户说明局部存在并行、分支、上下辅轨、汇聚或反馈，优先保留这些局部结构
+6. 只有当文本信息明显不足时，才做最小必要补全
+7. 使用矩形节点（stadium 或 rounded）表示处理步骤
+8. 使用 subgraph 进行模块分组
+9. 不使用复杂箭头标签
+10. 使用 classDef 定义样式类
+11. 支持的节点类型：矩形 ([...]) 和 圆角矩形 ([(...)])
+12. 尽量使用简单、稳定的 Mermaid flowchart 语法，避免冷门特性
+13. 节点文本如包含中文、空格或特殊字符，请使用 Mermaid 支持的安全写法
+14. 对论文图，优先保证主干清晰、支路有层次、汇聚明确、反馈尽量走外圈
 
 输出格式：
 - 仅输出完整 Mermaid 代码
@@ -48,25 +55,75 @@ export function getInitialPrompt(): string {
 }
 
 /**
+ * 获取意图规划系统提示词
+ */
+export function getIntentPlanningSystemPrompt(): string {
+  return `你是一个 Mermaid 生成前置意图规划助手。
+
+你的职责不是直接输出 Mermaid，而是先判断用户提供的信息是否足够生成一张结构清晰的流程图。
+
+请严格遵循以下规则：
+1. 只输出 JSON，不要输出 markdown，不要解释
+2. layoutDirection 表示整体主阅读方向，不表示所有节点必须完全线性排列
+3. 用户如果表达了局部并行、上下辅轨、汇聚、反馈，要保留这些结构意图
+4. 如果用户的原始文本或意图足够明确，mode 设为 "generate"
+5. 如果关键信息缺失，mode 设为 "clarify"，且只追问 1 个简短问题
+6. quickReplies 最多 3 个，必须简短、可直接点击
+7. normalizedContext 里只保留对 Mermaid 生成真正有帮助的字段
+
+返回 JSON 结构：
+{
+  "mode": "generate" | "clarify",
+  "normalizedContext": {
+    "layoutDirection": "LR" | "TB",
+    "usageScenario": "paper" | "presentation" | "document",
+    "theme": "academic" | "professional" | "lively" | "minimal",
+    "layoutArea": "compact" | "medium" | "spacious",
+    "density": "dense" | "balanced" | "sparse",
+    "structurePattern": "linear" | "branched" | "convergent" | "multi-lane" | "feedback" | "mixed",
+    "layoutIntentText": "string",
+    "emphasisTargets": ["string"]
+  },
+  "clarificationQuestion": "string",
+  "quickReplies": ["string"],
+  "missingSignals": ["string"]
+}`;
+}
+
+/**
  * 获取 Mermaid 生成提示词
  */
 export function getMermaidGenerationPrompt(context: GenerationContext): string {
-  const { layoutDirection, usageScenario, nodeCount, theme, layoutArea, density } = context;
-
-  const directionText = layoutDirection === 'LR' ? '从左到右' : '从上到下';
+  const {
+    layoutDirection,
+    usageScenario,
+    nodeCount,
+    theme,
+    layoutArea,
+    density,
+    structurePattern,
+    layoutIntentText,
+    emphasisTargets,
+  } = context;
 
   return `请基于用户提供的原始文本生成一个 Mermaid flowchart，用于${getScenarioText(usageScenario)}。
 
 注意：
 - 下面的结构化配置只用于约束布局、风格和图面复杂度
 - 图中的节点、模块和连接关系，应优先来自用户输入文本本身
+- “主阅读方向”表示整体视觉连贯性，不要求所有节点都严格排成一条水平线或竖线
+- 如果文本说明局部存在并行、分支、上下分层、汇聚或反馈，请优先保留这些细节
+- 对论文图，优先保证主干清晰、辅助结构克制、汇聚位置明确、反馈关系尽量外置
 
 要求：
-- 布局方向：${directionText}
+- 主阅读方向：${getLayoutDirectionText(layoutDirection)}
 - 节点数量：约 ${nodeCount} 个
 - 样式风格：${getThemeText(theme)}
 - 整体布局：${layoutArea ? getLayoutAreaText(layoutArea) : '适中'}
 - 密集程度：${density ? getDensityText(density) : '平衡'}
+- 结构模式：${getStructurePatternText(structurePattern)}
+- 构图补充：${layoutIntentText?.trim() || '未额外指定，请按文本语义做最小必要推断'}
+- 重点强调：${formatEmphasisTargets(emphasisTargets)}
 
 使用以下结构：
 1. 使用 subgraph 对相关模块进行分组
@@ -74,6 +131,8 @@ export function getMermaidGenerationPrompt(context: GenerationContext): string {
 3. 使用圆角矩形 ([(...)]) 表示输入/输出节点
 4. 使用 classDef 定义样式类
 5. 使用 --> 连接节点
+6. 主干节点优先维持清晰的阅读顺序，局部允许存在辅轨、并行块或收束结构
+7. 如果用户要求“整体从左到右，但局部有上下辅轨/并行支路/汇聚”，请把这种局部结构真实画出来，而不是压扁成简单横向链路
 
 输出格式：
 - 仅输出完整 Mermaid 代码
@@ -82,31 +141,96 @@ export function getMermaidGenerationPrompt(context: GenerationContext): string {
 }
 
 /**
+ * 构造 Mermaid 生成前的意图规划请求
+ */
+export function buildMermaidIntentPlanningPrompt(options: {
+  userInput: string;
+  currentContext?: Partial<GenerationContext>;
+  currentMermaid?: string;
+  conversationSummary?: string;
+  requestKind?: RequestKind;
+}): string {
+  const {
+    userInput,
+    currentContext = {},
+    currentMermaid,
+    conversationSummary,
+    requestKind = 'generate',
+  } = options;
+  const mergedContext: GenerationContext = {
+    ...DEFAULT_GENERATION_CONTEXT,
+    ...currentContext,
+  };
+
+  return `请先规划 Mermaid 生成意图，不要直接输出 Mermaid。
+
+当前已知上下文：
+${JSON.stringify(mergedContext, null, 2)}
+
+${conversationSummary ? `最近对话摘要：\n${conversationSummary}\n\n` : ''}${
+    currentMermaid
+      ? `当前已有 Mermaid（供增量细化参考）：
+\`\`\`
+${currentMermaid}
+\`\`\`
+
+`
+      : ''
+  }当前请求类型：${requestKind === 'refine' ? '基于已有 Mermaid 的细化请求' : '新的 Mermaid 生成请求'}
+
+最新用户输入：
+<<<USER_TEXT
+${userInput.trim()}
+USER_TEXT>>>
+
+判断原则：
+- 如果用户已经同时提供了原始文本和较明确的构图意图，直接 generate
+- 如果用户只给了模糊方向，缺少关键结构信号，可以 clarify
+- clarify 时只问一个最影响构图的短问题
+- 如果用户说“整体从左到右，但局部有上下辅轨/并行/汇聚”，这已经是有效结构意图，不要再追问“是不是从左到右”
+
+请严格输出 JSON。`;
+}
+
+/**
  * 将用户输入与结构化配置组合为 Mermaid 生成请求
  */
 export function buildMermaidUserPrompt(
   userInput: string,
-  context: Partial<GenerationContext> = {}
+  context: Partial<GenerationContext> = {},
+  options: {
+    currentMermaid?: string;
+    requestKind?: RequestKind;
+  } = {}
 ): string {
   const mergedContext: GenerationContext = {
     ...DEFAULT_GENERATION_CONTEXT,
     ...context,
   };
+  const { currentMermaid, requestKind = 'generate' } = options;
+  const isRefine = requestKind === 'refine' && !!currentMermaid?.trim();
 
   return `${getMermaidGenerationPrompt(mergedContext)}
 
 任务要求：
-- 请把下面这段内容当作“用户原始文本”，而不是普通一句提示词
+- 请把下面这段内容当作“用户原始文本和意图说明”，而不是普通一句提示词
 - 你需要从文本中抽取流程阶段、模块、输入输出和依赖关系
 - 如果文本是论文方法描述，请把方法结构可视化；如果文本是需求描述，请把执行流程可视化
 - 不要脱离这段文本另起一套通用流程图
+- 如果文本里同时出现“整体阅读方向”和“局部结构要求”，优先同时满足两者
 
 用户原始文本：
 <<<USER_TEXT
 ${userInput.trim()}
 USER_TEXT>>>
 
-请基于上面的用户原始文本生成对应图表，并严格输出完整 Mermaid 代码，不要补充额外说明，不要输出 \`\`\`。`;
+${isRefine ? `当前已有 Mermaid：
+\`\`\`
+${currentMermaid}
+\`\`\`
+
+请基于当前 Mermaid 做增量细化，尽量保留已经合理的模块和关系，只调整与最新要求直接相关的部分。
+` : ''}请基于上面的用户原始文本生成对应图表，并严格输出完整 Mermaid 代码，不要补充额外说明，不要输出 \`\`\`。`;
 }
 
 /**
@@ -270,6 +394,31 @@ function getThemeText(theme: string): string {
     minimal: '极简风格，最少色彩和装饰',
   };
   return themeMap[theme] || '通用风格';
+}
+
+function getLayoutDirectionText(direction: 'LR' | 'TB'): string {
+  return direction === 'LR' ? '整体从左到右' : '整体从上到下';
+}
+
+function getStructurePatternText(pattern: StructurePattern | undefined): string {
+  const patternMap: Record<StructurePattern, string> = {
+    linear: '线性主干',
+    branched: '主干带分支',
+    convergent: '多支汇聚',
+    'multi-lane': '多轨分层',
+    feedback: '包含反馈回路',
+    mixed: '混合结构',
+  };
+
+  return pattern ? patternMap[pattern] : '混合结构';
+}
+
+function formatEmphasisTargets(targets: string[] | undefined): string {
+  if (!targets || targets.length === 0) {
+    return '无特别强调';
+  }
+
+  return targets.join('、');
 }
 
 /**

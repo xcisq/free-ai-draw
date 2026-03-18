@@ -16,6 +16,16 @@ export type MessageRole = 'user' | 'assistant' | 'system';
 export type MessageType = 'text' | 'mermaid' | 'style';
 
 /**
+ * 交互阶段
+ */
+export type InteractionPhase = 'planning' | 'clarifying' | 'generating' | 'refining';
+
+/**
+ * 请求类型
+ */
+export type RequestKind = 'plan' | 'generate' | 'refine';
+
+/**
  * 聊天消息
  */
 export interface Message {
@@ -43,12 +53,20 @@ export interface MessageMetadata {
   styleScheme?: StyleScheme;
   /** 生成上下文 */
   generationContext?: Partial<GenerationContext>;
+  /** 归一化后的上下文 */
+  normalizedContext?: Partial<GenerationContext>;
   /** 实际发送给 LLM 的请求内容 */
   requestContent?: string;
   /** 是否正在流式生成 */
   isStreaming?: boolean;
   /** 是否已完成 */
   isComplete?: boolean;
+  /** 当前交互阶段 */
+  interactionPhase?: InteractionPhase;
+  /** 当前请求类型 */
+  requestKind?: RequestKind;
+  /** 澄清快捷回复 */
+  quickReplies?: string[];
 }
 
 /**

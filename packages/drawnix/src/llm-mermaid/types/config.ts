@@ -38,6 +38,14 @@ export interface GenerationContext {
   layoutArea?: 'compact' | 'medium' | 'spacious';
   /** 密集程度偏好 */
   density?: 'dense' | 'balanced' | 'sparse';
+  /** 结构模式偏好 */
+  structurePattern?: StructurePattern;
+  /** 补充构图意图 */
+  layoutIntentText?: string;
+  /** 需要强调的阶段或模块 */
+  emphasisTargets?: string[];
+  /** 当前澄清状态 */
+  clarificationStatus?: ClarificationStatus;
 }
 
 /**
@@ -49,6 +57,22 @@ export type LayoutDirection = 'LR' | 'TB';
  * 使用场景
  */
 export type UsageScenario = 'paper' | 'presentation' | 'document';
+
+/**
+ * 结构模式偏好
+ */
+export type StructurePattern =
+  | 'linear'
+  | 'branched'
+  | 'convergent'
+  | 'multi-lane'
+  | 'feedback'
+  | 'mixed';
+
+/**
+ * 澄清状态
+ */
+export type ClarificationStatus = 'none' | 'pending' | 'resolved';
 
 /**
  * 主题风格预设
