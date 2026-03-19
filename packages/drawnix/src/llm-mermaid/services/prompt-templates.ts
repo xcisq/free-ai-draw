@@ -315,11 +315,39 @@ export function getBoardStyleMultipleSchemesPrompt(
     includeConnectedLines: boolean;
     fills: string[];
     strokes: string[];
+    fontSizes?: number[];
+    semanticNodeCounts?: Partial<Record<string, number>>;
+    lineRoleCounts?: Partial<Record<string, number>>;
+    textRoleCounts?: Partial<Record<string, number>>;
+    groupedShapeCount?: number;
+    ungroupedShapeCount?: number;
+    moduleCount?: number;
+    branchingNodeCount?: number;
+    mergeNodeCount?: number;
+    layoutBias?: 'horizontal' | 'vertical' | 'mixed' | 'unknown';
+    roleLabelExamples?: Partial<Record<string, string[]>>;
   },
   request: string = '',
   count: number = 3
 ): string {
-  const selectorGuide: BoardStyleSelector[] = ['*', 'shape', 'line', 'text'];
+  const selectorGuide: BoardStyleSelector[] = [
+    '*',
+    'shape',
+    'line',
+    'text',
+    'node.input',
+    'node.process',
+    'node.output',
+    'node.decision',
+    'node.annotation',
+    'node.module',
+    'node.grouped',
+    'node.ungrouped',
+    'line.main',
+    'line.secondary',
+    'text.title',
+    'text.body',
+  ];
 
   return `请为当前画板上已选中的元素生成 ${count} 个不同风格的样式方案，并严格输出 JSON。
 
@@ -333,8 +361,34 @@ export function getBoardStyleMultipleSchemesPrompt(
 - 是否包含关联线：${summary.includeConnectedLines ? '是' : '否'}
 - 当前常见填充色：${summary.fills.join('、') || '无'}
 - 当前常见描边色：${summary.strokes.join('、') || '无'}
+- 当前常见字号：${summary.fontSizes?.join('、') || '无'}
+- 布局主轴倾向：${formatLayoutBias(summary.layoutBias)}
+- 模块容器数：${summary.moduleCount ?? 0}
+- 分组内节点数：${summary.groupedShapeCount ?? 0}
+- 非分组节点数：${summary.ungroupedShapeCount ?? 0}
+- 分支节点数：${summary.branchingNodeCount ?? 0}
+- 汇聚节点数：${summary.mergeNodeCount ?? 0}
+- 节点语义分布：${formatSummaryCounts(summary.semanticNodeCounts)}
+- 连线语义分布：${formatSummaryCounts(summary.lineRoleCounts)}
+- 文本语义分布：${formatSummaryCounts(summary.textRoleCounts)}
+- 语义样本标签：${formatRoleLabelExamples(summary.roleLabelExamples)}
 
 用户补充需求：${request || '未补充，自行生成风格差异明显的方案'}
+
+论文流程图配色与排版原则：
+- 整体风格优先参考学术论文插图，而不是营销海报或产品宣传图
+- 默认采用低饱和、浅填充、深描边、深文字的组合，优先保证打印和投影下都清晰
+- 全图控制在 2-4 个主色家族内，其余尽量使用中性灰、蓝灰、石墨色，不要做彩虹式配色
+- 如果存在模块分组，先给同一模块内元素一个相近的基础色家族，再通过亮度、描边、字号或字重区分模块内不同节点
+- 同一模块内的节点允许有细微差异，但不要跳到完全不相关的色相；更适合用“同色系深浅变化”而不是“每个节点一个新颜色”
+- 模块容器 node.module 应比模块内部节点更轻、更淡、更克制，通常使用 very light tint 或中性底色，避免喧宾夺主
+- node.grouped 可以作为模块内节点的统一基底色；node.input / node.process / node.output / node.decision 更适合作为在该基底上的轻微语义微调
+- 输入节点更适合冷色浅底，处理节点适合中性或蓝绿系浅底，输出节点适合更明确但仍克制的暖色强调，注释节点尽量使用灰系弱化
+- 主流程节点的对比度可以略高于支路和注释，但不要把所有重点都做成高饱和高发光
+- 连线优先用中性深色；主线比辅助线更实、更深，辅助线可稍浅或虚线，但不要比节点更抢眼
+- 文字颜色必须与填充色保持高可读对比；标题和模块标题可通过 fontWeight / fontSize 提升层级，不要只靠颜色堆叠
+- shadow 和 glow 只能作为局部强调，默认只给真正需要突出的模块或关键节点，不能全图普遍开启
+- 若摘要里存在模块数量或 grouped 节点较多，优先让“模块内相似、模块间有区分、全图仍统一”这三层同时成立
 
 支持的样式字段：
 - fill
@@ -342,7 +396,14 @@ export function getBoardStyleMultipleSchemesPrompt(
 - strokeWidth
 - color
 - fontSize
+- fontWeight
 - opacity（0-100）
+- shadow
+- shadowBlur
+- shadowColor
+- glow
+- glowColor
+- glowBlur
 - strokeStyle（solid / dashed / dotted）
 - lineShape（straight / elbow）
 - sourceMarker / targetMarker（arrow / none / open-triangle / solid-triangle / sharp-arrow / hollow-triangle）
@@ -357,10 +418,16 @@ styles 里的 key 只能使用以下选择器：${selectorGuide.join('、')}
       "name": "方案名称",
       "description": "简短描述",
       "styles": {
-        "*": { "fill": "#hex", "stroke": "#hex", "strokeWidth": 2, "opacity": 96 },
-        "shape": { "fill": "#hex" },
-        "line": { "stroke": "#hex", "strokeStyle": "dashed", "lineShape": "elbow", "targetMarker": "solid-triangle" },
-        "text": { "color": "#hex", "fontSize": 16 }
+        "*": { "strokeWidth": 2, "opacity": 96 },
+        "node.module": { "fill": "#f8fafc", "stroke": "#94a3b8", "shadow": false },
+        "node.grouped": { "fill": "#eef4ff", "stroke": "#6b85b6" },
+        "node.input": { "fill": "#e8f1ff", "stroke": "#3b6fb6", "color": "#163a63" },
+        "node.process": { "fill": "#eef7f2", "stroke": "#4f7d68", "color": "#234032" },
+        "node.output": { "fill": "#fff4e8", "stroke": "#b77942", "color": "#6b3f18" },
+        "line.main": { "stroke": "#334155", "strokeWidth": 2, "targetMarker": "solid-triangle" },
+        "line.secondary": { "stroke": "#94a3b8", "strokeStyle": "dashed", "lineShape": "elbow" },
+        "text.title": { "color": "#0f172a", "fontSize": 16, "fontWeight": 600 },
+        "text.body": { "color": "#334155", "fontSize": 14 }
       }
     }
   ]
@@ -372,7 +439,49 @@ styles 里的 key 只能使用以下选择器：${selectorGuide.join('、')}
 3. 方案之间风格要明显不同
 4. 方案只针对这批选中元素生成，不要假设整张画布一起修改
 5. 如果某个选择器不需要，可以省略
-6. 不要使用 curve 作为 lineShape，当前画板样式优化仅允许 straight 或 elbow`;
+6. 不要使用 curve 作为 lineShape，当前画板样式优化仅允许 straight 或 elbow
+7. 这是论文流程图场景，不要把所有矩形节点设成同一种填充色；至少要按输入/处理/输出/模块/注释中的实际语义做区分
+8. 同类语义节点应保持统一风格，不同语义节点应有可读但克制的差异
+9. 字体颜色必须和填充色保持可读对比，阴影和 glow 只能用于局部强调，不能全图滥用
+10. 优先考虑语义、布局和模块层级，不要只按“形状都是矩形”这一条来统一配色
+11. 如果存在模块分组，优先让同一模块内节点的 fill 看起来属于同一色系，再通过亮度、描边和文字层级区分具体节点
+12. 生成方案时优先遵循“模块内相似、模块间可分、全图统一”的配色逻辑，而不是“每个节点都尽量不同”
+13. 论文风格更偏克制和稳定，优先使用 muted palette、浅底深字、低到中等对比，不要使用高纯度霓虹色`;
+}
+
+function formatSummaryCounts(counts?: Partial<Record<string, number>>): string {
+  if (!counts) {
+    return '无';
+  }
+
+  const entries = Object.entries(counts).filter(([, value]) => typeof value === 'number' && value > 0);
+  return entries.length > 0
+    ? entries.map(([key, value]) => `${key}:${value}`).join('，')
+    : '无';
+}
+
+function formatRoleLabelExamples(examples?: Partial<Record<string, string[]>>): string {
+  if (!examples) {
+    return '无';
+  }
+
+  const entries = Object.entries(examples)
+    .filter((entry): entry is [string, string[]] => Array.isArray(entry[1]) && entry[1].length > 0)
+    .map(([role, labels]) => `${role}:${labels.join(' / ')}`);
+  return entries.length > 0 ? entries.join('；') : '无';
+}
+
+function formatLayoutBias(layoutBias?: 'horizontal' | 'vertical' | 'mixed' | 'unknown'): string {
+  switch (layoutBias) {
+    case 'horizontal':
+      return '偏水平主链';
+    case 'vertical':
+      return '偏垂直主链';
+    case 'mixed':
+      return '混合布局';
+    default:
+      return '未知';
+  }
 }
 
 /**

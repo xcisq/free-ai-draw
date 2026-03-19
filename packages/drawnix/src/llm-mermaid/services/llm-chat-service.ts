@@ -292,18 +292,28 @@ export class LLMChatService {
    * 处理 API 错误
    */
   private async handleError(response: Response): Promise<never> {
-    let errorMessage = 'LLM API 请求失败';
+    let errorMessage = `LLM 服务请求失败（${response.status}）`;
     let errorCode: string | undefined;
     let statusCode = response.status;
+    let rawBody = '';
 
     try {
-      const errorData = await response.json().catch(() => null);
+      rawBody = await response.text();
+      const errorData = parseJsonSafely(rawBody);
       if (errorData?.error?.message) {
         errorMessage = errorData.error.message;
         errorCode = errorData.error.code;
+      } else {
+        const fallbackMessage = summarizeErrorBody(rawBody);
+        if (fallbackMessage) {
+          errorMessage = `${errorMessage}：${fallbackMessage}`;
+        }
       }
     } catch {
-      // 忽略 JSON 解析错误
+      const fallbackMessage = summarizeErrorBody(rawBody);
+      if (fallbackMessage) {
+        errorMessage = `${errorMessage}：${fallbackMessage}`;
+      }
     }
 
     throw new LLMChatError(errorMessage, errorCode, statusCode);
@@ -348,3 +358,40 @@ function consumeSSEPayloads(buffer: string, flushFinal: boolean = false) {
  * 默认 LLM 聊天服务实例
  */
 export const llmChatService = new LLMChatService();
+
+function parseJsonSafely(text: string): {
+  error?: {
+    message?: string;
+    code?: string;
+  };
+} | null {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(trimmed) as {
+      error?: {
+        message?: string;
+        code?: string;
+      };
+    };
+  } catch {
+    return null;
+  }
+}
+
+function summarizeErrorBody(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  if (/^<!doctype html|^<html/i.test(trimmed)) {
+    return '服务端返回了非 JSON 错误页';
+  }
+
+  const singleLine = trimmed.replace(/\s+/g, ' ');
+  return singleLine.length > 120 ? `${singleLine.slice(0, 117)}...` : singleLine;
+}

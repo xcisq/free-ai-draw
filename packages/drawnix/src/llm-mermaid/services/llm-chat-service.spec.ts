@@ -11,7 +11,7 @@ jest.mock('../utils/env-config', () => ({
 }));
 
 import type { Message } from '../types';
-import { LLMChatService } from './llm-chat-service';
+import { LLMChatError, LLMChatService } from './llm-chat-service';
 
 const fetchMock = jest.fn<typeof fetch>();
 
@@ -211,5 +211,58 @@ describe('LLMChatService', () => {
     expect(requestUrl).toBe('https://example.com/v1/chat/completions');
     expect(requestBody.messages[0].content).toContain('Mermaid 语法修复助手');
     expect(requestBody.messages[1].content).toBe('修复这段 Mermaid');
+  });
+
+  it('非 2xx 且返回 JSON 错误体时应该保留服务端 message', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: async () => JSON.stringify({
+        error: {
+          message: 'upstream overloaded',
+          code: 'server_error',
+        },
+      }),
+    } as Response);
+
+    const service = new LLMChatService();
+
+    await expect(
+      service.chat([
+        {
+          id: 'user-1',
+          role: 'user',
+          content: '生成样式',
+          timestamp: Date.now(),
+          type: 'text',
+        },
+      ])
+    ).rejects.toEqual(expect.objectContaining<Partial<LLMChatError>>({
+      message: 'upstream overloaded',
+      code: 'server_error',
+      statusCode: 500,
+    }));
+  });
+
+  it('非 2xx 且返回 HTML 错误体时应该给出明确 500 错误', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: async () => '<!doctype html><html><body>Internal Server Error</body></html>',
+    } as Response);
+
+    const service = new LLMChatService();
+
+    await expect(
+      service.chat([
+        {
+          id: 'user-1',
+          role: 'user',
+          content: '生成样式',
+          timestamp: Date.now(),
+          type: 'text',
+        },
+      ])
+    ).rejects.toThrow('LLM 服务请求失败（500）：服务端返回了非 JSON 错误页');
   });
 });

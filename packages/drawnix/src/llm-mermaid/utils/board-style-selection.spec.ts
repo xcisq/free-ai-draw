@@ -78,21 +78,32 @@ describe('board-style-selection', () => {
     const summary = summarizeBoardStyleSelection(
       null,
       [
-        { id: 'shape-1', type: 'geometry', shape: 'rectangle', fill: '#fff' } as any,
-        { id: 'line-1', type: 'arrow-line', strokeColor: '#333' } as any,
+        { id: 'shape-1', type: 'geometry', shape: 'rectangle', text: '输入', fill: '#fff' } as any,
+        { id: 'shape-2', type: 'geometry', shape: 'rectangle', text: '输出', textStyle: { fontSize: 16 } } as any,
+        {
+          id: 'line-1',
+          type: 'arrow-line',
+          strokeColor: '#333',
+          source: { boundId: 'shape-1' },
+          target: { boundId: 'shape-2' },
+        } as any,
         { id: 'text-1', type: 'geometry', shape: 'text' } as any,
       ],
-      2,
+      3,
       1,
       true
     );
 
-    expect(summary.originalTotal).toBe(2);
-    expect(summary.total).toBe(3);
-    expect(summary.shapeCount).toBe(1);
+    expect(summary.originalTotal).toBe(3);
+    expect(summary.total).toBe(4);
+    expect(summary.shapeCount).toBe(2);
     expect(summary.lineCount).toBe(1);
     expect(summary.textCount).toBe(1);
     expect(summary.fills).toContain('#fff');
     expect(summary.strokes).toContain('#333');
+    expect(summary.fontSizes).toContain(16);
+    expect(summary.semanticNodeCounts?.input).toBe(1);
+    expect(summary.semanticNodeCounts?.output).toBe(1);
+    expect(summary.lineRoleCounts?.main).toBe(1);
   });
 });

@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const mockSetNode = jest.fn();
-const mockSetTextColor = jest.fn();
-const mockSetFontSize = jest.fn();
 const mockFindPath = jest.fn(() => [0]);
 const mockGetElementById = jest.fn();
 const mockWithoutSaving = jest.fn((_: unknown, fn: () => void) => fn());
@@ -18,14 +16,6 @@ jest.mock('@plait/core', () => ({
     setNode: (...args: unknown[]) => mockSetNode(...args),
   },
   getElementById: (...args: unknown[]) => mockGetElementById(...args),
-}));
-
-jest.mock('@plait/text-plugins', () => ({
-  DEFAULT_FONT_SIZE: 14,
-  TextTransforms: {
-    setTextColor: (...args: unknown[]) => mockSetTextColor(...args),
-    setFontSize: (...args: unknown[]) => mockSetFontSize(...args),
-  },
 }));
 
 jest.mock('@plait/draw', () => ({
@@ -66,8 +56,6 @@ import {
 describe('board-style-application', () => {
   beforeEach(() => {
     mockSetNode.mockReset();
-    mockSetTextColor.mockReset();
-    mockSetFontSize.mockReset();
     mockFindPath.mockReset();
     mockGetElementById.mockReset();
     mockWithoutSaving.mockReset();
@@ -76,7 +64,7 @@ describe('board-style-application', () => {
   });
 
   it('应该把基础样式应用到节点和连线', () => {
-    const shape = { id: 'shape-1', type: 'geometry', shape: 'rectangle' } as any;
+    const shape = { id: 'shape-1', type: 'geometry', shape: 'rectangle', text: '输入' } as any;
     const line = {
       id: 'line-1',
       type: 'arrow-line',
@@ -86,42 +74,29 @@ describe('board-style-application', () => {
     } as any;
 
     applyStyleToElements({} as any, [shape, line], {
-      shape: {
-        nodeId: 'shape',
+      'node.input': {
+        nodeId: 'node.input',
         fill: '#f5f8ff',
         stroke: '#2b5fb3',
         strokeWidth: 2,
         color: '#334155',
         fontSize: 16,
-        shadow: false,
-        shadowBlur: 0,
       },
       line: {
         nodeId: 'line',
         stroke: '#2b5fb3',
         strokeWidth: 2,
-        color: '#334155',
-        fontSize: 16,
-        shadow: false,
-        shadowBlur: 0,
         strokeStyle: 'dashed',
         lineShape: 'elbow',
         targetMarker: 'solid-triangle',
       },
-      text: {
-        nodeId: 'text',
-        stroke: '#2b5fb3',
-        fill: '#fff',
-        strokeWidth: 1,
+      'text.body': {
+        nodeId: 'text.body',
         color: '#334155',
         fontSize: 16,
-        shadow: false,
-        shadowBlur: 0,
       },
     });
 
-    expect(mockSetTextColor).toHaveBeenCalledWith({}, '#334155');
-    expect(mockSetFontSize).toHaveBeenCalledWith({}, '16', 14);
     expect(mockSetNode).toHaveBeenNthCalledWith(
       1,
       {},
@@ -129,6 +104,10 @@ describe('board-style-application', () => {
         fill: '#f5f8ff',
         strokeColor: '#2b5fb3',
         strokeWidth: 2,
+        textStyle: expect.objectContaining({
+          color: '#334155',
+          fontSize: 16,
+        }),
       }),
       [0]
     );
@@ -152,6 +131,14 @@ describe('board-style-application', () => {
       strokeColor: '#333',
       strokeWidth: 1,
       opacity: 100,
+      textStyle: {
+        color: '#334155',
+        fontSize: 14,
+      },
+      shadow: {
+        color: '#333',
+        blur: 8,
+      },
     } as any;
 
     const snapshot = createStyleSnapshot([element]);
@@ -165,6 +152,14 @@ describe('board-style-application', () => {
         strokeColor: '#333',
         strokeWidth: 1,
         opacity: 100,
+        textStyle: {
+          color: '#334155',
+          fontSize: 14,
+        },
+        shadow: {
+          color: '#333',
+          blur: 8,
+        },
       })
     );
     expect(mockSetNode).toHaveBeenCalledWith(
@@ -172,6 +167,14 @@ describe('board-style-application', () => {
       expect.objectContaining({
         fill: '#fff',
         strokeColor: '#333',
+        textStyle: {
+          color: '#334155',
+          fontSize: 14,
+        },
+        shadow: {
+          color: '#333',
+          blur: 8,
+        },
       }),
       [0]
     );
@@ -232,6 +235,61 @@ describe('board-style-application', () => {
       {},
       expect.objectContaining({
         shape: 'curve',
+      }),
+      [0]
+    );
+  });
+
+  it('应该优先应用更具体的语义选择器，并支持 glow 降级', () => {
+    const shape = {
+      id: 'shape-1',
+      type: 'geometry',
+      shape: 'rectangle',
+      text: '输出结果',
+      strokeWidth: 1,
+    } as any;
+
+    applyStyleToElements({} as any, [shape], {
+      '*': {
+        nodeId: '*',
+        strokeWidth: 1,
+        color: '#0f172a',
+      },
+      shape: {
+        nodeId: 'shape',
+        fill: '#e2e8f0',
+      },
+      'node.output': {
+        nodeId: 'node.output',
+        fill: '#fef3c7',
+        stroke: '#d97706',
+        glow: true,
+        glowColor: '#f59e0b',
+        glowBlur: 18,
+      },
+      'text.body': {
+        nodeId: 'text.body',
+        fontSize: 15,
+      },
+    });
+
+    expect(mockSetNode).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        fill: '#fef3c7',
+        strokeColor: '#d97706',
+        shadow: {
+          color: '#f59e0b',
+          blur: 18,
+        },
+        glow: {
+          color: '#f59e0b',
+          blur: 18,
+        },
+        textStyle: expect.objectContaining({
+          color: '#0f172a',
+          fontSize: 15,
+        }),
       }),
       [0]
     );

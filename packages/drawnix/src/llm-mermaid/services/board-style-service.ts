@@ -3,17 +3,34 @@ import type {
   BoardArrowMarker,
   BoardLineShape,
   BoardStrokeStyle,
+  BoardStyleSelector,
   BoardStyleScheme,
   BoardStyleSchemeOption,
   SelectedElementsSummary,
 } from '../types';
 import type { PlaitBoard, PlaitElement } from '@plait/core';
-import { llmChatService } from './llm-chat-service';
+import { LLMChatError, llmChatService } from './llm-chat-service';
 import {
-  extractJsonBlock,
   getBoardStyleMultipleSchemesPrompt,
 } from './prompt-templates';
 import { summarizeBoardStyleSelection } from '../utils/board-style-selection';
+
+type BoardStyleParseFailureReason =
+  | 'missing_json'
+  | 'truncated_json'
+  | 'invalid_json'
+  | 'invalid_structure'
+  | 'empty_schemes';
+
+class BoardStyleParseError extends Error {
+  constructor(
+    message: string,
+    public reason: BoardStyleParseFailureReason
+  ) {
+    super(message);
+    this.name = 'BoardStyleParseError';
+  }
+}
 
 export class BoardStyleService {
   async generateMultipleSchemes(
@@ -51,23 +68,49 @@ export class BoardStyleService {
       },
     ];
 
-    const response = await llmChatService.chat(messages, {
-      temperature: 0.9,
-      maxTokens: 2500,
-    });
+    try {
+      const response = await llmChatService.chat(messages, {
+        temperature: 0.9,
+        maxTokens: 2500,
+      });
+      return this.parseSchemes(response, count);
+    } catch (error) {
+      if (error instanceof BoardStyleParseError) {
+        throw error;
+      }
 
-    return this.parseSchemes(response, count);
+      if (error instanceof LLMChatError) {
+        if (typeof error.statusCode === 'number' && error.statusCode >= 500) {
+          throw new Error('样式方案生成失败：样式服务暂时不可用，请稍后重试');
+        }
+
+        throw new Error(`样式方案生成失败：${error.message}`);
+      }
+
+      throw error;
+    }
   }
 
   parseSchemes(response: string, count: number = 3): BoardStyleSchemeOption[] {
-    const jsonText = extractJsonBlock(response);
+    const extractedJson = extractCompleteStyleSchemesJson(response);
+    if (extractedJson.status === 'missing') {
+      throw new BoardStyleParseError('样式方案生成失败：模型未返回 JSON', 'missing_json');
+    }
+    if (extractedJson.status === 'truncated') {
+      throw new BoardStyleParseError(
+        '样式方案生成失败：返回内容不完整，JSON 被截断',
+        'truncated_json'
+      );
+    }
+
     let parsed: unknown;
 
     try {
-      parsed = JSON.parse(jsonText);
+      parsed = JSON.parse(extractedJson.jsonText);
     } catch (error) {
-      throw new Error(
-        `样式方案解析失败: ${error instanceof Error ? error.message : '无效 JSON'}`
+      throw new BoardStyleParseError(
+        '样式方案生成失败：返回的 JSON 结构无效',
+        'invalid_json'
       );
     }
 
@@ -77,11 +120,26 @@ export class BoardStyleService {
       ? parsed['schemes']
       : null;
 
-    if (!rawSchemes || rawSchemes.length === 0) {
-      throw new Error('样式方案为空');
+    if (!rawSchemes) {
+      throw new BoardStyleParseError(
+        '样式方案生成失败：返回的 JSON 结构无效，缺少 schemes 数组',
+        'invalid_structure'
+      );
     }
 
-    return rawSchemes.slice(0, count).map((item, index) => normalizeScheme(item, index));
+    const normalizedSchemes = rawSchemes
+      .slice(0, count)
+      .map((item, index) => normalizeScheme(item, index))
+      .filter((scheme) => Object.keys(scheme.styles).length > 0);
+
+    if (normalizedSchemes.length === 0) {
+      throw new BoardStyleParseError(
+        '样式方案生成失败：未返回可用样式方案',
+        'empty_schemes'
+      );
+    }
+
+    return normalizedSchemes;
   }
 }
 
@@ -97,6 +155,21 @@ export function summarizeSelectedElements(
 function normalizeScheme(item: unknown, index: number): BoardStyleSchemeOption {
   const rawScheme = isRecord(item) ? item : {};
   const rawStyles = isRecord(rawScheme['styles']) ? rawScheme['styles'] : {};
+  const normalizedStyles = Object.entries(rawStyles).reduce<Partial<Record<BoardStyleSelector, BoardStyleScheme>>>(
+    (styles, [selector, value]) => {
+      if (!isBoardStyleSelector(selector)) {
+        return styles;
+      }
+
+      const normalized = normalizeStyle(selector, value);
+      if (normalized) {
+        styles[selector] = normalized;
+      }
+
+      return styles;
+    },
+    {}
+  );
 
   return {
     id: typeof rawScheme['id'] === 'string' ? rawScheme['id'] : `scheme-${index + 1}`,
@@ -105,34 +178,275 @@ function normalizeScheme(item: unknown, index: number): BoardStyleSchemeOption {
       typeof rawScheme['description'] === 'string'
         ? rawScheme['description']
         : 'AI 生成的样式方案',
-    styles: {
-      ...(normalizeStyle(rawStyles['*']) ? { '*': normalizeStyle(rawStyles['*'])! } : {}),
-      ...(normalizeStyle(rawStyles['shape']) ? { shape: normalizeStyle(rawStyles['shape'])! } : {}),
-      ...(normalizeStyle(rawStyles['line']) ? { line: normalizeStyle(rawStyles['line'])! } : {}),
-      ...(normalizeStyle(rawStyles['text']) ? { text: normalizeStyle(rawStyles['text'])! } : {}),
-    },
+    styles: normalizedStyles,
   };
 }
 
-function normalizeStyle(style: unknown) {
+function extractCompleteStyleSchemesJson(text: string): {
+  status: 'missing' | 'truncated' | 'complete';
+  jsonText: string;
+} {
+  const fencedMatch = text.match(/```(?:json)?\s*\n([\s\S]*?)\n```/i);
+  const source = fencedMatch?.[1]?.trim() || text.trim();
+  const candidates = findJsonStartIndexes(source);
+  let truncatedCandidate: string | null = null;
+
+  for (const startIndex of candidates) {
+    const result = extractBalancedJsonFromIndex(source, startIndex);
+    if (result.status === 'complete' && looksLikeTopLevelSchemeJson(result.jsonText)) {
+      return result;
+    }
+    if (result.status === 'truncated' && !truncatedCandidate) {
+      truncatedCandidate = result.jsonText;
+    }
+  }
+
+  if (truncatedCandidate) {
+    return {
+      status: 'truncated',
+      jsonText: truncatedCandidate,
+    };
+  }
+
+  return {
+    status: 'missing',
+    jsonText: '',
+  };
+}
+
+function findJsonStartIndexes(text: string): number[] {
+  const indexes: number[] = [];
+
+  for (let index = 0; index < text.length; index++) {
+    if (text[index] === '{' || text[index] === '[') {
+      indexes.push(index);
+    }
+  }
+
+  return indexes;
+}
+
+function extractBalancedJsonFromIndex(
+  text: string,
+  startIndex: number
+): {
+  status: 'truncated' | 'complete';
+  jsonText: string;
+} {
+  const startToken = text[startIndex];
+  const stack = [startToken];
+  let inString = false;
+  let escaped = false;
+
+  for (let index = startIndex + 1; index < text.length; index++) {
+    const current = text[index];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+
+      if (current === '\\') {
+        escaped = true;
+        continue;
+      }
+
+      if (current === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (current === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (current === '{' || current === '[') {
+      stack.push(current);
+      continue;
+    }
+
+    if (current === '}' || current === ']') {
+      const expected = current === '}' ? '{' : '[';
+      if (stack[stack.length - 1] !== expected) {
+        return {
+          status: 'truncated',
+          jsonText: text.slice(startIndex).trim(),
+        };
+      }
+
+      stack.pop();
+      if (stack.length === 0) {
+        return {
+          status: 'complete',
+          jsonText: text.slice(startIndex, index + 1).trim(),
+        };
+      }
+    }
+  }
+
+  return {
+    status: 'truncated',
+    jsonText: text.slice(startIndex).trim(),
+  };
+}
+
+function looksLikeTopLevelSchemeJson(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  if (trimmed.startsWith('[')) {
+    return true;
+  }
+
+  return /^\{\s*"schemes"\s*:/u.test(trimmed);
+}
+
+function normalizeStyle(selector: BoardStyleSelector, style: unknown) {
   if (!isRecord(style)) {
     return null;
   }
 
+  const domain = getSelectorDomain(selector);
   const nextStyle: BoardStyleScheme = {
-    ...(typeof style['fill'] === 'string' ? { fill: style['fill'] } : {}),
-    ...(typeof style['stroke'] === 'string' ? { stroke: style['stroke'] } : {}),
-    ...(typeof style['strokeWidth'] === 'number' ? { strokeWidth: style['strokeWidth'] } : {}),
-    ...(typeof style['color'] === 'string' ? { color: style['color'] } : {}),
-    ...(typeof style['fontSize'] === 'number' ? { fontSize: style['fontSize'] } : {}),
+    ...(supportsField(domain, 'fill') && typeof style['fill'] === 'string'
+      ? { fill: style['fill'] }
+      : {}),
+    ...(supportsField(domain, 'stroke') && typeof style['stroke'] === 'string'
+      ? { stroke: style['stroke'] }
+      : {}),
+    ...(supportsField(domain, 'strokeWidth') && typeof style['strokeWidth'] === 'number'
+      ? { strokeWidth: style['strokeWidth'] }
+      : {}),
+    ...(supportsField(domain, 'color') && typeof style['color'] === 'string'
+      ? { color: style['color'] }
+      : {}),
+    ...(supportsField(domain, 'fontSize') && typeof style['fontSize'] === 'number'
+      ? { fontSize: style['fontSize'] }
+      : {}),
+    ...(supportsField(domain, 'fontWeight') && typeof style['fontWeight'] === 'number'
+      ? { fontWeight: style['fontWeight'] }
+      : {}),
     ...(typeof style['opacity'] === 'number' ? { opacity: style['opacity'] } : {}),
-    ...(toBoardStrokeStyle(style['strokeStyle']) ? { strokeStyle: toBoardStrokeStyle(style['strokeStyle']) } : {}),
-    ...(toBoardLineShape(style['lineShape']) ? { lineShape: toBoardLineShape(style['lineShape']) } : {}),
-    ...(toBoardArrowMarker(style['sourceMarker']) ? { sourceMarker: toBoardArrowMarker(style['sourceMarker']) } : {}),
-    ...(toBoardArrowMarker(style['targetMarker']) ? { targetMarker: toBoardArrowMarker(style['targetMarker']) } : {}),
+    ...(supportsField(domain, 'shadow') && typeof style['shadow'] === 'boolean'
+      ? { shadow: style['shadow'] }
+      : {}),
+    ...(supportsField(domain, 'shadowBlur') && typeof style['shadowBlur'] === 'number'
+      ? { shadowBlur: style['shadowBlur'] }
+      : {}),
+    ...(supportsField(domain, 'shadowColor') && typeof style['shadowColor'] === 'string'
+      ? { shadowColor: style['shadowColor'] }
+      : {}),
+    ...(supportsField(domain, 'glow') && typeof style['glow'] === 'boolean'
+      ? { glow: style['glow'] }
+      : {}),
+    ...(supportsField(domain, 'glowColor') && typeof style['glowColor'] === 'string'
+      ? { glowColor: style['glowColor'] }
+      : {}),
+    ...(supportsField(domain, 'glowBlur') && typeof style['glowBlur'] === 'number'
+      ? { glowBlur: style['glowBlur'] }
+      : {}),
+    ...(supportsField(domain, 'strokeStyle') && toBoardStrokeStyle(style['strokeStyle'])
+      ? { strokeStyle: toBoardStrokeStyle(style['strokeStyle']) }
+      : {}),
+    ...(supportsField(domain, 'lineShape') && toBoardLineShape(style['lineShape'])
+      ? { lineShape: toBoardLineShape(style['lineShape']) }
+      : {}),
+    ...(supportsField(domain, 'sourceMarker') && toBoardArrowMarker(style['sourceMarker'])
+      ? { sourceMarker: toBoardArrowMarker(style['sourceMarker']) }
+      : {}),
+    ...(supportsField(domain, 'targetMarker') && toBoardArrowMarker(style['targetMarker'])
+      ? { targetMarker: toBoardArrowMarker(style['targetMarker']) }
+      : {}),
   };
 
   return Object.keys(nextStyle).length > 0 ? nextStyle : null;
+}
+
+function isBoardStyleSelector(value: string): value is BoardStyleSelector {
+  return value === '*'
+    || value === 'shape'
+    || value === 'line'
+    || value === 'text'
+    || /^node\.(input|process|output|decision|annotation|module|grouped|ungrouped)$/u.test(value)
+    || /^line\.(main|secondary)$/u.test(value)
+    || /^text\.(title|body)$/u.test(value);
+}
+
+function getSelectorDomain(selector: BoardStyleSelector): 'global' | 'shape' | 'line' | 'text' {
+  if (selector === '*') {
+    return 'global';
+  }
+  if (selector === 'line' || selector.startsWith('line.')) {
+    return 'line';
+  }
+  if (selector === 'text' || selector.startsWith('text.')) {
+    return 'text';
+  }
+  return 'shape';
+}
+
+function supportsField(
+  domain: 'global' | 'shape' | 'line' | 'text',
+  field: string
+) {
+  if (domain === 'global') {
+    return true;
+  }
+
+  if (domain === 'line') {
+    return [
+      'stroke',
+      'strokeWidth',
+      'opacity',
+      'strokeStyle',
+      'lineShape',
+      'sourceMarker',
+      'targetMarker',
+      'shadow',
+      'shadowBlur',
+      'shadowColor',
+      'glow',
+      'glowColor',
+      'glowBlur',
+    ].includes(field);
+  }
+
+  if (domain === 'text') {
+    return [
+      'color',
+      'fontSize',
+      'fontWeight',
+      'opacity',
+      'shadow',
+      'shadowBlur',
+      'shadowColor',
+      'glow',
+      'glowColor',
+      'glowBlur',
+    ].includes(field);
+  }
+
+  return [
+    'fill',
+    'stroke',
+    'strokeWidth',
+    'color',
+    'fontSize',
+    'fontWeight',
+    'opacity',
+    'strokeStyle',
+    'shadow',
+    'shadowBlur',
+    'shadowColor',
+    'glow',
+    'glowColor',
+    'glowBlur',
+  ].includes(field);
 }
 
 function isRecord(value: unknown): value is Record<string, any> {

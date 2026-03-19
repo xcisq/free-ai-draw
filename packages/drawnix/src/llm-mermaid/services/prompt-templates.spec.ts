@@ -181,6 +181,22 @@ describe('PromptTemplates', () => {
           includeConnectedLines: true,
           fills: ['#ffffff'],
           strokes: ['#333333'],
+          fontSizes: [14, 16],
+          semanticNodeCounts: { input: 1, process: 2, output: 1, module: 1 },
+          lineRoleCounts: { main: 1, secondary: 1 },
+          textRoleCounts: { title: 1, body: 3 },
+          groupedShapeCount: 3,
+          ungroupedShapeCount: 1,
+          moduleCount: 1,
+          branchingNodeCount: 1,
+          mergeNodeCount: 1,
+          layoutBias: 'horizontal',
+          roleLabelExamples: {
+            input: ['输入图像'],
+            process: ['特征提取', '分类器'],
+            output: ['预测结果'],
+            module: ['编码模块'],
+          },
         },
         '更专业一点',
         3
@@ -195,6 +211,15 @@ describe('PromptTemplates', () => {
       expect(prompt).toContain('lineShape');
       expect(prompt).toContain('straight / elbow');
       expect(prompt).toContain('不要使用 curve');
+      expect(prompt).toContain('node.input');
+      expect(prompt).toContain('node.module');
+      expect(prompt).toContain('node.grouped');
+      expect(prompt).toContain('line.main');
+      expect(prompt).toContain('text.title');
+      expect(prompt).toContain('不要把所有矩形节点设成同一种填充色');
+      expect(prompt).toContain('同一模块内元素一个相近的基础色家族');
+      expect(prompt).toContain('模块内相似、模块间可分、全图统一');
+      expect(prompt).toContain('muted palette');
     });
   });
 

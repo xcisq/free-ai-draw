@@ -284,4 +284,46 @@ describe('useBoardStyleOptimization', () => {
     );
     expect(result.current.error).toContain('应用样式失败');
   });
+
+  it('生成失败时应该保留已有方案，并展示新的失败原因', async () => {
+    (boardStyleService.generateMultipleSchemes as jest.MockedFunction<
+      typeof boardStyleService.generateMultipleSchemes
+    >)
+      .mockResolvedValueOnce([
+        {
+          id: 'scheme-1',
+          name: '专业蓝',
+          description: '适合技术流程图',
+          styles: {
+            shape: {
+              nodeId: 'shape',
+              fill: '#fff',
+            },
+          },
+        },
+      ])
+      .mockRejectedValueOnce(new Error('样式方案生成失败：返回内容不完整，JSON 被截断'));
+
+    const { result } = renderHook(() =>
+      useBoardStyleOptimization({
+        board: mockBoard,
+        targetElements: [{ id: 'shape-1' } as any],
+        selectionSummary,
+        autoGenerate: false,
+      })
+    );
+
+    await act(async () => {
+      await result.current.generateSchemes('先来一版');
+    });
+
+    expect(result.current.schemes).toHaveLength(1);
+
+    await act(async () => {
+      await result.current.generateSchemes('再试一次');
+    });
+
+    expect(result.current.schemes).toHaveLength(1);
+    expect(result.current.error).toBe('样式方案生成失败：返回内容不完整，JSON 被截断');
+  });
 });

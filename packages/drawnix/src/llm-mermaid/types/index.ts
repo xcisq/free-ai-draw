@@ -39,6 +39,9 @@ export type {
 
 export type {
   BoardStyleSelector,
+  BoardNodeSemanticRole,
+  BoardLineSemanticRole,
+  BoardTextSemanticRole,
   BoardStrokeStyle,
   BoardLineShape,
   BoardArrowMarker,
