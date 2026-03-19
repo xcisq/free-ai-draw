@@ -105,4 +105,41 @@ describe('useMermaidPreview', () => {
     expect(result.current.elements).toHaveLength(0);
     expect(result.current.isValid).toBe(false);
   });
+
+  it('流式候选失败时不应暴露错误，并保留上一版预览元素', async () => {
+    const stabilizeCodeMock = mermaidStabilizerService.stabilizeCode as jest.MockedFunction<
+      typeof mermaidStabilizerService.stabilizeCode
+    >;
+
+    stabilizeCodeMock
+      .mockResolvedValueOnce({
+        mermaidCode: 'flowchart LR\nA --> B',
+        elements: [{ id: 'stable-node' }] as unknown as any[],
+        validation: {
+          isValid: true,
+          errors: [],
+          warnings: [],
+        },
+        source: 'original',
+        appliedFixes: [],
+      })
+      .mockRejectedValueOnce(new Error('Mermaid 代码暂时无法预览：存在未完整的连接语句'));
+
+    const { result } = renderHook(() => useMermaidPreview());
+
+    await act(async () => {
+      await result.current.updateCode('flowchart LR\nA --> B');
+    });
+
+    await act(async () => {
+      await result.current.updateCode('flowchart LR\nA -->', {
+        suppressErrors: true,
+        preserveElementsOnFailure: true,
+      });
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.elements).toHaveLength(1);
+    expect(result.current.isValid).toBe(false);
+  });
 });

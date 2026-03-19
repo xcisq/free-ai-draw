@@ -17,6 +17,8 @@ import { mermaidStabilizerService, MermaidStabilizationError } from '../services
 interface UpdateCodeOptions {
   allowLLMRepair?: boolean;
   signal?: AbortSignal;
+  suppressErrors?: boolean;
+  preserveElementsOnFailure?: boolean;
 }
 
 export interface UseMermaidPreviewResult {
@@ -46,6 +48,7 @@ export function useMermaidPreview(): UseMermaidPreviewResult {
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const isGeneratingRef = useRef(false);
+  const updateRequestIdRef = useRef(0);
 
   // 验证代码
   useEffect(() => {
@@ -99,16 +102,28 @@ export function useMermaidPreview(): UseMermaidPreviewResult {
 
   // 更新 Mermaid 代码
   const updateCode = useCallback(async (code: string, options: UpdateCodeOptions = {}) => {
-    setMermaidCode(code);
-    setError(null);
+    const requestId = ++updateRequestIdRef.current;
+    const isCurrentRequest = () =>
+      updateRequestIdRef.current === requestId && !options.signal?.aborted;
+
+    if (isCurrentRequest()) {
+      setMermaidCode(code);
+      setError(null);
+    }
 
     if (code.trim()) {
-      setIsConverting(true);
+      if (isCurrentRequest()) {
+        setIsConverting(true);
+      }
       try {
         const stabilized = await mermaidStabilizerService.stabilizeCode(code, {
           allowLLMRepair: options.allowLLMRepair,
           signal: options.signal,
         });
+
+        if (!isCurrentRequest()) {
+          return code;
+        }
 
         if (stabilized.source !== 'original') {
           console.warn('[llm-mermaid] preview mermaid auto-repaired', {
@@ -122,33 +137,67 @@ export function useMermaidPreview(): UseMermaidPreviewResult {
         setElements(stabilized.elements);
         return stabilized.mermaidCode;
       } catch (error) {
-        if (error instanceof MermaidStabilizationError) {
-          console.warn('[llm-mermaid] preview mermaid stabilization failed', {
-            stage: error.stage,
-            details: error.details,
-          });
-        } else {
-          console.error('Failed to convert Mermaid code:', error);
+        if (!isCurrentRequest()) {
+          return code;
         }
 
-        const nextValidation = validateMermaidCode(code);
-        setValidation(nextValidation);
-        setElements([]);
-        setError(error instanceof Error ? error.message : 'Mermaid 代码预览失败');
-        return code;
+        const fallbackCode =
+          error instanceof MermaidStabilizationError && error.bestEffortCode
+            ? error.bestEffortCode.trim()
+            : code;
+
+        if (error instanceof MermaidStabilizationError) {
+          if (!options.suppressErrors) {
+            console.warn('[llm-mermaid] preview mermaid stabilization failed', {
+              stage: error.stage,
+              details: error.details,
+            });
+          }
+
+          if (fallbackCode) {
+            setMermaidCode(fallbackCode);
+            setValidation(error.validation || validateMermaidCode(fallbackCode));
+          } else {
+            setMermaidCode(code);
+            setValidation(validateMermaidCode(code));
+          }
+        } else {
+          if (!options.suppressErrors) {
+            console.error('Failed to convert Mermaid code:', error);
+          }
+          setMermaidCode(code);
+          setValidation(validateMermaidCode(code));
+        }
+
+        if (!options.preserveElementsOnFailure) {
+          setElements([]);
+        }
+
+        if (options.suppressErrors) {
+          setError(null);
+        } else {
+          setError(error instanceof Error ? error.message : 'Mermaid 代码预览失败');
+        }
+
+        return fallbackCode;
       } finally {
-        setIsConverting(false);
+        if (updateRequestIdRef.current === requestId) {
+          setIsConverting(false);
+        }
       }
     } else {
-      setElements([]);
-      setValidation(null);
-      setError(null);
+      if (isCurrentRequest()) {
+        setElements([]);
+        setValidation(null);
+        setError(null);
+      }
     }
     return '';
   }, []);
 
   // 清空
   const clear = useCallback(() => {
+    updateRequestIdRef.current += 1;
     setMermaidCode('');
     setElements([]);
     setValidation(null);

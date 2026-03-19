@@ -39,17 +39,18 @@ export function getInitialPrompt(): string {
 4. 用户提到的“从左到右/从上到下”默认表示整体主视觉趋势，不代表所有节点都必须严格排成单轴直线
 5. 如果用户说明局部存在并行、分支、上下辅轨、汇聚或反馈，优先保留这些局部结构
 6. 只有当文本信息明显不足时，才做最小必要补全
-7. 使用矩形节点（stadium 或 rounded）表示处理步骤
-8. 使用 subgraph 进行模块分组
-9. 不使用复杂箭头标签
-10. 使用 classDef 定义样式类
-11. 支持的节点类型：矩形 ([...]) 和 圆角矩形 ([(...)])
-12. 尽量使用简单、稳定的 Mermaid flowchart 语法，避免冷门特性
-13. 节点文本如包含中文、空格或特殊字符，请使用 Mermaid 支持的安全写法
-14. 对论文图，优先保证主干清晰、支路有层次、汇聚明确、反馈尽量走外圈
+7. 优先使用简单、稳定的 Mermaid flowchart 语法，避免冷门特性
+8. 默认只使用基础节点和基础连线：矩形 ([...])、圆角矩形 ([(...)])、-->
+9. 只有当模块边界非常明确时才使用 subgraph，非必要不要输出 classDef、class、style、linkStyle、click
+10. 不要为了“好看”额外引入复杂语法，优先保证生成结果能被稳定预览和转换
+11. 节点文本如包含中文、空格或特殊字符，请使用 Mermaid 支持的安全写法
+12. 对论文图，优先保证主干清晰、支路有层次、汇聚明确、反馈尽量走外圈
+13. 输出的第一行必须直接是 Mermaid 图类型声明，例如 flowchart LR 或 flowchart TB
+14. 严禁输出“下面是 Mermaid 代码”“说明”“总结”“\`\`\`mermaid”等非 Mermaid 正文内容
 
 输出格式：
 - 仅输出完整 Mermaid 代码
+- 第一行必须是 flowchart LR 或 flowchart TB
 - 不要输出 markdown 代码块标记
 - 不要输出解释、前缀、后缀或注意事项`;
 }
@@ -125,14 +126,14 @@ export function getMermaidGenerationPrompt(context: GenerationContext): string {
 - 构图补充：${layoutIntentText?.trim() || '未额外指定，请按文本语义做最小必要推断'}
 - 重点强调：${formatEmphasisTargets(emphasisTargets)}
 
-使用以下结构：
-1. 使用 subgraph 对相关模块进行分组
-2. 使用矩形节点 ([...]) 表示处理步骤
-3. 使用圆角矩形 ([(...)]) 表示输入/输出节点
-4. 使用 classDef 定义样式类
-5. 使用 --> 连接节点
-6. 主干节点优先维持清晰的阅读顺序，局部允许存在辅轨、并行块或收束结构
-7. 如果用户要求“整体从左到右，但局部有上下辅轨/并行支路/汇聚”，请把这种局部结构真实画出来，而不是压扁成简单横向链路
+输出要求：
+1. 默认使用基础 flowchart 语法，优先用 -->、[...]、[(...)] 组织结构
+2. 只有当模块边界很明确时才使用 subgraph，非必要不要输出 classDef、class、style、linkStyle、click
+3. 节点和连线以结构正确、可稳定预览为第一优先级，不要为了美观引入复杂 Mermaid 特性
+4. 主干节点优先维持清晰的阅读顺序，局部允许存在辅轨、并行块或收束结构
+5. 如果用户要求“整体从左到右，但局部有上下辅轨/并行支路/汇聚”，请把这种局部结构真实画出来，而不是压扁成简单横向链路
+6. 第一行必须直接输出 flowchart ${layoutDirection}，不要在前面写任何解释
+7. 不要输出 markdown 代码块，不要输出“下面是 Mermaid 代码”之类提示语
 
 输出格式：
 - 仅输出完整 Mermaid 代码
@@ -218,6 +219,9 @@ export function buildMermaidUserPrompt(
 - 如果文本是论文方法描述，请把方法结构可视化；如果文本是需求描述，请把执行流程可视化
 - 不要脱离这段文本另起一套通用流程图
 - 如果文本里同时出现“整体阅读方向”和“局部结构要求”，优先同时满足两者
+- 请把所有结构信息直接体现在 Mermaid 的节点、连线和必要的少量 subgraph 中，不要输出解释文本
+- 输出时第一行必须直接是 flowchart ${mergedContext.layoutDirection}
+- 不要输出任何额外解释、标题、markdown 代码块或总结
 
 用户原始文本：
 <<<USER_TEXT
@@ -538,8 +542,28 @@ export function extractMermaidCode(text: string): string {
     }
   }
 
-  // 返回原文本
-  return text.trim();
+  const heuristicStartIndex = lines.findIndex((line) => isLikelyMermaidStartLine(line));
+  if (heuristicStartIndex !== -1) {
+    const mermaidLines: string[] = [];
+
+    for (const line of lines.slice(heuristicStartIndex)) {
+      if (isLikelyMermaidLine(line, false)) {
+        mermaidLines.push(line);
+        continue;
+      }
+
+      if (mermaidLines.length > 0) {
+        break;
+      }
+    }
+
+    if (mermaidLines.length > 0) {
+      return mermaidLines.join('\n').trim();
+    }
+  }
+
+  // 没识别到 Mermaid 主体时，视为未提取成功
+  return '';
 }
 
 /**
@@ -582,6 +606,18 @@ function isLikelyMermaidLine(line: string, isFirstLine: boolean): boolean {
     || /^%%/.test(trimmed)
     || /^\w[\w-]*\s*(?:\[[^\]]*\]|\([^)]+\)|\{[^}]+\}|:::.*)?$/.test(trimmed)
     || /^\w[\w-]*\s*:::/.test(trimmed);
+}
+
+function isLikelyMermaidStartLine(line: string): boolean {
+  const trimmed = line.trim();
+
+  if (!trimmed) {
+    return false;
+  }
+
+  return /^(subgraph|classDef|class|style|linkStyle|click|%%)\b/.test(trimmed)
+    || /-->|---|-.->|==>|==/.test(trimmed)
+    || /^\w[\w-]*\s*(?:\[[^\]]*\]|\([^)]+\)|\{[^}]+\}|:::.*)/.test(trimmed);
 }
 
 function formatGraphInfo(graphInfo: GraphInfo): string {

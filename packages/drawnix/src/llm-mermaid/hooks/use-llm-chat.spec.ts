@@ -7,10 +7,6 @@ jest.mock('../services/llm-chat-service', () => ({
   },
 }));
 
-jest.mock('../services/intent-planner', () => ({
-  planMermaidIntent: jest.fn(),
-}));
-
 jest.mock('../services/mermaid-stabilizer', () => ({
   mermaidStabilizerService: {
     stabilizeResponse: jest.fn(async (content: string) => ({
@@ -25,11 +21,31 @@ jest.mock('../services/mermaid-stabilizer', () => ({
       appliedFixes: [],
     })),
   },
-  MermaidStabilizationError: class MermaidStabilizationError extends Error {},
+  MermaidStabilizationError: class MermaidStabilizationError extends Error {
+    stage: 'extract' | 'validate' | 'convert' | 'repair';
+    details: string[];
+    bestEffortCode?: string;
+
+    constructor(
+      message: string,
+      stage: 'extract' | 'validate' | 'convert' | 'repair',
+      details: string[] = [],
+      bestEffortCode?: string
+    ) {
+      super(message);
+      this.name = 'MermaidStabilizationError';
+      this.stage = stage;
+      this.details = details;
+      this.bestEffortCode = bestEffortCode;
+    }
+  },
 }));
 
 import { llmChatService } from '../services/llm-chat-service';
-import { planMermaidIntent } from '../services/intent-planner';
+import {
+  mermaidStabilizerService,
+  MermaidStabilizationError,
+} from '../services/mermaid-stabilizer';
 import { useLLMChat } from './use-llm-chat';
 
 function createStream(chunks: string[]) {
@@ -54,28 +70,29 @@ describe('useLLMChat', () => {
   const chatStreamMock = llmChatService.chatStream as jest.MockedFunction<
     typeof llmChatService.chatStream
   >;
-  const intentPlannerMock = planMermaidIntent as jest.MockedFunction<
-    typeof planMermaidIntent
+  const stabilizeResponseMock = mermaidStabilizerService.stabilizeResponse as jest.MockedFunction<
+    typeof mermaidStabilizerService.stabilizeResponse
   >;
 
   beforeEach(() => {
     chatStreamMock.mockReset();
-    intentPlannerMock.mockReset();
+    stabilizeResponseMock.mockReset();
+    stabilizeResponseMock.mockImplementation(async (content: string) => ({
+      mermaidCode: content,
+      elements: [],
+      validation: {
+        isValid: true,
+        errors: [],
+        warnings: [],
+      },
+      source: 'original',
+      appliedFixes: [],
+    }));
   });
 
-  it('应该先规划意图，再把结构化上下文拼进生成请求，并回填 Mermaid 代码', async () => {
-    intentPlannerMock.mockResolvedValue({
-      mode: 'generate',
-      normalizedContext: {
-        layoutDirection: 'TB',
-        usageScenario: 'presentation',
-        theme: 'professional',
-        structurePattern: 'convergent',
-        layoutIntentText: '整体从上到下，中间两路并行，最后汇聚',
-      },
-    });
+  it('正常输入时应该直接生成，不先阻塞在意图规划阶段', async () => {
     chatStreamMock.mockImplementation(
-      createStream(['flowchart LR\n', 'A[开始] --> B[结束]'])
+      createStream(['flowchart TB\n', 'A[开始] --> B[结束]'])
     );
 
     const { result } = renderHook(() => useLLMChat());
@@ -100,61 +117,35 @@ describe('useLLMChat', () => {
       (message) => message.role === 'assistant'
     );
 
-    expect(intentPlannerMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userInput: '生成一个评估流程图',
-      })
-    );
     expect(llmUserMessage.content).toContain('整体从上到下');
     expect(llmUserMessage.content).toContain('演示文稿');
-    expect(llmUserMessage.content).toContain('最后汇聚');
+    expect(llmUserMessage.content).toContain('第一行必须直接是 flowchart TB');
     expect(assistantMessage?.metadata?.mermaidCode).toBe(
-      'flowchart LR\nA[开始] --> B[结束]'
+      'flowchart TB\nA[开始] --> B[结束]'
     );
   });
 
-  it('信息不足时应该先进入澄清，而不是直接生成 Mermaid', async () => {
-    intentPlannerMock.mockResolvedValue({
-      mode: 'clarify',
-      clarificationQuestion: '这张图更偏向并行后汇聚，还是主干居中带上下辅轨？',
-      quickReplies: ['并行后汇聚', '主干居中，上下辅轨'],
-      normalizedContext: {
-        layoutDirection: 'LR',
-        clarificationStatus: 'pending',
-      },
-    });
+  it('短输入也应该直接生成，不再追加前置规划请求', async () => {
+    chatStreamMock.mockImplementation(createStream(['flowchart LR\n', 'A --> B']));
 
     const { result } = renderHook(() => useLLMChat());
 
     await act(async () => {
-      await result.current.sendMessage('整体从左到右，帮我画一个论文图');
+      await result.current.sendMessage('帮我画图');
     });
 
     await waitFor(() => {
       expect(result.current.isStreaming).toBe(false);
     });
 
-    expect(chatStreamMock).not.toHaveBeenCalled();
-
-    const assistantMessage = result.current.messages.find(
-      (message) => message.role === 'assistant'
-    );
-    expect(assistantMessage?.content).toContain('并行后汇聚');
-    expect(assistantMessage?.metadata?.quickReplies).toEqual([
-      '并行后汇聚',
-      '主干居中，上下辅轨',
-    ]);
-    expect(assistantMessage?.metadata?.interactionPhase).toBe('clarifying');
+    expect(chatStreamMock).toHaveBeenCalledTimes(1);
+    const requestMessages = chatStreamMock.mock.calls[0]?.[0] || [];
+    const llmUserMessage = requestMessages[1];
+    expect(llmUserMessage.content).toContain('用户原始文本');
+    expect(llmUserMessage.content).toContain('帮我画图');
   });
 
   it('重新生成时不应该重复追加最后一条用户消息', async () => {
-    intentPlannerMock.mockResolvedValue({
-      mode: 'generate',
-      normalizedContext: {
-        layoutDirection: 'LR',
-        structurePattern: 'branched',
-      },
-    });
     chatStreamMock
       .mockImplementationOnce(createStream(['flowchart LR\n', 'A --> B']))
       .mockImplementationOnce(createStream(['flowchart LR\n', 'A --> C']));
@@ -193,5 +184,39 @@ describe('useLLMChat', () => {
     expect(assistantMessages[0]?.metadata?.mermaidCode).toBe(
       'flowchart LR\nA --> C'
     );
+  });
+
+  it('稳定化失败时应该回退到最佳 Mermaid 候选，而不是丢失结果', async () => {
+    chatStreamMock.mockImplementation(
+      createStream(['说明文字\n', 'flowchart LR\n', 'A --> B'])
+    );
+    stabilizeResponseMock.mockRejectedValue(
+      new MermaidStabilizationError(
+        'Mermaid 代码已尝试自动修复，但仍无法稳定预览',
+        'repair',
+        ['parse error'],
+        'flowchart LR\nA --> B'
+      )
+    );
+
+    const { result } = renderHook(() => useLLMChat());
+
+    await act(async () => {
+      await result.current.sendMessage('生成一个训练流程图');
+    });
+
+    await waitFor(() => {
+      expect(result.current.isStreaming).toBe(false);
+    });
+
+    const assistantMessage = result.current.messages.find(
+      (message) => message.role === 'assistant'
+    );
+
+    expect(assistantMessage?.type).toBe('mermaid');
+    expect(assistantMessage?.metadata?.mermaidCode).toBe('flowchart LR\nA --> B');
+    expect(assistantMessage?.metadata?.renderState).toBe('fallback');
+    expect(assistantMessage?.metadata?.failureStage).toBe('repair');
+    expect(result.current.error?.message).toContain('自动修复');
   });
 });

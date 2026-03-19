@@ -121,6 +121,65 @@ describe('LLMChatService', () => {
     expect(contents.join('')).toBe('flowchart LR\nA --> B');
   });
 
+  it('chatStream 应该处理 CRLF、分块 data 事件和末尾无空行场景', async () => {
+    const encoder = new TextEncoder();
+    const chunks = [
+      encoder.encode(
+        'data: {"id":"chunk-1","choices":[{"delta":{"content":"flowchart LR\\n"},"finish_reason":null}]}\r\n\r\n'
+      ),
+      encoder.encode('data: {"id":"chunk-2",'),
+      encoder.encode(
+        '"choices":[{"delta":{"content":"A --> B"},"finish_reason":null}]}'
+      ),
+      encoder.encode('\r\n\r\n'),
+      encoder.encode(
+        'data: {"id":"chunk-3","choices":[{"delta":{"content":"\\nB --> C"},"finish_reason":null}]}'
+      ),
+      encoder.encode('\r\ndata: [DONE]'),
+    ];
+
+    let index = 0;
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      body: {
+        getReader: () => ({
+          read: async () => {
+            if (index >= chunks.length) {
+              return {
+                done: true,
+                value: undefined,
+              };
+            }
+
+            return {
+              done: false,
+              value: chunks[index++],
+            };
+          },
+        }),
+      },
+    } as Response);
+
+    const service = new LLMChatService();
+    const messages: Message[] = [
+      {
+        id: 'user-1',
+        role: 'user',
+        content: '生成一个流程图',
+        timestamp: Date.now(),
+        type: 'text',
+      },
+    ];
+
+    const contents: string[] = [];
+    for await (const chunk of service.chatStream(messages)) {
+      contents.push(chunk.choices[0]?.delta?.content || '');
+    }
+
+    expect(contents.join('')).toBe('flowchart LR\nA --> B\nB --> C');
+  });
+
   it('repairMermaid 应该使用 Mermaid 修复系统提示词', async () => {
     fetchMock.mockResolvedValue({
       ok: true,

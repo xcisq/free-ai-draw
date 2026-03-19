@@ -107,6 +107,29 @@
     color: var(--text-primary, #333);
   }
 
+  .message-status {
+    margin-top: 10px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #64748b;
+
+    &.message-status-streaming {
+      color: #1d4ed8;
+    }
+
+    &.message-status-stable {
+      color: #0f766e;
+    }
+
+    &.message-status-fallback {
+      color: #b45309;
+    }
+
+    &.message-status-clarify {
+      color: #7c3aed;
+    }
+  }
+
   .message-quick-replies {
     display: flex;
     flex-wrap: wrap;

@@ -167,26 +167,17 @@ export class LLMChatService {
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          buffer += decoder.decode();
+          const { payloads } = consumeSSEPayloads(buffer, true);
+          yield* this.parseStreamPayloads(payloads);
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          const normalizedLine = line.trim();
-          if (normalizedLine.startsWith('data: ')) {
-            const data = normalizedLine.slice(6).trim();
-            if (data === '[DONE]') continue;
-
-            try {
-              const parsed: ChatStreamChunk = JSON.parse(data);
-              yield parsed;
-            } catch {
-              // 忽略无效的 JSON
-            }
-          }
-        }
+        const { payloads, rest } = consumeSSEPayloads(buffer);
+        buffer = rest;
+        yield* this.parseStreamPayloads(payloads);
       }
     } catch (error) {
       if (error instanceof LLMChatError) {
@@ -282,6 +273,21 @@ export class LLMChatService {
     return this.chat(messages, options);
   }
 
+  private *parseStreamPayloads(payloads: string[]): Generator<ChatChunk> {
+    for (const payload of payloads) {
+      if (payload === '[DONE]') {
+        continue;
+      }
+
+      try {
+        const parsed: ChatStreamChunk = JSON.parse(payload);
+        yield parsed;
+      } catch {
+        // 忽略无效的 JSON
+      }
+    }
+  }
+
   /**
    * 处理 API 错误
    */
@@ -320,6 +326,22 @@ export class LLMChatService {
       isConfigured: this.config.isConfigured,
     };
   }
+}
+
+function consumeSSEPayloads(buffer: string, flushFinal: boolean = false) {
+  const normalizedBuffer = buffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = normalizedBuffer.split('\n');
+  const rest = flushFinal ? '' : lines.pop() || '';
+  const payloads = lines
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trim())
+    .filter(Boolean);
+
+  return {
+    payloads,
+    rest,
+  };
 }
 
 /**

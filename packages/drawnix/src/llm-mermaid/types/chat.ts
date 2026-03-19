@@ -49,6 +49,8 @@ export interface Message {
 export interface MessageMetadata {
   /** Mermaid 代码 */
   mermaidCode?: string;
+  /** 流式阶段提取出的 Mermaid 候选 */
+  streamingMermaidCode?: string;
   /** 样式方案 */
   styleScheme?: StyleScheme;
   /** 生成上下文 */
@@ -67,6 +69,17 @@ export interface MessageMetadata {
   requestKind?: RequestKind;
   /** 澄清快捷回复 */
   quickReplies?: string[];
+  /** 当前渲染状态 */
+  renderState?: 'streaming' | 'stable' | 'fallback';
+  /** 失败阶段 */
+  failureStage?: 'extract' | 'validate' | 'convert' | 'repair';
+  /** 关键阶段耗时 */
+  timings?: {
+    firstChunkMs?: number;
+    firstCandidateMs?: number;
+    stabilizeMs?: number;
+    totalMs?: number;
+  };
 }
 
 /**

@@ -24,6 +24,10 @@ export const MessageList = ({
   disabled = false,
 }: MessageListProps) => {
   const listEndRef = useRef<HTMLDivElement>(null);
+  const lastMessage = messages[messages.length - 1];
+  const loadingText = lastMessage?.metadata?.streamingMermaidCode
+    ? '已抓到 Mermaid 候选，正在继续补全...'
+    : 'AI 正在思考...';
   const suggestions = [
     '整体从左到右，中间两路并行，最后汇聚到评估模块',
     '主干放中间，上方是控制信息，下方是辅助支路',
@@ -33,7 +37,7 @@ export const MessageList = ({
   // 自动滚动到底部
   useEffect(() => {
     if (listEndRef.current) {
-      listEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      listEndRef.current.scrollIntoView({ behavior: isStreaming ? 'auto' : 'smooth' });
     }
   }, [messages, isStreaming]);
 
@@ -67,7 +71,7 @@ export const MessageList = ({
         />
       ))}
       {isStreaming && (
-        <div className="message-list-loading">AI 正在思考...</div>
+        <div className="message-list-loading">{loadingText}</div>
       )}
       <div ref={listEndRef} />
     </div>

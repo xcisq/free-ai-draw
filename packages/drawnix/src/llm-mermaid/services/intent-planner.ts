@@ -79,6 +79,50 @@ export async function planMermaidIntent(
   return normalizePlanningResult(response, heuristicContext);
 }
 
+export function shouldRunIntentPlanner(options: {
+  userInput: string;
+  currentContext?: Partial<GenerationContext>;
+  currentMermaid?: string;
+  requestKind?: 'generate' | 'refine';
+}) {
+  const { userInput, currentContext, currentMermaid, requestKind } = options;
+  const trimmed = userInput.trim();
+  const lower = trimmed.toLowerCase();
+
+  if (!trimmed) {
+    return false;
+  }
+
+  if (requestKind === 'refine' || currentMermaid?.trim()) {
+    return false;
+  }
+
+  const hasProcessSignals =
+    /首先|然后|接着|最后|输入|输出|模块|阶段|步骤|训练|推理|评估|编码|解码|检测|分类/.test(trimmed) ||
+    /first|then|finally|input|output|module|stage|step|train|infer|evaluate/.test(lower);
+  const hasStructureSignals =
+    /从左到右|从上到下|并行|汇聚|分支|辅轨|反馈|上下/.test(trimmed) ||
+    /left to right|top to bottom|parallel|merge|branch|feedback/.test(lower);
+  const hasRichContext = Boolean(
+    currentContext?.layoutIntentText?.trim() ||
+      (currentContext?.structurePattern && currentContext.structurePattern !== 'mixed')
+  );
+
+  if (hasProcessSignals) {
+    return false;
+  }
+
+  if (trimmed.length <= 16) {
+    return true;
+  }
+
+  if (trimmed.length <= 28 && hasStructureSignals && !hasRichContext) {
+    return true;
+  }
+
+  return false;
+}
+
 function normalizePlanningResult(
   response: string,
   heuristicContext: Partial<GenerationContext>

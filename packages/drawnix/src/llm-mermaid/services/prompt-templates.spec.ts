@@ -27,6 +27,8 @@ describe('PromptTemplates', () => {
       expect(prompt.length).toBeGreaterThan(0);
       expect(prompt).toContain('Mermaid');
       expect(prompt).toContain('原始文本');
+      expect(prompt).toContain('第一行必须是 flowchart LR 或 flowchart TB');
+      expect(prompt).toContain('不要输出 markdown 代码块标记');
     });
   });
 
@@ -53,6 +55,8 @@ describe('PromptTemplates', () => {
       expect(prompt).toContain('局部存在并行');
       expect(prompt).toContain('两路并行后汇聚');
       expect(prompt).toContain('评估阶段');
+      expect(prompt).toContain('第一行必须直接输出 flowchart LR');
+      expect(prompt).toContain('不要输出 markdown 代码块');
     });
 
     it('应该处理 TB 布局方向', () => {
@@ -151,6 +155,17 @@ describe('PromptTemplates', () => {
       const code = extractMermaidCode(text);
       expect(code).toBe('flowchart LR\nA[开始] --> B[结束]');
     });
+
+    it('应该忽略 Mermaid 前面的说明文字，并提取主体代码', () => {
+      const text = '这是 Mermaid 代码：\nA[开始] --> B[结束]\nB --> C[评估]';
+      const code = extractMermaidCode(text);
+      expect(code).toBe('A[开始] --> B[结束]\nB --> C[评估]');
+    });
+
+    it('没有 Mermaid 主体时应该返回空字符串', () => {
+      const code = extractMermaidCode('这是模型的解释文字，但没有任何图代码。');
+      expect(code).toBe('');
+    });
   });
 
   describe('getBoardStyleMultipleSchemesPrompt', () => {
@@ -212,6 +227,8 @@ describe('PromptTemplates', () => {
       expect(prompt).toContain('用户原始文本');
       expect(prompt).toContain('<<<USER_TEXT');
       expect(prompt).toContain('请基于上面的用户原始文本生成对应图表');
+      expect(prompt).toContain('不要输出任何额外解释');
+      expect(prompt).toContain('第一行必须直接是 flowchart TB');
     });
 
     it('应该明确要求模型基于用户文本抽取流程关系', () => {

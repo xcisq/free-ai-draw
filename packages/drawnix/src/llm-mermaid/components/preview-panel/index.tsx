@@ -3,7 +3,7 @@
  * 集成 Mermaid 代码视图和 Board 预览
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { BoardPreview } from './board-preview';
 import { MermaidCodeView } from './mermaid-code-view';
 import { useMermaidPreview } from '../../hooks/use-mermaid-preview';
@@ -13,6 +13,7 @@ import './index.scss';
 
 export interface PreviewPanelProps {
   mermaidCode?: string;
+  isStreamingCandidate?: boolean;
   onInsert?: (elements: unknown[]) => void;
   disabled?: boolean;
   generationContext?: Partial<GenerationContext>;
@@ -20,6 +21,7 @@ export interface PreviewPanelProps {
 
 export const PreviewPanel = ({
   mermaidCode: externalMermaidCode = '',
+  isStreamingCandidate = false,
   onInsert,
   disabled = false,
   generationContext,
@@ -28,6 +30,7 @@ export const PreviewPanel = ({
   const [localCode, setLocalCode] = useState(externalMermaidCode);
   const [isStylePanelOpen, setIsStylePanelOpen] = useState(false);
   const [styleRequest, setStyleRequest] = useState('');
+  const syncAbortControllerRef = useRef<AbortController | null>(null);
 
   const {
     elements,
@@ -52,11 +55,23 @@ export const PreviewPanel = ({
   );
 
   const handleGeneratedCodeChange = useCallback(
-    async (code: string) => {
+    async (
+      code: string,
+      options: {
+        allowLLMRepair?: boolean;
+        signal?: AbortSignal;
+        suppressErrors?: boolean;
+      } = {}
+    ) => {
       const nextCode = await updateCode(code, {
-        allowLLMRepair: true,
+        allowLLMRepair: options.allowLLMRepair ?? true,
+        signal: options.signal,
+        suppressErrors: options.suppressErrors,
+        preserveElementsOnFailure: options.suppressErrors,
       });
-      setLocalCode(nextCode);
+      if (!options.signal?.aborted) {
+        setLocalCode(nextCode);
+      }
     },
     [updateCode]
   );
@@ -77,14 +92,18 @@ export const PreviewPanel = ({
 
   // 使用 isLoading 别名以保持一致性
   const isLoading = isConverting;
+  const shouldMutePreviewIssues = isStreamingCandidate;
   const validationError =
-    localCode.trim().length > 0 && validation && !isValid
+    !shouldMutePreviewIssues && localCode.trim().length > 0 && validation && !isValid
       ? { message: validation.errors[0] || 'Mermaid 代码无效' }
       : null;
-  const errorMessage = styleError || previewError || validationError?.message;
+  const previewIssue = shouldMutePreviewIssues ? null : previewError || validationError?.message;
+  const errorMessage = styleError || previewIssue;
 
   // 同步外部代码变化
   useEffect(() => {
+    syncAbortControllerRef.current?.abort();
+
     if (!externalMermaidCode.trim()) {
       setLocalCode('');
       setStyleRequest('');
@@ -93,9 +112,19 @@ export const PreviewPanel = ({
       return;
     }
 
+    const controller = new AbortController();
+    syncAbortControllerRef.current = controller;
     setIsStylePanelOpen(true);
-    void handleGeneratedCodeChange(externalMermaidCode);
-  }, [clear, externalMermaidCode, handleGeneratedCodeChange]);
+    void handleGeneratedCodeChange(externalMermaidCode, {
+      allowLLMRepair: !isStreamingCandidate,
+      suppressErrors: isStreamingCandidate,
+      signal: controller.signal,
+    });
+
+    return () => {
+      controller.abort();
+    };
+  }, [clear, externalMermaidCode, handleGeneratedCodeChange, isStreamingCandidate]);
 
   // 处理插入到画布
   const handleInsert = useCallback(() => {
@@ -274,7 +303,7 @@ export const PreviewPanel = ({
           <BoardPreview
             elements={elements}
             isLoading={isLoading}
-            error={styleError || previewError || validationError?.message || null}
+            error={styleError || previewIssue || null}
           />
         </div>
 

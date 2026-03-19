@@ -2,6 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 import {
   clearStyles,
   createMermaidRepairCandidates,
+  extractStreamingMermaidCandidate,
   extractStyles,
   fixMermaidCode,
   normalizeMermaidCode,
@@ -48,5 +49,29 @@ describe('mermaid-helper', () => {
     const candidates = createMermaidRepairCandidates('A["开始"] --> B["结束"]');
     expect(candidates[0]).toContain('flowchart LR');
     expect(candidates.length).toBeGreaterThan(1);
+  });
+
+  it('应该从未闭合的 mermaid 代码块中提取流式候选', () => {
+    const candidate = extractStreamingMermaidCandidate(
+      '下面开始输出\n```mermaid\nflowchart LR\nA --> B'
+    );
+
+    expect(candidate).toBe('flowchart LR\nA --> B');
+  });
+
+  it('应该从夹杂说明文字的流式内容中提取 flowchart 候选', () => {
+    const candidate = extractStreamingMermaidCandidate(
+      '先解释一句\nflowchart LR\nA --> B\n继续补充'
+    );
+
+    expect(candidate).toBe('flowchart LR\nA --> B');
+  });
+
+  it('应该从未显式声明 flowchart 的流式节点内容中提取候选', () => {
+    const candidate = extractStreamingMermaidCandidate(
+      '说明一下\nA[开始] --> B[结束]\nB --> C[评估]\n补充解释'
+    );
+
+    expect(candidate).toBe('A[开始] --> B[结束]\nB --> C[评估]');
   });
 });

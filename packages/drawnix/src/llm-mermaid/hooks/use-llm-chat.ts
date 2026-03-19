@@ -1,6 +1,6 @@
 /**
  * LLM 对话状态管理 Hook
- * 封装意图规划、澄清交互、流式生成和错误处理
+ * 封装流式生成和错误处理
  */
 
 import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react';
@@ -9,7 +9,7 @@ import { llmChatService } from '../services/llm-chat-service';
 import { buildMermaidUserPrompt, getInitialPrompt } from '../services/prompt-templates';
 import { sanitizeUserInput, validateUserInput } from '../utils/message-validator';
 import { mermaidStabilizerService, MermaidStabilizationError } from '../services/mermaid-stabilizer';
-import { planMermaidIntent } from '../services/intent-planner';
+import { extractStreamingMermaidCandidate } from '../utils/mermaid-helper';
 
 interface SendMessageOptions {
   requestContent?: string;
@@ -91,12 +91,8 @@ export function useLLMChat(initialSystemPrompt?: string): UseLLMChatResult {
           generationContext: baseContext,
           normalizedContext: baseContext,
           isComplete: true,
-          interactionPhase: options?.requestContent
-            ? requestKind === 'refine'
-              ? 'refining'
-              : 'generating'
-            : 'planning',
-          requestKind: options?.requestContent ? requestKind : 'plan',
+          interactionPhase: requestKind === 'refine' ? 'refining' : 'generating',
+          requestKind,
         },
       };
 
@@ -112,60 +108,6 @@ export function useLLMChat(initialSystemPrompt?: string): UseLLMChatResult {
         let requestContent = options?.requestContent?.trim() || '';
 
         if (!requestContent) {
-          const intentPlan = await planMermaidIntent({
-            userInput: sanitizedContent,
-            currentContext: baseContext,
-            currentMermaid,
-            conversationHistory: history,
-            requestKind,
-            signal: controller.signal,
-          });
-
-          normalizedContext = mergeGenerationContext(
-            baseContext,
-            intentPlan.normalizedContext
-          );
-
-          if (intentPlan.mode === 'clarify') {
-            setMessages((prev) => {
-              const next = prev.map((message) =>
-                message.id === userMessage.id
-                  ? {
-                      ...message,
-                      metadata: {
-                        ...message.metadata,
-                        generationContext: normalizedContext,
-                        normalizedContext,
-                      },
-                    }
-                  : message
-              );
-
-              return [
-                ...next,
-                {
-                  id: createId(),
-                  role: 'assistant',
-                  content:
-                    intentPlan.clarificationQuestion ||
-                    '你更希望这张图的局部结构是并行展开，还是最后汇聚成一个主输出？',
-                  timestamp: Date.now(),
-                  type: 'text',
-                  metadata: {
-                    generationContext: normalizedContext,
-                    normalizedContext,
-                    isComplete: true,
-                    interactionPhase: 'clarifying',
-                    requestKind: 'plan',
-                    quickReplies: intentPlan.quickReplies,
-                  },
-                },
-              ];
-            });
-
-            return;
-          }
-
           requestContent = buildMermaidUserPrompt(sanitizedContent, normalizedContext, {
             currentMermaid,
             requestKind,
@@ -312,17 +254,17 @@ async function streamAssistantResponse(options: {
     return message;
   });
 
+  const requestStartedAt = Date.now();
+  let firstChunkAt: number | null = null;
+  let firstCandidateAt: number | null = null;
+  let lastStreamingCandidate = '';
+  let lastCandidateEmitAt = 0;
+  let lastMessageRenderAt = 0;
+  let lastRenderedContent = '';
   let responseContent = '';
 
-  for await (const chunk of llmChatService.chatStream(chatMessages, {
-    signal: controller.signal,
-  })) {
-    const deltaContent = chunk.choices[0]?.delta?.content || '';
-    if (!deltaContent) {
-      continue;
-    }
-
-    responseContent += deltaContent;
+  const renderAssistantMessage = (content: string, streamingCandidate?: string) => {
+    const hasStreamingCandidate = Boolean(streamingCandidate);
 
     setMessages((prev) => {
       const last = prev[prev.length - 1];
@@ -331,11 +273,23 @@ async function streamAssistantResponse(options: {
           ...prev.slice(0, -1),
           {
             ...last,
-            content: responseContent,
+            content,
             metadata: {
               ...last.metadata,
               isStreaming: true,
               isComplete: false,
+              streamingMermaidCode:
+                streamingCandidate ?? last.metadata?.streamingMermaidCode,
+              renderState:
+                hasStreamingCandidate || last.metadata?.streamingMermaidCode
+                  ? 'streaming'
+                  : last.metadata?.renderState,
+              timings: {
+                ...last.metadata?.timings,
+                firstChunkMs: firstChunkAt ? firstChunkAt - requestStartedAt : undefined,
+                firstCandidateMs:
+                  firstCandidateAt ? firstCandidateAt - requestStartedAt : undefined,
+              },
             },
           },
         ];
@@ -346,7 +300,7 @@ async function streamAssistantResponse(options: {
         {
           id: assistantMessageId,
           role: 'assistant',
-          content: responseContent,
+          content,
           timestamp: Date.now(),
           type: 'text',
           metadata: {
@@ -356,13 +310,67 @@ async function streamAssistantResponse(options: {
             normalizedContext,
             interactionPhase: requestKind === 'refine' ? 'refining' : 'generating',
             requestKind,
+            streamingMermaidCode: streamingCandidate,
+            renderState: hasStreamingCandidate ? 'streaming' : undefined,
+            timings: {
+              firstChunkMs: firstChunkAt ? firstChunkAt - requestStartedAt : undefined,
+              firstCandidateMs:
+                firstCandidateAt ? firstCandidateAt - requestStartedAt : undefined,
+            },
           },
         },
       ];
     });
+  };
+
+  for await (const chunk of llmChatService.chatStream(chatMessages, {
+    signal: controller.signal,
+  })) {
+    const deltaContent = chunk.choices[0]?.delta?.content || '';
+    if (!deltaContent) {
+      continue;
+    }
+
+    responseContent += deltaContent;
+    const now = Date.now();
+    firstChunkAt ??= now;
+    const candidate = extractStreamingMermaidCandidate(responseContent);
+    const shouldEmitCandidate =
+      !!candidate &&
+      candidate !== lastStreamingCandidate &&
+      (lastCandidateEmitAt === 0 || now - lastCandidateEmitAt >= 180);
+
+    if (candidate && !firstCandidateAt) {
+      firstCandidateAt = now;
+    }
+    if (shouldEmitCandidate) {
+      lastStreamingCandidate = candidate!;
+      lastCandidateEmitAt = now;
+    }
+
+    const shouldRenderMessage =
+      lastMessageRenderAt === 0 ||
+      shouldEmitCandidate ||
+      now - lastMessageRenderAt >= 72;
+
+    if (shouldRenderMessage) {
+      lastMessageRenderAt = now;
+      lastRenderedContent = responseContent;
+      renderAssistantMessage(
+        responseContent,
+        shouldEmitCandidate ? candidate! : undefined
+      );
+    }
+  }
+
+  if (responseContent && responseContent !== lastRenderedContent) {
+    renderAssistantMessage(responseContent, lastStreamingCandidate || undefined);
   }
 
   let stabilizedMermaidCode: string | null = null;
+  let renderState: 'stable' | 'fallback' = 'stable';
+  let failureStage: 'extract' | 'validate' | 'convert' | 'repair' | undefined;
+  const stabilizeStartedAt = Date.now();
 
   try {
     const stabilizedResult = await mermaidStabilizerService.stabilizeResponse(responseContent, {
@@ -385,6 +393,12 @@ async function streamAssistantResponse(options: {
         stage: stabilizationError.stage,
         details: stabilizationError.details,
       });
+
+      failureStage = stabilizationError.stage;
+      stabilizedMermaidCode =
+        stabilizationError.bestEffortCode ||
+        extractStreamingMermaidCandidate(responseContent);
+      renderState = stabilizedMermaidCode ? 'fallback' : 'stable';
     }
 
     setError(
@@ -393,6 +407,16 @@ async function streamAssistantResponse(options: {
         : new Error('AI 返回结果中未提取到稳定的 Mermaid 代码')
     );
   }
+
+  const finishedAt = Date.now();
+  const timings = {
+    firstChunkMs: firstChunkAt ? firstChunkAt - requestStartedAt : undefined,
+    firstCandidateMs: firstCandidateAt ? firstCandidateAt - requestStartedAt : undefined,
+    stabilizeMs: finishedAt - stabilizeStartedAt,
+    totalMs: finishedAt - requestStartedAt,
+  };
+
+  console.info('[llm-mermaid] response timings', timings);
 
   setMessages((prev) => {
     const last = prev[prev.length - 1];
@@ -405,12 +429,16 @@ async function streamAssistantResponse(options: {
       {
         ...last,
         content: stabilizedMermaidCode || responseContent,
-        type: stabilizedMermaidCode ? 'mermaid' : 'text',
+        type: stabilizedMermaidCode ? 'mermaid' : last.type,
         metadata: {
           ...last.metadata,
           isStreaming: false,
           isComplete: true,
           mermaidCode: stabilizedMermaidCode || undefined,
+          streamingMermaidCode: stabilizedMermaidCode || last.metadata?.streamingMermaidCode,
+          renderState,
+          failureStage,
+          timings,
         },
       },
     ];

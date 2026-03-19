@@ -32,6 +32,7 @@ export const LLMMermaidDialog = ({ container }: LLMMermaidDialogProps) => {
   const { t } = useI18n();
   const [isReady, setIsReady] = useState(false);
   const [mermaidCode, setMermaidCode] = useState('');
+  const [isStreamingCandidate, setIsStreamingCandidate] = useState(false);
   const [generationContext, setGenerationContext] = useState<Partial<GenerationContext>>(
     DEFAULT_GENERATION_CONTEXT
   );
@@ -46,12 +47,14 @@ export const LLMMermaidDialog = ({ container }: LLMMermaidDialogProps) => {
   };
 
   // 处理 Mermaid 代码生成
-  const handleMermaidGenerated = useCallback((code: string) => {
+  const handleMermaidGenerated = useCallback((code: string, options?: { isFinal?: boolean }) => {
     setMermaidCode(code);
+    setIsStreamingCandidate(Boolean(code.trim()) && !options?.isFinal);
   }, []);
 
   const handleReset = useCallback(() => {
     setMermaidCode('');
+    setIsStreamingCandidate(false);
     setGenerationContext(DEFAULT_GENERATION_CONTEXT);
   }, []);
 
@@ -150,6 +153,7 @@ export const LLMMermaidDialog = ({ container }: LLMMermaidDialogProps) => {
         <section className="llm-mermaid-pane llm-mermaid-pane-preview">
           <PreviewPanel
             mermaidCode={mermaidCode}
+            isStreamingCandidate={isStreamingCandidate}
             onInsert={handleInsert}
             disabled={!isReady}
             generationContext={generationContext}

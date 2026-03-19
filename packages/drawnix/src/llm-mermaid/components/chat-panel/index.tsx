@@ -3,7 +3,7 @@
  * 负责自然对话、澄清回复和 Mermaid 生成
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { MessageList } from './message-list';
 import { MessageInput } from './message-input';
 import { useLLMChat } from '../../hooks/use-llm-chat';
@@ -13,7 +13,7 @@ import './index.scss';
 export interface ChatPanelProps {
   generationContext?: Partial<GenerationContext>;
   onContextResolved?: (context: Partial<GenerationContext>) => void;
-  onMermaidGenerated?: (code: string) => void;
+  onMermaidGenerated?: (code: string, options?: { isFinal?: boolean }) => void;
   onReset?: () => void;
   disabled?: boolean;
 }
@@ -26,6 +26,7 @@ export const ChatPanel = ({
   disabled = false,
 }: ChatPanelProps) => {
   const { messages, isStreaming, error, sendMessage, regenerate, clearError, reset } = useLLMChat();
+  const lastEmittedMermaidRef = useRef('');
 
   // 处理发送消息
   const handleSend = async (content: string) => {
@@ -50,6 +51,7 @@ export const ChatPanel = ({
 
   const handleClear = () => {
     reset();
+    lastEmittedMermaidRef.current = '';
     onMermaidGenerated?.('');
     onReset?.();
   };
@@ -57,12 +59,20 @@ export const ChatPanel = ({
   // 检测 Mermaid 代码生成
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
+    const streamingCandidate = lastMessage?.metadata?.streamingMermaidCode;
+
+    if (streamingCandidate && streamingCandidate !== lastEmittedMermaidRef.current) {
+      lastEmittedMermaidRef.current = streamingCandidate;
+      onMermaidGenerated?.(streamingCandidate, { isFinal: false });
+    }
+
     if (
       lastMessage?.role === 'assistant' &&
       !isStreaming &&
       lastMessage.metadata?.mermaidCode
     ) {
-      onMermaidGenerated?.(lastMessage.metadata.mermaidCode);
+      lastEmittedMermaidRef.current = lastMessage.metadata.mermaidCode;
+      onMermaidGenerated?.(lastMessage.metadata.mermaidCode, { isFinal: true });
     }
   }, [messages, isStreaming, onMermaidGenerated]);
 

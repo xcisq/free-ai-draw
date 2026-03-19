@@ -34,7 +34,9 @@ export class MermaidStabilizationError extends Error {
   constructor(
     message: string,
     public stage: MermaidFailureStage,
-    public details: string[] = []
+    public details: string[] = [],
+    public bestEffortCode?: string,
+    public validation?: ValidationResult
   ) {
     super(message);
     this.name = 'MermaidStabilizationError';
@@ -74,21 +76,36 @@ export class MermaidStabilizerService {
     input: string,
     options: MermaidStabilizeOptions & { sourceText?: string } = {}
   ): Promise<MermaidStabilizeResult> {
+    throwIfAborted(options.signal);
     const rawCode = extractMermaidCode(input);
 
     if (!rawCode.trim()) {
-      throw new MermaidStabilizationError('AI 返回结果中未提取到 Mermaid 代码', 'extract');
+      throw new MermaidStabilizationError(
+        'AI 返回结果中没有可提取的 Mermaid 正文',
+        'extract',
+        ['模型没有直接输出可识别的 Mermaid 图代码']
+      );
     }
 
     const normalized = normalizeMermaidCode(rawCode);
     const localCandidates = createMermaidRepairCandidates(normalized.code);
 
     if (localCandidates.length === 0) {
-      throw new MermaidStabilizationError('AI 返回结果中未提取到 Mermaid 代码', 'extract');
+      throw new MermaidStabilizationError(
+        'AI 返回结果中没有可提取的 Mermaid 正文',
+        'extract',
+        ['模型没有直接输出可识别的 Mermaid 图代码'],
+        normalized.code || rawCode.trim()
+      );
     }
 
-    const localAttempt = await this.tryCandidates(localCandidates, options.requireElements !== false);
+    const localAttempt = await this.tryCandidates(
+      localCandidates,
+      options.requireElements !== false,
+      options.signal
+    );
     if (localAttempt.result) {
+      throwIfAborted(options.signal);
       return {
         ...localAttempt.result,
         source:
@@ -106,7 +123,9 @@ export class MermaidStabilizerService {
       throw new MermaidStabilizationError(
         buildFailureMessage(localErrors, false),
         resolveFailureStage(localValidation, localAttempt.conversionError),
-        localErrors
+        localErrors,
+        selectBestEffortCode(localCandidates, normalized.code),
+        localValidation
       );
     }
 
@@ -120,15 +139,18 @@ export class MermaidStabilizerService {
         signal: options.signal,
       }
     );
+    throwIfAborted(options.signal);
 
     const repairedNormalization = normalizeMermaidCode(repairedResponse);
     const repairedCandidates = createMermaidRepairCandidates(repairedNormalization.code);
     const repairedAttempt = await this.tryCandidates(
       repairedCandidates,
-      options.requireElements !== false
+      options.requireElements !== false,
+      options.signal
     );
 
     if (repairedAttempt.result) {
+      throwIfAborted(options.signal);
       return {
         ...repairedAttempt.result,
         source: 'llm-repair',
@@ -141,17 +163,21 @@ export class MermaidStabilizerService {
     throw new MermaidStabilizationError(
       buildFailureMessage(repairedErrors, true),
       resolveFailureStage(repairedValidation, repairedAttempt.conversionError, true),
-      repairedErrors
+      repairedErrors,
+      selectBestEffortCode(repairedCandidates, repairedNormalization.code, normalized.code),
+      repairedValidation
     );
   }
 
   private async tryCandidates(
     candidates: string[],
-    requireElements: boolean
+    requireElements: boolean,
+    signal?: AbortSignal
   ): Promise<CandidateAttemptSummary> {
     let conversionError: string | null = null;
 
     for (const candidate of candidates) {
+      throwIfAborted(signal);
       const validation = validateMermaidCode(candidate);
       if (!validation.isValid) {
         continue;
@@ -170,6 +196,7 @@ export class MermaidStabilizerService {
 
       try {
         const elements = await mermaidConverter.convertToElements(candidate);
+        throwIfAborted(signal);
         return {
           result: {
             mermaidCode: candidate,
@@ -231,4 +258,37 @@ function buildFailureMessage(errors: string[], attemptedRepair: boolean): string
   return `Mermaid 代码暂时无法预览：${reason}`;
 }
 
+function selectBestEffortCode(
+  candidates: string[],
+  ...fallbackCandidates: Array<string | undefined>
+) {
+  const rankedCandidates = [...candidates, ...fallbackCandidates]
+    .map((candidate) => candidate?.trim())
+    .filter((candidate): candidate is string => Boolean(candidate))
+    .filter((candidate, index, array) => array.indexOf(candidate) === index)
+    .map((candidate) => ({
+      candidate,
+      validation: validateMermaidCode(candidate),
+    }))
+    .sort((left, right) => {
+      if (left.validation.errors.length !== right.validation.errors.length) {
+        return left.validation.errors.length - right.validation.errors.length;
+      }
+
+      if (left.validation.warnings.length !== right.validation.warnings.length) {
+        return left.validation.warnings.length - right.validation.warnings.length;
+      }
+
+      return right.candidate.length - left.candidate.length;
+    });
+
+  return rankedCandidates[0]?.candidate;
+}
+
 export const mermaidStabilizerService = new MermaidStabilizerService();
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw new DOMException('The operation was aborted.', 'AbortError');
+  }
+}

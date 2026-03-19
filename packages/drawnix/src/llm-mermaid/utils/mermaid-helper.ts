@@ -85,6 +85,34 @@ export function normalizeMermaidCode(code: string): MermaidNormalizationResult {
 }
 
 /**
+ * 从流式文本中提取当前可用的 Mermaid 候选
+ */
+export function extractStreamingMermaidCandidate(text: string): string | null {
+  const fencedOpenMatch = text.match(/```(?:mermaid)?\s*\n([\s\S]*)$/i);
+  if (fencedOpenMatch?.[1]) {
+    return collectStreamingCandidate(stripTrailingFence(fencedOpenMatch[1]), true);
+  }
+
+  const lines = text.split('\n');
+  const startIndex = lines.findIndex((line) =>
+    /^(flowchart|graph|stateDiagram|classDiagram|sequenceDiagram|erDiagram|gantt|pie|journey)\b/.test(
+      line.trim()
+    )
+  );
+
+  if (startIndex === -1) {
+    const heuristicStartIndex = lines.findIndex((line) => isLikelyMermaidStartLine(line));
+    if (heuristicStartIndex === -1) {
+      return null;
+    }
+
+    return collectStreamingCandidate(lines.slice(heuristicStartIndex).join('\n'), false);
+  }
+
+  return collectStreamingCandidate(lines.slice(startIndex).join('\n'), true);
+}
+
+/**
  * 修复节点名称中的特殊字符
  */
 function fixNodeNames(code: string): string {
@@ -101,6 +129,60 @@ function fixNodeNames(code: string): string {
     }
     return match;
   });
+}
+
+function stripTrailingFence(code: string) {
+  return code.replace(/\n?```[\s\S]*$/, '').trimEnd();
+}
+
+function collectStreamingCandidate(segment: string, startsWithDiagramType: boolean) {
+  const mermaidLines: string[] = [];
+  const lines = stripTrailingFence(segment).split('\n');
+
+  for (const line of lines) {
+    if (isLikelyStreamingMermaidLine(line, startsWithDiagramType && mermaidLines.length === 0)) {
+      mermaidLines.push(line);
+      continue;
+    }
+
+    if (mermaidLines.length > 0) {
+      break;
+    }
+  }
+
+  const candidate = mermaidLines.join('\n').trim();
+  return candidate || null;
+}
+
+function isLikelyStreamingMermaidLine(line: string, isFirstTypedLine: boolean) {
+  const trimmed = line.trim();
+
+  if (!trimmed) {
+    return true;
+  }
+
+  if (isFirstTypedLine) {
+    return /^(flowchart|graph|stateDiagram|classDiagram|sequenceDiagram|erDiagram|gantt|pie|journey)\b/.test(
+      trimmed
+    );
+  }
+
+  return /^(subgraph|end|classDef|class|style|linkStyle|click|%%)\b/.test(trimmed)
+    || /-->|---|-.->|==>|==/.test(trimmed)
+    || /^\w[\w-]*\s*(?:\[[^\]]*\]|\([^)]+\)|\{[^}]+\}|:::.*)?$/.test(trimmed)
+    || /^\w[\w-]*\s*:::/.test(trimmed);
+}
+
+function isLikelyMermaidStartLine(line: string) {
+  const trimmed = line.trim();
+
+  if (!trimmed) {
+    return false;
+  }
+
+  return /^(subgraph|classDef|class|style|linkStyle|click|%%)\b/.test(trimmed)
+    || /-->|---|-.->|==>|==/.test(trimmed)
+    || /^\w[\w-]*\s*(?:\[[^\]]*\]|\([^)]+\)|\{[^}]+\}|:::.*)/.test(trimmed);
 }
 
 function balanceLine(line: string): string {

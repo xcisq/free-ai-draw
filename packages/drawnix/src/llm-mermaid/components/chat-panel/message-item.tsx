@@ -39,6 +39,7 @@ export const MessageItem = ({
     isAssistant &&
     message.metadata?.interactionPhase === 'clarifying' &&
     !!message.metadata?.quickReplies?.length;
+  const assistantStatus = isAssistant ? getAssistantStatus(message) : null;
 
   // 处理重新生成
   const handleRegenerate = () => {
@@ -129,6 +130,11 @@ export const MessageItem = ({
           <span className="message-text">{message.content}</span>
         )}
       </div>
+      {assistantStatus && (
+        <div className={`message-status message-status-${assistantStatus.tone}`}>
+          {assistantStatus.text}
+        </div>
+      )}
       {hasQuickReplies && (
         <div className="message-quick-replies">
           {message.metadata?.quickReplies?.map((reply) => (
@@ -147,3 +153,80 @@ export const MessageItem = ({
     </div>
   );
 };
+
+function getAssistantStatus(message: Message) {
+  const metadata = message.metadata;
+  if (!metadata) {
+    return null;
+  }
+
+  if (metadata.interactionPhase === 'clarifying') {
+    return {
+      tone: 'clarify' as const,
+      text: '等待你补充一个关键结构偏好',
+    };
+  }
+
+  if (metadata.isStreaming) {
+    return {
+      tone: 'streaming' as const,
+      text: metadata.streamingMermaidCode
+        ? `已抓到 Mermaid 候选${formatTiming(metadata.timings?.firstCandidateMs)}`
+        : '正在生成 Mermaid...',
+    };
+  }
+
+  if (metadata.renderState === 'fallback') {
+    const failureStageText = getFailureStageText(metadata.failureStage);
+    return {
+      tone: 'fallback' as const,
+      text: failureStageText
+        ? `自动稳定失败，已保留可编辑候选 · ${failureStageText}`
+        : '自动稳定失败，已保留可编辑候选',
+    };
+  }
+
+  if (metadata.mermaidCode) {
+    const timingParts = [
+      formatTiming(metadata.timings?.firstCandidateMs, '首个候选'),
+      formatTiming(metadata.timings?.totalMs, '总耗时'),
+    ].filter(Boolean);
+
+    return {
+      tone: 'stable' as const,
+      text: timingParts.length > 0
+        ? `已稳定预览 · ${timingParts.join(' · ')}`
+        : '已稳定预览',
+    };
+  }
+
+  return null;
+}
+
+function formatTiming(value?: number, prefix?: string) {
+  if (value === undefined) {
+    return '';
+  }
+
+  const formatted =
+    value < 1000 ? `${value}ms` : `${(value / 1000).toFixed(value < 10000 ? 1 : 0)}s`;
+
+  return prefix ? `${prefix} ${formatted}` : ` · ${formatted}`;
+}
+
+function getFailureStageText(
+  stage?: 'extract' | 'validate' | 'convert' | 'repair'
+) {
+  switch (stage) {
+    case 'extract':
+      return '提取阶段失败';
+    case 'validate':
+      return '语法校验失败';
+    case 'convert':
+      return '预览转换失败';
+    case 'repair':
+      return '自动修复失败';
+    default:
+      return '';
+  }
+}

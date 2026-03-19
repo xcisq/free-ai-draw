@@ -106,6 +106,50 @@ describe('PreviewPanel', () => {
     });
   });
 
+  it('流式候选预览时不应触发 LLM 修复', async () => {
+    render(
+      <PreviewPanel
+        mermaidCode="flowchart LR\nA --> B"
+        isStreamingCandidate={true}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateCode).toHaveBeenCalledWith(
+        expect.stringContaining('flowchart LR'),
+        expect.objectContaining({
+          allowLLMRepair: false,
+          suppressErrors: true,
+          signal: expect.anything(),
+        })
+      );
+    });
+  });
+
+  it('流式候选校验失败时不应展示错误横幅', async () => {
+    mockPreviewState.validation = {
+      isValid: false,
+      errors: ['缺少 Mermaid 类型声明'],
+      warnings: [],
+    };
+    mockPreviewState.isValid = false;
+    mockPreviewState.error = 'Mermaid 代码暂时无法预览：缺少 Mermaid 类型声明';
+
+    render(
+      <PreviewPanel
+        mermaidCode="A --> B"
+        isStreamingCandidate={true}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateCode).toHaveBeenCalled();
+    });
+
+    expect(screen.queryByText('缺少 Mermaid 类型声明')).toBeNull();
+    expect(screen.getByTestId('board-preview').textContent).toBe('board-ok');
+  });
+
   it('校验失败时展示真实错误，并允许关闭', async () => {
     mockPreviewState.validation = {
       isValid: false,
@@ -170,5 +214,25 @@ describe('PreviewPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: '关闭' }));
 
     expect(mockResetStyleState).toHaveBeenCalledTimes(1);
+  });
+
+  it('最终稳定结果到达时应允许执行 LLM 修复与稳定化', async () => {
+    render(
+      <PreviewPanel
+        mermaidCode="flowchart LR\nA --> B"
+        isStreamingCandidate={false}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateCode).toHaveBeenCalledWith(
+        expect.stringContaining('flowchart LR'),
+        expect.objectContaining({
+          allowLLMRepair: true,
+          suppressErrors: false,
+          signal: expect.anything(),
+        })
+      );
+    });
   });
 });

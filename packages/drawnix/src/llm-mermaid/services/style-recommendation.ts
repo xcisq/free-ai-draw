@@ -5,7 +5,7 @@ import {
   getStyleAdjustmentPrompt,
 } from './prompt-templates';
 import { extractStyleSchemesFromMermaid } from '../utils/style-applier';
-import { mermaidStabilizerService } from './mermaid-stabilizer';
+import { mermaidStabilizerService, MermaidStabilizationError } from './mermaid-stabilizer';
 
 export interface StyleRecommendationResult {
   mermaidCode: string;
@@ -37,11 +37,22 @@ export class StyleRecommendationService {
 
   private async generate(prompt: string): Promise<StyleRecommendationResult> {
     const response = await llmChatService.generateStyle(prompt);
-    const result = await mermaidStabilizerService.stabilizeResponse(response, {
-      allowLLMRepair: true,
-      requireElements: false,
-      originalRequest: prompt,
-    });
+    let result;
+
+    try {
+      result = await mermaidStabilizerService.stabilizeResponse(response, {
+        allowLLMRepair: true,
+        requireElements: false,
+        originalRequest: prompt,
+      });
+    } catch (error) {
+      if (error instanceof MermaidStabilizationError && error.stage === 'extract') {
+        throw new Error('未从样式优化结果中解析到 classDef 定义');
+      }
+
+      throw error;
+    }
+
     const mermaidCode = result.mermaidCode;
 
     const styleSchemes = extractStyleSchemesFromMermaid(mermaidCode);
