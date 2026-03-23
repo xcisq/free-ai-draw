@@ -9,6 +9,7 @@ const enTranslations: Translations = {
   'toolbar.arrow': 'Arrow — A',
   'toolbar.shape': 'Shape',
   'toolbar.image': 'Image — Cmd+U',
+  'toolbar.iconLibrary': 'Icon Library',
   'toolbar.extraTools': 'Extra Tools',
 
   'toolbar.pen': 'Pen — P',
@@ -126,6 +127,13 @@ const enTranslations: Translations = {
   'popupToolbar.link': 'Insert Link',
   'popupToolbar.stroke': 'Stroke',
   'popupToolbar.opacity': 'Opacity',
+
+  // Icon library
+  'iconLibrary.upload': 'Upload Icons',
+  'iconLibrary.uploading': 'Uploading...',
+  'iconLibrary.empty': 'Upload SVG, PNG, or JPG icon assets to get started.',
+  'iconLibrary.hint': 'Click an icon to insert it onto the board. If a node is selected, it will be replaced directly.',
+  'iconLibrary.remove': 'Remove icon',
 
   // Text placeholders
   'textPlaceholders.link': 'Link',

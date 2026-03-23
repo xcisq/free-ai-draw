@@ -9,6 +9,7 @@ const viTranslations: Translations = {
     'toolbar.arrow': 'Mũi tên — A',
     'toolbar.shape': 'Hình dạng',
     'toolbar.image': 'Hình ảnh — Cmd+U',
+    'toolbar.iconLibrary': 'Thư viện biểu tượng',
     'toolbar.extraTools': 'Công cụ mở rộng',
 
     'toolbar.pen': 'Bút vẽ — P',
@@ -127,6 +128,13 @@ const viTranslations: Translations = {
     'popupToolbar.link': 'Chèn liên kết',
     'popupToolbar.stroke': 'Đường viền',
     'popupToolbar.opacity': 'Độ trong suốt',
+
+    // Icon library
+    'iconLibrary.upload': 'Tải biểu tượng',
+    'iconLibrary.uploading': 'Đang tải...',
+    'iconLibrary.empty': 'Hãy tải SVG, PNG hoặc JPG để tạo thư viện biểu tượng.',
+    'iconLibrary.hint': 'Nhấp vào biểu tượng để chèn vào bảng. Nếu đang chọn một nút, nút đó sẽ được thay thế trực tiếp.',
+    'iconLibrary.remove': 'Xóa biểu tượng',
 
     // Text placeholders
     'textPlaceholders.link': 'Liên kết',

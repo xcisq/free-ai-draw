@@ -481,6 +481,23 @@ export const ImageIcon = createIcon(
   </svg>
 );
 
+export const IconLibraryIcon = createIcon(
+  <svg
+    viewBox="0 0 20 20"
+    fill="none"
+    stroke="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <g strokeWidth="1.4">
+      <rect x="2.25" y="3" width="15.5" height="14" rx="2.5"></rect>
+      <path d="M6 7.2h3.1v2.9H6z"></path>
+      <path d="M10.9 7.2H14v2.9h-3.1z"></path>
+      <path d="M6 11.8h3.1v2.9H6z"></path>
+      <path d="M10.9 11.8H14v2.9h-3.1z"></path>
+    </g>
+  </svg>
+);
+
 export const ExtraToolsIcon = createIcon(
   <svg
     stroke="currentColor"

@@ -9,6 +9,7 @@ const zhTranslations: Translations = {
   'toolbar.arrow': '箭头 — A',
   'toolbar.shape': '形状',
   'toolbar.image': '图片 — Cmd+U',
+  'toolbar.iconLibrary': '图标库',
   'toolbar.extraTools': '更多工具',
 
   'toolbar.pen': '画笔 — P',
@@ -123,6 +124,13 @@ const zhTranslations: Translations = {
   'popupToolbar.link': '链接',
   'popupToolbar.stroke': '边框',
   'popupToolbar.opacity': '不透明度',
+
+  // Icon library
+  'iconLibrary.upload': '上传图标',
+  'iconLibrary.uploading': '上传中...',
+  'iconLibrary.empty': '先上传一些 SVG、PNG 或 JPG 图标素材吧。',
+  'iconLibrary.hint': '点击图标可插入到画板；如果当前已选中节点，则会直接替换为该图标。',
+  'iconLibrary.remove': '删除图标',
 
   // Text placeholders
   'textPlaceholders.link': '链接',

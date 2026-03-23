@@ -15,10 +15,10 @@ import { splitRows } from '../../../utils/common';
 import {
     DrawnixPointerType,
 } from '../../../hooks/use-drawnix';
-import { useI18n } from '../../../i18n';
+import { Translations, useI18n } from '../../../i18n';
 
 export interface FreehandProps {
-    titleKey: string;
+    titleKey: keyof Translations;
     icon: React.ReactNode;
     pointer: DrawnixPointerType;
 }

@@ -11,6 +11,7 @@ const arTranslations: Translations = {
     "toolbar.arrow": "سهم — A",
     "toolbar.shape": "أشكال",
     "toolbar.image": "صورة — Cmd+U",
+    "toolbar.iconLibrary": "مكتبة الأيقونات",
     "toolbar.extraTools": "أدوات إضافية",
 
     "toolbar.arrow.straight": "سهم مستقيم",
@@ -124,6 +125,13 @@ const arTranslations: Translations = {
     "popupToolbar.link": "إدراج رابط",
     "popupToolbar.stroke": "الحد",
     'popupToolbar.opacity': 'مستوى شفافية',
+
+    // Icon library
+    "iconLibrary.upload": "رفع الأيقونات",
+    "iconLibrary.uploading": "جارٍ الرفع...",
+    "iconLibrary.empty": "ارفع ملفات SVG أو PNG أو JPG لبدء بناء مكتبة الأيقونات.",
+    "iconLibrary.hint": "انقر على الأيقونة لإضافتها إلى اللوحة. إذا كانت هناك عقدة محددة فسيتم استبدالها مباشرة.",
+    "iconLibrary.remove": "حذف الأيقونة",
 
     // Text placeholders
     "textPlaceholders.link": "رابط",

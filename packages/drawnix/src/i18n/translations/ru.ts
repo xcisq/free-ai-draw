@@ -9,6 +9,7 @@ const ruTranslations: Translations = {
   'toolbar.arrow': 'Стрелка — A',
   'toolbar.shape': 'Фигуры',
   'toolbar.image': 'Изображение — Cmd+U',
+  'toolbar.iconLibrary': 'Библиотека иконок',
   'toolbar.extraTools': 'Дополнительно',
 
   'toolbar.pen': 'Карандаш — P',
@@ -129,6 +130,13 @@ const ruTranslations: Translations = {
   'popupToolbar.link': 'Вставить ссылку',
   'popupToolbar.stroke': 'Контур',
   'popupToolbar.opacity': 'Прозрачность',
+
+  // Icon library
+  'iconLibrary.upload': 'Загрузить иконки',
+  'iconLibrary.uploading': 'Загрузка...',
+  'iconLibrary.empty': 'Загрузите SVG, PNG или JPG, чтобы наполнить библиотеку иконок.',
+  'iconLibrary.hint': 'Нажмите на иконку, чтобы вставить ее на доску. Если узел уже выбран, он будет заменен напрямую.',
+  'iconLibrary.remove': 'Удалить иконку',
 
   // Text placeholders
   'textPlaceholders.link': 'Ссылка',

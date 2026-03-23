@@ -13,6 +13,7 @@ export interface Translations {
   'toolbar.arrow': string;
   'toolbar.shape': string;
   'toolbar.image': string;
+  'toolbar.iconLibrary': string;
   'toolbar.extraTools': string;
 
   'toolbar.pen': string;
@@ -128,6 +129,13 @@ export interface Translations {
   'popupToolbar.link': string;
   'popupToolbar.stroke': string;
   'popupToolbar.opacity': string;
+
+  // Icon library
+  'iconLibrary.upload': string;
+  'iconLibrary.uploading': string;
+  'iconLibrary.empty': string;
+  'iconLibrary.hint': string;
+  'iconLibrary.remove': string;
 
   // Text placeholders
   'textPlaceholders.link': string;

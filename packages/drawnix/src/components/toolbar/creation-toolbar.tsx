@@ -12,6 +12,7 @@ import {
   StraightArrowLineIcon,
   FeltTipPenIcon,
   ImageIcon,
+  IconLibraryIcon,
   ExtraToolsIcon,
 } from '../icons';
 import { useBoard } from '@plait-board/react-board';
@@ -42,9 +43,10 @@ import {
 } from '../../hooks/use-drawnix';
 import { ExtraToolsButton } from './extra-tools/extra-tools-button';
 import { addImage } from '../../utils/image';
-import { useI18n } from '../../i18n';
+import { Translations, useI18n } from '../../i18n';
 import { SHAPES } from '../shape-picker';
 import { ARROWS } from '../arrow-picker';
+import { IconLibraryPanel } from './icon-library-panel/icon-library-panel';
 
 export enum PopupKey {
   'shape' = 'shape',
@@ -53,11 +55,11 @@ export enum PopupKey {
 }
 
 type AppToolButtonProps = {
-  titleKey?: keyof typeof import('../../i18n').Translations;
+  titleKey?: keyof Translations;
   name?: string;
   icon: React.ReactNode;
   pointer?: DrawnixPointerType;
-  key?: PopupKey | 'image' | 'extra-tools';
+  key?: PopupKey | 'image' | 'icon-library' | 'extra-tools';
 };
 
 const isBasicPointer = (pointer: string) => {
@@ -111,6 +113,11 @@ export const BUTTONS: AppToolButtonProps[] = [
     key: 'image',
   },
   {
+    icon: IconLibraryIcon,
+    titleKey: 'toolbar.iconLibrary',
+    key: 'icon-library',
+  },
+  {
     icon: ExtraToolsIcon,
     titleKey: 'toolbar.extraTools',
     key: 'extra-tools',
@@ -139,12 +146,13 @@ export const CreationToolbar = () => {
   const [freehandOpen, setFreehandOpen] = useState(false);
   const [arrowOpen, setArrowOpen] = useState(false);
   const [shapeOpen, setShapeOpen] = useState(false);
+  const [iconLibraryOpen, setIconLibraryOpen] = useState(false);
   const [lastFreehandButton, setLastFreehandButton] =
     useState<AppToolButtonProps>(
       BUTTONS.find((button) => button.key === PopupKey.freehand)!
     );
-  const [lastShapePointer, setLastShapePointer] = useState<string | undefined>(SHAPES[0].pointer);
-  const [lastArrowPointer, setLastArrowPointer] = useState<string | undefined>(ARROWS[0].pointer);
+  const [lastShapePointer, setLastShapePointer] = useState<DrawPointerType | undefined>(SHAPES[0].pointer);
+  const [lastArrowPointer, setLastArrowPointer] = useState<DrawPointerType | undefined>(ARROWS[0].pointer);
 
   const onPointerDown = (pointer: DrawnixPointerType) => {
     setCreationMode(board, BoardCreationMode.dnd);
@@ -307,6 +315,35 @@ export const CreationToolbar = () => {
                       setLastArrowPointer(pointer);
                     }}
                   ></ArrowPicker>
+                </PopoverContent>
+              </Popover>
+            );
+          }
+          if (button.key === 'icon-library') {
+            return (
+              <Popover
+                key={index}
+                open={iconLibraryOpen}
+                sideOffset={12}
+                onOpenChange={(open) => {
+                  setIconLibraryOpen(open);
+                }}
+              >
+                <PopoverTrigger asChild>
+                  <ToolButton
+                    type="icon"
+                    visible={true}
+                    selected={iconLibraryOpen}
+                    icon={button.icon}
+                    title={button.titleKey ? t(button.titleKey) : ''}
+                    aria-label={button.titleKey ? t(button.titleKey) : ''}
+                    onPointerDown={() => {
+                      setIconLibraryOpen(!iconLibraryOpen);
+                    }}
+                  />
+                </PopoverTrigger>
+                <PopoverContent container={container}>
+                  <IconLibraryPanel board={board} />
                 </PopoverContent>
               </Popover>
             );
