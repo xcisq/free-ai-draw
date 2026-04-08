@@ -1,6 +1,9 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, jest, beforeEach } from '@jest/globals';
 
+import { mermaidStabilizerService } from '../services/mermaid-stabilizer';
+import { useMermaidPreview } from './use-mermaid-preview';
+
 jest.mock('../services/llm-chat-service', () => ({
   llmChatService: {
     generateMermaid: jest.fn(),
@@ -17,9 +20,6 @@ jest.mock('../services/mermaid-stabilizer', () => ({
     details = ['error'];
   },
 }));
-
-import { mermaidStabilizerService } from '../services/mermaid-stabilizer';
-import { useMermaidPreview } from './use-mermaid-preview';
 
 describe('useMermaidPreview', () => {
   beforeEach(() => {

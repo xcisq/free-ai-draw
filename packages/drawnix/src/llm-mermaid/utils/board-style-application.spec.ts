@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
+import {
+  applyStyleToElements,
+  createStyleSnapshot,
+  restoreStyleSnapshot,
+} from './board-style-application';
+
 const mockSetNode = jest.fn();
 const mockFindPath = jest.fn(() => [0]);
 const mockGetElementById = jest.fn();
@@ -46,12 +52,6 @@ jest.mock('@plait/mind', () => ({
     isMindElement: () => false,
   },
 }));
-
-import {
-  applyStyleToElements,
-  createStyleSnapshot,
-  restoreStyleSnapshot,
-} from './board-style-application';
 
 describe('board-style-application', () => {
   beforeEach(() => {

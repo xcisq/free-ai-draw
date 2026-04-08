@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { TextDecoder, TextEncoder } from 'util';
 
+import type { Message } from '../types';
+import { LLMChatError, LLMChatService } from './llm-chat-service';
+
 jest.mock('../utils/env-config', () => ({
   getLLMMermaidConfig: () => ({
     apiKey: 'test-key',
@@ -9,9 +12,6 @@ jest.mock('../utils/env-config', () => ({
     isConfigured: true,
   }),
 }));
-
-import type { Message } from '../types';
-import { LLMChatError, LLMChatService } from './llm-chat-service';
 
 const fetchMock = jest.fn<typeof fetch>();
 

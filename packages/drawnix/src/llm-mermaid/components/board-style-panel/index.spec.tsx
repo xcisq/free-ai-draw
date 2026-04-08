@@ -1,5 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
+import { BoardStylePanel } from './index';
+import { resolveBoardStyleSelection } from '../../utils/board-style-selection';
+
 const mockGenerateSchemes = jest.fn();
 const mockApplyScheme = jest.fn();
 const mockPreviewScheme = jest.fn();
@@ -61,9 +64,6 @@ jest.mock('../../hooks/use-board-style-optimization', () => ({
 jest.mock('../../utils/board-style-selection', () => ({
   resolveBoardStyleSelection: jest.fn(() => mockResolvedSelection),
 }));
-
-import { BoardStylePanel } from './index';
-import { resolveBoardStyleSelection } from '../../utils/board-style-selection';
 
 describe('BoardStylePanel', () => {
   beforeEach(() => {

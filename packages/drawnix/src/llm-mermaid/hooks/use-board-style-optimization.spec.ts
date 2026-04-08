@@ -1,6 +1,14 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
+import { boardStyleService } from '../services/board-style-service';
+import {
+  applyStyleToElements,
+  createStyleSnapshot,
+  restoreStyleSnapshot,
+} from '../utils/board-style-application';
+import { useBoardStyleOptimization } from './use-board-style-optimization';
+
 jest.mock('../services/board-style-service', () => ({
   boardStyleService: {
     generateMultipleSchemes: jest.fn(),
@@ -12,14 +20,6 @@ jest.mock('../utils/board-style-application', () => ({
   createStyleSnapshot: jest.fn(),
   restoreStyleSnapshot: jest.fn(),
 }));
-
-import { boardStyleService } from '../services/board-style-service';
-import {
-  applyStyleToElements,
-  createStyleSnapshot,
-  restoreStyleSnapshot,
-} from '../utils/board-style-application';
-import { useBoardStyleOptimization } from './use-board-style-optimization';
 
 const selectionSummary = {
   total: 1,

@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
+import { llmChatService } from './llm-chat-service';
+import { StyleRecommendationService } from './style-recommendation';
+import type { GraphInfo } from '../types';
+
 jest.mock('./llm-chat-service', () => ({
   llmChatService: {
     generateStyle: jest.fn(),
     repairMermaid: jest.fn(),
   },
 }));
-
-import { llmChatService } from './llm-chat-service';
-import { StyleRecommendationService } from './style-recommendation';
-import type { GraphInfo } from '../types';
 
 const graphInfo: GraphInfo = {
   nodes: [

@@ -1,3 +1,6 @@
+import { buildFlowchartElements } from './build-flowchart-elements';
+import { LayoutResult } from '../types/analyzer';
+
 jest.mock('@plait/draw', () => ({
   ArrowLineMarkerType: {
     none: 'none',
@@ -43,9 +46,6 @@ jest.mock('@plait/draw', () => ({
     ...options,
   }),
 }));
-
-import { buildFlowchartElements } from './build-flowchart-elements';
-import { LayoutResult } from '../types/analyzer';
 
 const baseLayout: LayoutResult = {
   direction: 'LR',

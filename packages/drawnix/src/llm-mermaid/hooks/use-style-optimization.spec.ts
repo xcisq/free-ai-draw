@@ -1,6 +1,10 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
+import { mermaidConverter } from '../services/mermaid-converter';
+import { styleRecommendationService } from '../services/style-recommendation';
+import { useStyleOptimization } from './use-style-optimization';
+
 jest.mock('../services/style-recommendation', () => ({
   styleRecommendationService: {
     recommendDefault: jest.fn(),
@@ -13,10 +17,6 @@ jest.mock('../services/mermaid-converter', () => ({
     extractGraphInfoFromCode: jest.fn(),
   },
 }));
-
-import { mermaidConverter } from '../services/mermaid-converter';
-import { styleRecommendationService } from '../services/style-recommendation';
-import { useStyleOptimization } from './use-style-optimization';
 
 const mockGraphInfo = {
   nodes: [{ id: 'A', label: '输入', inDegree: 0, outDegree: 1, type: 'input' as const }],

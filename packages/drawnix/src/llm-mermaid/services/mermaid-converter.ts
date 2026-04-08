@@ -400,8 +400,8 @@ export class MermaidConverter {
     }
 
     const sanitized = remainder
-      .replace(/^[\[\(\{<"\s]+/, '')
-      .replace(/[\]\)\}>"\s]+$/, '')
+      .replace(/^(?:\[|\(|\{|<|"|\s)+/, '')
+      .replace(/(?:\]|\)|\}|>|"|\s)+$/, '')
       .replace(/^["']|["']$/g, '')
       .trim();
 

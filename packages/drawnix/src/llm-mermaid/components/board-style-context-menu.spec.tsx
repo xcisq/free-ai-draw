@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 
+import { BoardStyleContextMenu } from './board-style-context-menu';
+
 const mockBoard = {} as any;
 const mockGetSelectedElements = jest.fn();
 let mockBoardContainer: HTMLDivElement;
@@ -23,8 +25,6 @@ jest.mock('../../components/icons', () => ({
 jest.mock('./board-style-panel', () => ({
   BoardStylePanel: () => <div>Mock Board Style Panel</div>,
 }));
-
-import { BoardStyleContextMenu } from './board-style-context-menu';
 
 describe('BoardStyleContextMenu', () => {
   beforeEach(() => {

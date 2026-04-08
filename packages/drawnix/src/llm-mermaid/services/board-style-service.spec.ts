@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
+import { LLMChatError, llmChatService } from './llm-chat-service';
+import { BoardStyleService, summarizeSelectedElements } from './board-style-service';
+
 jest.mock('./llm-chat-service', () => ({
   LLMChatError: class LLMChatError extends Error {
     code?: string;
@@ -31,9 +34,6 @@ jest.mock('@plait/mind', () => ({
     isMindElement: () => false,
   },
 }));
-
-import { LLMChatError, llmChatService } from './llm-chat-service';
-import { BoardStyleService, summarizeSelectedElements } from './board-style-service';
 
 describe('BoardStyleService', () => {
   beforeEach(() => {

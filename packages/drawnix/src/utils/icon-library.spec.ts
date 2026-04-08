@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
+import {
+  applyIconLibraryAsset,
+  canReplaceSelectionWithIcon,
+  ICON_LIBRARY_STORAGE_KEY,
+  loadStoredIconLibraryAssets,
+} from './icon-library';
+
 const mockGetSelectedElements = jest.fn();
 const mockFindPath = jest.fn(() => [0]);
 const mockSetNode = jest.fn();
@@ -47,13 +54,6 @@ jest.mock('@plait/mind', () => ({
     setImage: (...args: unknown[]) => mockMindSetImage(...args),
   },
 }));
-
-import {
-  applyIconLibraryAsset,
-  canReplaceSelectionWithIcon,
-  ICON_LIBRARY_STORAGE_KEY,
-  loadStoredIconLibraryAssets,
-} from './icon-library';
 
 describe('icon-library', () => {
   beforeEach(() => {

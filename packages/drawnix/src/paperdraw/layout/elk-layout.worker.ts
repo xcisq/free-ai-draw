@@ -17,7 +17,14 @@ interface ElkWorkerFailure {
   error: string;
 }
 
-self.onmessage = async (
+type ElkWorkerScope = {
+  onmessage: ((event: MessageEvent<ElkWorkerRequest>) => void | Promise<void>) | null;
+  postMessage: (message: ElkWorkerSuccess | ElkWorkerFailure) => void;
+};
+
+const workerScope = globalThis as unknown as ElkWorkerScope;
+
+workerScope.onmessage = async (
   event: MessageEvent<ElkWorkerRequest>
 ) => {
   try {
@@ -30,13 +37,13 @@ self.onmessage = async (
       ok: true,
       layout,
     };
-    self.postMessage(payload);
-  } catch (error: any) {
+    workerScope.postMessage(payload);
+  } catch (error: unknown) {
     const payload: ElkWorkerFailure = {
       ok: false,
-      error: error?.message ?? 'ELK layout failed',
+      error: error instanceof Error ? error.message : 'ELK layout failed',
     };
-    self.postMessage(payload);
+    workerScope.postMessage(payload);
   }
 };
 

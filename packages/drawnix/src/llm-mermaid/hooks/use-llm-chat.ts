@@ -104,7 +104,7 @@ export function useLLMChat(initialSystemPrompt?: string): UseLLMChatResult {
       abortControllerRef.current = controller;
 
       try {
-        let normalizedContext = baseContext;
+        const normalizedContext = baseContext;
         let requestContent = options?.requestContent?.trim() || '';
 
         if (!requestContent) {

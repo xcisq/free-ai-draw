@@ -1,6 +1,13 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, jest, beforeEach } from '@jest/globals';
 
+import { llmChatService } from '../services/llm-chat-service';
+import {
+  mermaidStabilizerService,
+  MermaidStabilizationError,
+} from '../services/mermaid-stabilizer';
+import { useLLMChat } from './use-llm-chat';
+
 jest.mock('../services/llm-chat-service', () => ({
   llmChatService: {
     chatStream: jest.fn(),
@@ -40,13 +47,6 @@ jest.mock('../services/mermaid-stabilizer', () => ({
     }
   },
 }));
-
-import { llmChatService } from '../services/llm-chat-service';
-import {
-  mermaidStabilizerService,
-  MermaidStabilizationError,
-} from '../services/mermaid-stabilizer';
-import { useLLMChat } from './use-llm-chat';
 
 function createStream(chunks: string[]) {
   return async function* () {

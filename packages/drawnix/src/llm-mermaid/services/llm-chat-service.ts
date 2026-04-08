@@ -294,7 +294,7 @@ export class LLMChatService {
   private async handleError(response: Response): Promise<never> {
     let errorMessage = `LLM 服务请求失败（${response.status}）`;
     let errorCode: string | undefined;
-    let statusCode = response.status;
+    const statusCode = response.status;
     let rawBody = '';
 
     try {
@@ -338,7 +338,7 @@ export class LLMChatService {
   }
 }
 
-function consumeSSEPayloads(buffer: string, flushFinal: boolean = false) {
+function consumeSSEPayloads(buffer: string, flushFinal = false) {
   const normalizedBuffer = buffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const lines = normalizedBuffer.split('\n');
   const rest = flushFinal ? '' : lines.pop() || '';

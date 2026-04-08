@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import { PopupToolbar } from './popup-toolbar';
 
 const mockSetPositionReference = jest.fn();
 const mockBoard = {
@@ -88,7 +89,7 @@ jest.mock('../../../i18n', () => ({
 }));
 
 jest.mock('../../stack', () => {
-  const React = require('react');
+  const ReactModule = jest.requireActual<typeof import('react')>('react');
   const Row = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
   return {
     __esModule: true,
@@ -99,9 +100,9 @@ jest.mock('../../stack', () => {
 });
 
 jest.mock('../../island', () => {
-  const React = require('react');
+  const ReactModule = jest.requireActual<typeof import('react')>('react');
   return {
-    Island: React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+    Island: ReactModule.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
       ({ children, ...props }, ref) => (
         <div ref={ref} {...props}>
           {children}
@@ -156,8 +157,6 @@ jest.mock('../../../plugins/freehand/type', () => ({
     isFreehand: () => false,
   },
 }));
-
-import { PopupToolbar } from './popup-toolbar';
 
 describe('PopupToolbar', () => {
   beforeEach(() => {

@@ -1,5 +1,10 @@
 import { describe, expect, it, jest } from '@jest/globals';
 
+import {
+  resolveBoardStyleSelection,
+  summarizeBoardStyleSelection,
+} from './board-style-selection';
+
 jest.mock('@plait/draw', () => ({
   PlaitDrawElement: {
     isArrowLine: (value: any) => value?.type === 'arrow-line',
@@ -14,11 +19,6 @@ jest.mock('@plait/mind', () => ({
     isMindElement: () => false,
   },
 }));
-
-import {
-  resolveBoardStyleSelection,
-  summarizeBoardStyleSelection,
-} from './board-style-selection';
 
 describe('board-style-selection', () => {
   it('默认应补入选中节点之间的关联连线', () => {

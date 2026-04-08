@@ -327,8 +327,8 @@ export function getBoardStyleMultipleSchemesPrompt(
     layoutBias?: 'horizontal' | 'vertical' | 'mixed' | 'unknown';
     roleLabelExamples?: Partial<Record<string, string[]>>;
   },
-  request: string = '',
-  count: number = 3
+  request = '',
+  count = 3
 ): string {
   const selectorGuide: BoardStyleSelector[] = [
     '*',

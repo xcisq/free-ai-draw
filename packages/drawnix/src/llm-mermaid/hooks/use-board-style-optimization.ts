@@ -84,7 +84,7 @@ export function useBoardStyleOptimization({
   }, [clearPreview]);
 
   const generateSchemes = useCallback(
-    async (request: string = '') => {
+    async (request = '') => {
       if (!targetElements.length) {
         setSchemes([]);
         return;

@@ -231,7 +231,7 @@ function collectFailureDetails(validation: ValidationResult, conversionError: st
 function resolveFailureStage(
   validation: ValidationResult,
   conversionError: string | null,
-  afterRepair: boolean = false
+  afterRepair = false
 ): MermaidFailureStage {
   if (afterRepair) {
     return 'repair';

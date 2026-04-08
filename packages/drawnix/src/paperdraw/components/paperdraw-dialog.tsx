@@ -84,6 +84,9 @@ const PaperDrawDialog = () => {
     () => hasStructuralGuardQuestions(questions),
     [questions]
   );
+  const handleSubmenuSelect = useCallback((event: Event) => {
+    event.preventDefault();
+  }, []);
 
   const closeDialog = useCallback(() => {
     setAppState({ ...appState, openDialogType: null });
@@ -339,7 +342,7 @@ const PaperDrawDialog = () => {
                       <Menu onSelect={() => setOptimizeMenuOpen(false)}>
                         <MenuItem
                           disabled={phase === 'optimizing'}
-                          onSelect={() => {}}
+                          onSelect={handleSubmenuSelect}
                           submenu={
                             <Menu onSelect={() => setOptimizeMenuOpen(false)}>
                               <MenuItem
@@ -367,7 +370,7 @@ const PaperDrawDialog = () => {
                         </MenuItem>
                         <MenuItem
                           disabled={phase === 'optimizing'}
-                          onSelect={() => {}}
+                          onSelect={handleSubmenuSelect}
                           submenu={
                             <Menu onSelect={() => setOptimizeMenuOpen(false)}>
                               <MenuItem

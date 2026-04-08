@@ -118,7 +118,7 @@ export function extractStreamingMermaidCandidate(text: string): string | null {
 function fixNodeNames(code: string): string {
   // 查找可能包含特殊字符的节点（如中文、空格等）
   // 并使用引号包裹
-  return code.replace(/\[([^\[\]]*?)\]/g, (match, content) => {
+  return code.replace(/\[([^\]]*?)\]/g, (match, content) => {
     if (/^["'].+["']$/.test(content.trim())) {
       return match;
     }
@@ -398,6 +398,6 @@ export function estimateNodeCount(code: string): number {
 /**
  * 检查节点数量是否超限
  */
-export function isNodeCountExceeded(code: string, limit: number = 50): boolean {
+export function isNodeCountExceeded(code: string, limit = 50): boolean {
   return estimateNodeCount(code) > limit;
 }

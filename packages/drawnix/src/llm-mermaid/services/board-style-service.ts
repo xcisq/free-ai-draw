@@ -36,8 +36,8 @@ export class BoardStyleService {
   async generateMultipleSchemes(
     board: PlaitBoard | null,
     elements: PlaitElement[],
-    request: string = '',
-    count: number = 3,
+    request = '',
+    count = 3,
     summary?: SelectedElementsSummary
   ): Promise<BoardStyleSchemeOption[]> {
     if (!elements.length) {
@@ -91,7 +91,7 @@ export class BoardStyleService {
     }
   }
 
-  parseSchemes(response: string, count: number = 3): BoardStyleSchemeOption[] {
+  parseSchemes(response: string, count = 3): BoardStyleSchemeOption[] {
     const extractedJson = extractCompleteStyleSchemesJson(response);
     if (extractedJson.status === 'missing') {
       throw new BoardStyleParseError('样式方案生成失败：模型未返回 JSON', 'missing_json');

@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
+import { llmChatService } from './llm-chat-service';
+import { mermaidConverter } from './mermaid-converter';
+import { MermaidStabilizerService } from './mermaid-stabilizer';
+
 jest.mock('./llm-chat-service', () => ({
   llmChatService: {
     repairMermaid: jest.fn(),
@@ -11,10 +15,6 @@ jest.mock('./mermaid-converter', () => ({
     convertToElements: jest.fn(),
   },
 }));
-
-import { llmChatService } from './llm-chat-service';
-import { mermaidConverter } from './mermaid-converter';
-import { MermaidStabilizerService } from './mermaid-stabilizer';
 
 describe('MermaidStabilizerService', () => {
   beforeEach(() => {
