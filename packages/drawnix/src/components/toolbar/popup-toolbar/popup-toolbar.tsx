@@ -249,7 +249,6 @@ export const PopupToolbar = () => {
             {state.hasText && (
               <PopupLinkButton
                 board={board}
-                key={3}
                 title={t('popupToolbar.link')}
               ></PopupLinkButton>
             )}
@@ -257,20 +256,17 @@ export const PopupToolbar = () => {
               <>
                 <ArrowMarkButton
                   board={board}
-                  key={4}
                   end={'source'}
                   endProperty={state.source}
                 />
                 <ArrowMarkButton
                   board={board}
-                  key={5}
                   end={'target'}
                   endProperty={state.target}
                 />
               </>
             )}
-            <MoreOptionsButton board={board} key={6} />
-            <MoreOptionsButton board={board} key={6} />
+            <MoreOptionsButton board={board} />
             <Popover
               open={stylePanelOpen}
               onOpenChange={setStylePanelOpen}

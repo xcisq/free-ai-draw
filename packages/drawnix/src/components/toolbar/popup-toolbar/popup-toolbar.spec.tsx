@@ -178,4 +178,14 @@ describe('PopupToolbar', () => {
     const content = container.querySelector('.popup-ai-style-content');
     expect(content?.className).toContain('attached');
   });
+
+  it('更多操作按钮应只渲染一次，重复渲染后也不应增殖', () => {
+    const { rerender } = render(<PopupToolbar />);
+
+    expect(screen.getAllByRole('button', { name: 'general.moreOptions' })).toHaveLength(1);
+
+    rerender(<PopupToolbar />);
+
+    expect(screen.getAllByRole('button', { name: 'general.moreOptions' })).toHaveLength(1);
+  });
 });
