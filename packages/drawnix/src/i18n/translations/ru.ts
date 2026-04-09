@@ -107,11 +107,24 @@ const ruTranslations: Translations = {
     'Введите сюда описание вашего текста Markdown…',
   'dialog.markdown.preview': 'Предпросмотр',
   'dialog.markdown.insert': 'Вставить',
+  'dialog.svg.description':
+    'Загрузите ZIP-пакет ресурсов с основным SVG и каталогом `components/`. Drawnix отдаст приоритет изображениям `_nobg` и восстановит текст, стрелки и компоненты по координатам основного SVG.',
+  'dialog.svg.syntax': 'Информация о ZIP-пакете',
+  'dialog.svg.placeholder': 'После выбора ZIP-пакета здесь появятся имя SVG и количество компонентов…',
+  'dialog.svg.preview': 'Предпросмотр импорта',
+  'dialog.svg.insert': 'Вставить',
+  'dialog.svg.upload': 'Загрузить ZIP-пакет',
+  'dialog.svg.error.invalidSvg': 'Некорректное содержимое SVG',
+  'dialog.svg.summary.texts': 'Тексты',
+  'dialog.svg.summary.arrows': 'Соединительные стрелки',
+  'dialog.svg.summary.components': 'Компоненты',
+  'dialog.svg.summary.backgrounds': 'Пропущенные фоны',
   'dialog.error.loadMermaid': 'Не удалось загрузить библотеку Mermaid',
 
   // Extra tools menu items
   'extraTools.mermaidToDrawnix': 'Mermaid в Drawnix',
   'extraTools.markdownToDrawnix': 'Markdown в Drawnix',
+  'extraTools.svgToDrawnix': 'SVG в Drawnix',
 
   // Clean confirm dialog
   'cleanConfirm.title': 'Очистить доску',

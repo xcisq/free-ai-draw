@@ -103,11 +103,23 @@ const arTranslations: Translations = {
     "dialog.markdown.placeholder": "اكتب نص Markdown هنا...",
     "dialog.markdown.preview": "معاينة",
     "dialog.markdown.insert": "إدراج",
+    "dialog.svg.description": "ارفع حزمة ZIP تحتوي على ملف SVG الرئيسي ومجلد `components/`. سيعطي Drawnix أولوية لصور `_nobg` ويعيد بناء النصوص والأسهم والمكونات وفق إحداثيات SVG الرئيسي.",
+    "dialog.svg.syntax": "معلومات حزمة ZIP",
+    "dialog.svg.placeholder": "بعد اختيار حزمة ZIP سيظهر هنا اسم ملف SVG الرئيسي وعدد المكونات…",
+    "dialog.svg.preview": "معاينة الاستيراد",
+    "dialog.svg.insert": "إدراج",
+    "dialog.svg.upload": "رفع حزمة ZIP",
+    "dialog.svg.error.invalidSvg": "محتوى SVG غير صالح",
+    "dialog.svg.summary.texts": "النصوص",
+    "dialog.svg.summary.arrows": "أسهم الربط",
+    "dialog.svg.summary.components": "المكونات",
+    "dialog.svg.summary.backgrounds": "الخلفيات المتجاهلة",
     "dialog.error.loadMermaid": "فشل في تحميل مكتبة Mermaid",
 
     // Extra tools menu items
     "extraTools.mermaidToDrawnix": "من Mermaid إلى Drawnix",
     "extraTools.markdownToDrawnix": "من Markdown إلى Drawnix",
+    "extraTools.svgToDrawnix": "من SVG إلى Drawnix",
 
     // Clean confirm dialog
     "cleanConfirm.title": "مسح اللوحة",

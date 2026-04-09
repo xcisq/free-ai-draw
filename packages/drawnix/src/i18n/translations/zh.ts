@@ -102,11 +102,23 @@ const zhTranslations: Translations = {
   'dialog.markdown.placeholder': '在此处编写 Markdown 文本定义…',
   'dialog.markdown.preview': '预览',
   'dialog.markdown.insert': '插入',
+  'dialog.svg.description': '上传 ZIP 资源包。资源包需包含总 SVG 与 `components/` 目录；Drawnix 会优先使用 `_nobg` 组件图，并按总 SVG 坐标重建文本、箭头与组件布局。',
+  'dialog.svg.syntax': 'ZIP 资源信息',
+  'dialog.svg.placeholder': '选择 ZIP 资源包后，将在此显示总 SVG 与组件数量…',
+  'dialog.svg.preview': '导入预览',
+  'dialog.svg.insert': '插入',
+  'dialog.svg.upload': '上传 ZIP 包',
+  'dialog.svg.error.invalidSvg': 'SVG 内容无效，无法解析',
+  'dialog.svg.summary.texts': '文本',
+  'dialog.svg.summary.arrows': '连接箭头',
+  'dialog.svg.summary.components': '组件图',
+  'dialog.svg.summary.backgrounds': '忽略背景',
   'dialog.error.loadMermaid': '加载 Mermaid 库失败',
 
   // Extra tools menu items
   'extraTools.mermaidToDrawnix': 'Mermaid 到 Drawnix',
   'extraTools.markdownToDrawnix': 'Markdown 到 Drawnix',
+  'extraTools.svgToDrawnix': 'SVG 到 Drawnix',
 
   // Clean confirm dialog
   'cleanConfirm.title': '清除画布',

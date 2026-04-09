@@ -104,11 +104,24 @@ const enTranslations: Translations = {
   'dialog.markdown.placeholder': 'Write your Markdown text definition here...',
   'dialog.markdown.preview': 'Preview',
   'dialog.markdown.insert': 'Insert',
+  'dialog.svg.description':
+    'Upload a ZIP asset package that contains the main SVG and a `components/` directory. Drawnix will prefer `_nobg` component images and rebuild texts, arrows, and components using the main SVG coordinate system.',
+  'dialog.svg.syntax': 'ZIP Package Info',
+  'dialog.svg.placeholder': 'After selecting a ZIP package, the main SVG name and component count will appear here…',
+  'dialog.svg.preview': 'Import Preview',
+  'dialog.svg.insert': 'Insert',
+  'dialog.svg.upload': 'Upload ZIP Package',
+  'dialog.svg.error.invalidSvg': 'Invalid SVG content',
+  'dialog.svg.summary.texts': 'Texts',
+  'dialog.svg.summary.arrows': 'Connector arrows',
+  'dialog.svg.summary.components': 'Components',
+  'dialog.svg.summary.backgrounds': 'Ignored backgrounds',
   'dialog.error.loadMermaid': 'Failed to load Mermaid library',
 
   // Extra tools menu items
   'extraTools.mermaidToDrawnix': 'Mermaid to Drawnix',
   'extraTools.markdownToDrawnix': 'Markdown to Drawnix',
+  'extraTools.svgToDrawnix': 'SVG to Drawnix',
 
   // Clean confirm dialog
   'cleanConfirm.title': 'Clear Board',

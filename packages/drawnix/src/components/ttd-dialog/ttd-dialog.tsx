@@ -3,6 +3,7 @@ import { Dialog, DialogContent } from '../dialog/dialog';
 import MermaidToDrawnix from './mermaid-to-drawnix';
 import { DialogType, useDrawnix } from '../../hooks/use-drawnix';
 import MarkdownToDrawnix from './markdown-to-drawnix';
+import SvgToDrawnix from './svg-to-drawnix';
 
 const PaperDrawDialog = lazy(
   () => import('../../paperdraw/components/paperdraw-dialog')
@@ -40,6 +41,19 @@ export const TTDDialog = ({ container }: { container: HTMLElement | null }) => {
       >
         <DialogContent className="Dialog ttd-dialog" container={container}>
           <MarkdownToDrawnix></MarkdownToDrawnix>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={appState.openDialogType === DialogType.svgToDrawnix}
+        onOpenChange={(open) => {
+          setAppState({
+            ...appState,
+            openDialogType: open ? DialogType.svgToDrawnix : null,
+          });
+        }}
+      >
+        <DialogContent className="Dialog ttd-dialog" container={container}>
+          <SvgToDrawnix />
         </DialogContent>
       </Dialog>
       <Dialog

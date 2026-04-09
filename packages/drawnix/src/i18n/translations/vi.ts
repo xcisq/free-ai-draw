@@ -105,11 +105,24 @@ const viTranslations: Translations = {
     'dialog.markdown.placeholder': 'Viết nội dung Markdown của bạn ở đây...',
     'dialog.markdown.preview': 'Xem trước',
     'dialog.markdown.insert': 'Chèn',
+    'dialog.svg.description':
+        'Tải lên gói ZIP chứa SVG chính và thư mục `components/`. Drawnix sẽ ưu tiên ảnh thành phần `_nobg` và dựng lại văn bản, mũi tên cùng bố cục theo hệ tọa độ của SVG chính.',
+    'dialog.svg.syntax': 'Thông tin gói ZIP',
+    'dialog.svg.placeholder': 'Sau khi chọn gói ZIP, tên SVG chính và số lượng thành phần sẽ hiển thị tại đây…',
+    'dialog.svg.preview': 'Xem trước nhập',
+    'dialog.svg.insert': 'Chèn',
+    'dialog.svg.upload': 'Tải lên gói ZIP',
+    'dialog.svg.error.invalidSvg': 'Nội dung SVG không hợp lệ',
+    'dialog.svg.summary.texts': 'Văn bản',
+    'dialog.svg.summary.arrows': 'Mũi tên kết nối',
+    'dialog.svg.summary.components': 'Thành phần',
+    'dialog.svg.summary.backgrounds': 'Nền đã bỏ qua',
     'dialog.error.loadMermaid': 'Không thể tải thư viện Mermaid',
 
     // Extra tools menu items
     'extraTools.mermaidToDrawnix': 'Mermaid sang Drawnix',
     'extraTools.markdownToDrawnix': 'Markdown sang Drawnix',
+    'extraTools.svgToDrawnix': 'SVG sang Drawnix',
 
     // Clean confirm dialog
     'cleanConfirm.title': 'Xóa bảng',

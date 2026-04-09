@@ -107,11 +107,23 @@ export interface Translations {
   'dialog.markdown.placeholder': string;
   'dialog.markdown.preview': string;
   'dialog.markdown.insert': string;
+  'dialog.svg.description': string;
+  'dialog.svg.syntax': string;
+  'dialog.svg.placeholder': string;
+  'dialog.svg.preview': string;
+  'dialog.svg.insert': string;
+  'dialog.svg.upload': string;
+  'dialog.svg.error.invalidSvg': string;
+  'dialog.svg.summary.texts': string;
+  'dialog.svg.summary.arrows': string;
+  'dialog.svg.summary.components': string;
+  'dialog.svg.summary.backgrounds': string;
   'dialog.error.loadMermaid': string;
 
   // Extra tools menu items
   'extraTools.mermaidToDrawnix': string;
   'extraTools.markdownToDrawnix': string;
+  'extraTools.svgToDrawnix': string;
 
   // Clean confirm dialog
   'cleanConfirm.title': string;
