@@ -1,0 +1,196 @@
+[meta] output_dir=/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f
+[meta] provider=qingyun
+
+============================================================
+Paper Method 到 SVG 图标替换流程 (Label 模式增强版 + Box合并)
+============================================================
+Provider: qingyun
+输出目录: /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f
+生图模型: gemini-3.1-flash-image-preview
+SVG模型: gemini-3.1-pro-preview
+SAM提示词: icon,person,robot,animal
+最低置信度: 0.0
+SAM后端: fal
+SAM3 API max_masks: 32
+执行到步骤: 5
+占位符模式: label
+优化迭代次数: 0
+Box合并阈值: 0.001
+============================================================
+============================================================
+步骤一：使用 LLM 生成学术风格图片
+============================================================
+Provider: qingyun
+模型: gemini-3.1-flash-image-preview
+发送请求到: https://api.qingyuntop.top/v1
+图片已保存: /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/figure.png
+
+============================================================
+步骤二：SAM3 分割 + 灰色填充+黑色边框+序号标记
+============================================================
+原图尺寸: 1408 x 768
+使用的 prompts: ['icon', 'person', 'robot', 'animal']
+SAM3 remote API 模式: max_masks=32
+  请求图像压缩: 1408x768 -> 1024x559, bytes=185792
+
+  正在检测: 'icon'
+    对象 1: (280, 146, 313, 180), score=0.550
+    对象 2: (280, 318, 313, 353), score=0.546
+  'icon' 检测到 2 个有效对象
+
+  正在检测: 'person'
+    对象 1: (36, 571, 116, 677), score=0.912
+    对象 2: (164, 324, 231, 418), score=0.911
+    对象 3: (645, 368, 708, 469), score=0.909
+    对象 4: (162, 134, 230, 226), score=0.905
+    对象 5: (34, 323, 91, 417), score=0.905
+    对象 6: (1244, 331, 1311, 431), score=0.901
+    对象 7: (39, 136, 110, 224), score=0.899
+    对象 8: (436, 190, 502, 290), score=0.897
+    对象 9: (1047, 399, 1125, 539), score=0.895
+    对象 10: (810, 368, 867, 469), score=0.895
+    对象 11: (1185, 140, 1276, 251), score=0.893
+    对象 12: (1171, 566, 1243, 697), score=0.892
+    对象 13: (1311, 568, 1383, 697), score=0.887
+    对象 14: (807, 316, 859, 386), score=0.886
+    对象 15: (662, 322, 716, 385), score=0.573
+  'person' 检测到 15 个有效对象
+
+  正在检测: 'robot'
+    对象 1: (727, 299, 795, 380), score=0.916
+    对象 2: (662, 322, 716, 385), score=0.889
+  'robot' 检测到 2 个有效对象
+
+  正在检测: 'animal'
+  'animal' 检测到 0 个有效对象
+
+总计检测: 19 个对象 (来自 4 个 prompts)
+
+  合并重叠的boxes (阈值: 0.001)...
+    迭代 1: 合并 box 4 和 box 16 (重叠比例: 0.23)
+    迭代 2: 合并 box 10 和 box 14 (重叠比例: 0.24)
+    迭代 3: 合并 box 14 和 box 15 (重叠比例: 1.00)
+  合并完成: 19 -> 16 (合并了 3 个)
+
+  合并后的boxes:
+    <AF>01: (280, 146, 313, 180)
+    <AF>02: (280, 318, 313, 353)
+    <AF>03: (36, 571, 116, 677)
+    <AF>04: (164, 324, 231, 418)
+    <AF>05: (162, 134, 230, 226)
+    <AF>06: (34, 323, 91, 417)
+    <AF>07: (1244, 331, 1311, 431)
+    <AF>08: (39, 136, 110, 224)
+    <AF>09: (436, 190, 502, 290)
+    <AF>10: (1047, 399, 1125, 539)
+    <AF>11: (1185, 140, 1276, 251)
+    <AF>12: (1171, 566, 1243, 697)
+    <AF>13: (1311, 568, 1383, 697)
+    <AF>14: (727, 299, 795, 380)
+    <AF>15: (807, 316, 867, 469)
+    <AF>16: (645, 322, 716, 469)
+
+  绘制 samed.png (使用 16 个boxes)...
+标记图片已保存: /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/samed.png
+Box 信息已保存: /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/boxlib.json
+
+检测到 16 个图标
+
+============================================================
+步骤三：裁切 + RMBG2 去背景
+============================================================
+从 HuggingFace 加载 RMBG-2.0 模型...
+检测到 HF_TOKEN，使用鉴权访问 gated 模型。
+/Users/bytedance/miniconda3/lib/python3.9/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/Users/bytedance/miniconda3/lib/python3.9/site-packages/timm/models/registry.py:4: FutureWarning: Importing from timm.models.registry is deprecated, please import via timm.models
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.models", FutureWarning)
+  <AF>01: 裁切并去背景完成 -> /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF01_nobg.png
+  <AF>02: 裁切并去背景完成 -> /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF02_nobg.png
+  <AF>03: 裁切并去背景完成 -> /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF03_nobg.png
+  <AF>04: 裁切并去背景完成 -> /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF04_nobg.png
+  <AF>05: 裁切并去背景完成 -> /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF05_nobg.png
+  <AF>06: 裁切并去背景完成 -> /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF06_nobg.png
+  <AF>07: 裁切并去背景完成 -> /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF07_nobg.png
+  <AF>08: 裁切并去背景完成 -> /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF08_nobg.png
+  <AF>09: 裁切并去背景完成 -> /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF09_nobg.png
+  <AF>10: 裁切并去背景完成 -> /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF10_nobg.png
+  <AF>11: 裁切并去背景完成 -> /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF11_nobg.png
+  <AF>12: 裁切并去背景完成 -> /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF12_nobg.png
+  <AF>13: 裁切并去背景完成 -> /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF13_nobg.png
+  <AF>14: 裁切并去背景完成 -> /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF14_nobg.png
+  <AF>15: 裁切并去背景完成 -> /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF15_nobg.png
+  <AF>16: 裁切并去背景完成 -> /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF16_nobg.png
+
+============================================================
+步骤四：多模态调用生成 SVG
+============================================================
+Provider: qingyun
+模型: gemini-3.1-pro-preview
+占位符模式: label
+原图尺寸: 1408 x 768
+发送多模态请求到: https://api.qingyuntop.top/v1
+
+--------------------------------------------------
+步骤 4.5：SVG 语法验证（使用 lxml XML 解析器）
+--------------------------------------------------
+  发现 1 个语法错误
+
+  --------------------------------------------------
+  检测到 SVG 语法错误，调用 LLM 修复...
+  --------------------------------------------------
+    行 170, 列 12: Opening and ending tag mismatch: marker line 168 and defs
+
+  修复尝试 1/3...
+[Qingyun] OpenAI 兼容文本接口失败，回退 Gemini 原生接口: ('Connection aborted.', ConnectionResetError(54, 'Connection reset by peer'))
+    修复成功！SVG 语法验证通过
+SVG 模板已保存: /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/template.svg
+
+============================================================
+步骤 4.6：LLM 优化 SVG（位置和样式对齐）
+============================================================
+Provider: qingyun
+模型: gemini-3.1-pro-preview
+最大迭代次数: 0
+  迭代次数为 0，跳过 LLM 优化
+  直接复制模板: /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/template.svg -> /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/optimized_template.svg
+
+--------------------------------------------------
+步骤 4.7：坐标系对齐
+--------------------------------------------------
+原图尺寸: 1408 x 768
+SVG 尺寸: 1408.0 x 768.0
+尺寸匹配，使用 1:1 坐标映射
+
+============================================================
+步骤五：图标替换到 SVG
+============================================================
+匹配模式: 序号匹配
+  <AF>01: 追加到 SVG at (280.0, 146.0) (未找到匹配的占位符)
+  <AF>02: 追加到 SVG at (280.0, 318.0) (未找到匹配的占位符)
+  <AF>03: 追加到 SVG at (36.0, 571.0) (未找到匹配的占位符)
+  <AF>04: 追加到 SVG at (164.0, 324.0) (未找到匹配的占位符)
+  <AF>05: 追加到 SVG at (162.0, 134.0) (未找到匹配的占位符)
+  <AF>06: 追加到 SVG at (34.0, 323.0) (未找到匹配的占位符)
+  <AF>07: 追加到 SVG at (1244.0, 331.0) (未找到匹配的占位符)
+  <AF>08: 追加到 SVG at (39.0, 136.0) (未找到匹配的占位符)
+  <AF>09: 追加到 SVG at (436.0, 190.0) (未找到匹配的占位符)
+  <AF>10: 追加到 SVG at (1047.0, 399.0) (未找到匹配的占位符)
+  <AF>11: 追加到 SVG at (1185.0, 140.0) (未找到匹配的占位符)
+  <AF>12: 追加到 SVG at (1171.0, 566.0) (未找到匹配的占位符)
+  <AF>13: 追加到 SVG at (1311.0, 568.0) (未找到匹配的占位符)
+  <AF>14: 追加到 SVG at (727.0, 299.0) (未找到匹配的占位符)
+  <AF>15: 追加到 SVG at (807.0, 316.0) (未找到匹配的占位符)
+  <AF>16: 追加到 SVG at (645.0, 322.0) (未找到匹配的占位符)
+最终 SVG 已保存: /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/final.svg
+
+============================================================
+流程完成！
+============================================================
+原始图片: /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/figure.png
+标记图片: /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/samed.png
+Box信息: /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/boxlib.json
+图标数量: 16
+SVG模板: /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/template.svg
+优化后模板: /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/optimized_template.svg
+最终SVG: /Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/final.svg

@@ -15,6 +15,10 @@ interface SvgImportTextItem {
   text: string;
   x: number;
   y: number;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
   fontSize: number;
   fontFamily?: string;
   textAnchor?: string;
@@ -210,23 +214,11 @@ const hasDiagonalArrowHead = (d: string) => /l-?\d+\.?\d*,-?\d+\.?\d*/i.test(d)
   || /m-?\d+\.?\d*,-?\d+\.?\d*/i.test(d);
 
 const buildTextElement = (item: SvgImportTextItem) => {
-  const width = Math.max(item.text.length * item.fontSize * 0.6, item.fontSize);
-  const height = Math.max(item.fontSize * 1.4, 24);
-  let left = item.x;
-
-  if (item.textAnchor === 'middle') {
-    left = item.x - width / 2;
-  } else if (item.textAnchor === 'end') {
-    left = item.x - width;
-  }
-
-  const top = item.y - item.fontSize;
-
   const element = createGeometryElementWithText(
     BasicShapes.text,
     [
-      [left, top],
-      [left + width, top + height],
+      [item.left, item.top],
+      [item.left + item.width, item.top + item.height],
     ],
     item.text,
     {
@@ -274,13 +266,17 @@ const serializeSvgNodes = (
   root: SVGSVGElement,
   nodes: Element[],
   width: number,
-  height: number
+  height: number,
+  viewBox = { x: 0, y: 0, width, height }
 ) => {
   const nextRoot = document.createElementNS(SVG_NS, 'svg');
   nextRoot.setAttribute('xmlns', SVG_NS);
   nextRoot.setAttribute('width', `${width}`);
   nextRoot.setAttribute('height', `${height}`);
-  nextRoot.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  nextRoot.setAttribute(
+    'viewBox',
+    `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`
+  );
 
   const styleNodes = Array.from(root.querySelectorAll('style'));
   for (const styleNode of styleNodes) {
@@ -313,6 +309,10 @@ const collectTextNodes = (
       text,
       x: parseNumber(node.getAttribute('x')),
       y: parseNumber(node.getAttribute('y')),
+      left: 0,
+      top: 0,
+      width: 0,
+      height: 0,
       fontSize: parseNumber(style['font-size'], DEFAULT_FONT_SIZE),
       fontFamily: style['font-family'] || DEFAULT_FONT_FAMILY,
       textAnchor: style['text-anchor'] || 'start',
@@ -320,7 +320,38 @@ const collectTextNodes = (
     });
   }
 
-  return texts;
+  return texts.map((item) => {
+    const textNode = Array.from(root.querySelectorAll('text')).find(
+      (node) => (node.getAttribute('id') || '') === item.id
+    );
+    const bbox = textNode ? measureBBoxByDom(root, textNode) : null;
+    if (bbox && bbox.width > 0 && bbox.height > 0) {
+      return {
+        ...item,
+        left: bbox.x,
+        top: bbox.y,
+        width: bbox.width,
+        height: bbox.height,
+      };
+    }
+
+    const estimatedWidth = Math.max(item.text.length * item.fontSize * 0.6, item.fontSize);
+    const estimatedHeight = Math.max(item.fontSize * 1.4, 24);
+    let estimatedLeft = item.x;
+    if (item.textAnchor === 'middle') {
+      estimatedLeft = item.x - estimatedWidth / 2;
+    } else if (item.textAnchor === 'end') {
+      estimatedLeft = item.x - estimatedWidth;
+    }
+
+    return {
+      ...item,
+      left: estimatedLeft,
+      top: item.y - item.fontSize,
+      width: estimatedWidth,
+      height: estimatedHeight,
+    };
+  });
 };
 
 const extractMainArrowPointsFromPath = (d: string): Point[] => {
@@ -476,6 +507,18 @@ const measureBBoxByDom = (root: SVGSVGElement, node: Element) => {
   }
 };
 
+const expandBBox = (
+  bbox: { x: number; y: number; width: number; height: number },
+  padding: number
+) => {
+  return {
+    x: bbox.x - padding,
+    y: bbox.y - padding,
+    width: bbox.width + padding * 2,
+    height: bbox.height + padding * 2,
+  };
+};
+
 const collectPackageBoundImages = (
   root: SVGSVGElement,
   componentAssets: SvgAssetPackage['componentAssets'],
@@ -544,12 +587,20 @@ const collectArrowItems = (
       } else if (classification === 'preserve-arrow') {
         const bbox = measureBBoxByDom(root, node);
         if (bbox && bbox.width > 0 && bbox.height > 0) {
+          const strokeWidth = parseNumber(style['stroke-width'], DEFAULT_STROKE_WIDTH);
+          const paddedBBox = expandBBox(bbox, Math.max(4, strokeWidth));
           preserved.push({
             id: id || `svg-arrow-image-${preserved.length + 1}`,
-            url: serializeSvgNodes(root, [node], bbox.width, bbox.height),
+            url: serializeSvgNodes(
+              root,
+              [node],
+              paddedBBox.width,
+              paddedBBox.height,
+              paddedBBox
+            ),
             points: [
-              [bbox.x, bbox.y],
-              [bbox.x + bbox.width, bbox.y + bbox.height],
+              [paddedBBox.x, paddedBBox.y],
+              [paddedBBox.x + paddedBBox.width, paddedBBox.y + paddedBBox.height],
             ],
           });
           if (id) {

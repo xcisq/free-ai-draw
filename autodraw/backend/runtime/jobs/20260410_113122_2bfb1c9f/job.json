@@ -1,0 +1,532 @@
+{
+  "job_id": "20260410_113122_2bfb1c9f",
+  "request_payload": {
+    "method_text": "科研论文中的方法论图表，包括流程图、系统架构图、实验管线图等，是传递研究思路和技术方案的核心载体。一幅高质量的科研图表不仅能够帮助审稿人快速把握论文逻辑，还直接影响论文的可读性与发表竞争力。然而，当前科研人员在制作此类图表时普遍面临\"高投入、低效率\"的困境。一方面，传统绘图工具（如 Visio、PowerPoint）操作繁琐，研究者需要耗费大量时间在元素排列、连线调整和风格统一等低层次任务上；另一方面，虽然近年来涌现了 [Draw.io](http://Draw.io)、Excalidraw 等在线绘图平台，但这些工具的核心范式仍停留在\"手动拖拽\"阶段，缺乏对科研绘图场景的语义级理解与智能化辅助能力。\n\n与此同时，大语言模型（Large Language Model, LLM）和多模态模型的快速发展为\"自然语言驱动绘图\"提供了新的技术可能。研究者已开始尝试借助 GPT-4[7]、Claude 等通用大模型生成绘图代码或描述，但在实践中面临显著的\"提示词瓶颈\"问题，即用户往往需要反复调试 Prompt 才能获得接近预期的输出结果。更为关键的是，近期 ScImage[1] 和 SciFlow-Bench[2] 等评估工作已经表明，即使经过精心设计的提示词，当前多模态模型在科研图表生成中的空间关系准确性、结构可恢复性等指标上仍存在明显不足，生成结果缺乏结构化的可编辑性，难以在学术场景中直接应用。\n\n基于上述背景，本课题提出构建一套融合「提示词智能生成、AI 智能体协作与人工交互精修」的一体化科研绘图系统。该系统以开源白板工具 Drawnix（基于 Plait 绘图框架）为技术平台，旨在实现从用户自然语言需求到可编辑矢量图表的端到端智能化流程。研究的核心目标包括三个方面：其一，降低科研人员使用 AI 绘图的提示词编写门槛；其二，通过多 Agent 协作机制覆盖意图解析、布局优化和风格迁移的完整链路；其三，利用 Plait JSON 原生格式实现零损耗渲染与全属性可编辑。\n\n本课题的研究意义体现在以下几个层面。在应用层面，系统将显著提升科研图表的制作效率，使研究者能够将更多精力聚焦于科研本身，而非繁琐的图表绘制过程。在学术层面，本研究探索了大语言模型与交互式绘图工具深度融合的技术范式，为「自然语言到结构化图表」这一新兴方向提供了系统性的方法论贡献。在工程层面，本课题基于开源白板工具 Drawnix 进行开发，研究成果可直接回馈至开源社区，为同类工具的 AI 能力增强提供可复用的技术方案与实践参考。",
+    "provider": "qingyun",
+    "api_key": null,
+    "base_url": null,
+    "image_model": null,
+    "image_size": "4K",
+    "svg_model": null,
+    "sam_prompt": "icon,person,robot,animal",
+    "min_score": 0.0,
+    "sam_backend": "fal",
+    "sam_api_url": null,
+    "sam_api_key": null,
+    "sam_max_masks": 32,
+    "rmbg_model_path": null,
+    "stop_after": 5,
+    "placeholder_mode": "label",
+    "optimize_iterations": 0,
+    "merge_threshold": 0.001,
+    "reference_image_path": null
+  },
+  "job_dir": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f",
+  "log_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/run.log",
+  "status": "succeeded",
+  "created_at": "2026-04-10T11:31:22.188336",
+  "started_at": "2026-04-10T11:31:22.189915",
+  "finished_at": "2026-04-10T11:40:06.912016",
+  "error_message": null,
+  "artifacts": [
+    {
+      "name": "figure.png",
+      "path": "figure.png",
+      "kind": "figure",
+      "size_bytes": 1447653,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/figure.png"
+    },
+    {
+      "name": "samed.png",
+      "path": "samed.png",
+      "kind": "samed",
+      "size_bytes": 1232653,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/samed.png"
+    },
+    {
+      "name": "boxlib.json",
+      "path": "boxlib.json",
+      "kind": "boxlib",
+      "size_bytes": 3082,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/boxlib.json"
+    },
+    {
+      "name": "template.svg",
+      "path": "template.svg",
+      "kind": "template_svg",
+      "size_bytes": 13098,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/template.svg"
+    },
+    {
+      "name": "optimized_template.svg",
+      "path": "optimized_template.svg",
+      "kind": "optimized_template_svg",
+      "size_bytes": 13098,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/optimized_template.svg"
+    },
+    {
+      "name": "final.svg",
+      "path": "final.svg",
+      "kind": "final_svg",
+      "size_bytes": 373357,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/final.svg"
+    },
+    {
+      "name": "run.log",
+      "path": "run.log",
+      "kind": "log",
+      "size_bytes": 12226,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/run.log"
+    },
+    {
+      "name": "manifest.json",
+      "path": "manifest.json",
+      "kind": "manifest",
+      "size_bytes": 21972,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/manifest.json"
+    },
+    {
+      "name": "icon_AF01.png",
+      "path": "icons/icon_AF01.png",
+      "kind": "icon",
+      "size_bytes": 2480,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF01.png"
+    },
+    {
+      "name": "icon_AF01_nobg.png",
+      "path": "icons/icon_AF01_nobg.png",
+      "kind": "icon",
+      "size_bytes": 2970,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF01_nobg.png"
+    },
+    {
+      "name": "icon_AF02.png",
+      "path": "icons/icon_AF02.png",
+      "kind": "icon",
+      "size_bytes": 2520,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF02.png"
+    },
+    {
+      "name": "icon_AF02_nobg.png",
+      "path": "icons/icon_AF02_nobg.png",
+      "kind": "icon",
+      "size_bytes": 3017,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF02_nobg.png"
+    },
+    {
+      "name": "icon_AF03.png",
+      "path": "icons/icon_AF03.png",
+      "kind": "icon",
+      "size_bytes": 16637,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF03.png"
+    },
+    {
+      "name": "icon_AF03_nobg.png",
+      "path": "icons/icon_AF03_nobg.png",
+      "kind": "icon",
+      "size_bytes": 19480,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF03_nobg.png"
+    },
+    {
+      "name": "icon_AF04.png",
+      "path": "icons/icon_AF04.png",
+      "kind": "icon",
+      "size_bytes": 13719,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF04.png"
+    },
+    {
+      "name": "icon_AF04_nobg.png",
+      "path": "icons/icon_AF04_nobg.png",
+      "kind": "icon",
+      "size_bytes": 15377,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF04_nobg.png"
+    },
+    {
+      "name": "icon_AF05.png",
+      "path": "icons/icon_AF05.png",
+      "kind": "icon",
+      "size_bytes": 13307,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF05.png"
+    },
+    {
+      "name": "icon_AF05_nobg.png",
+      "path": "icons/icon_AF05_nobg.png",
+      "kind": "icon",
+      "size_bytes": 15889,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF05_nobg.png"
+    },
+    {
+      "name": "icon_AF06.png",
+      "path": "icons/icon_AF06.png",
+      "kind": "icon",
+      "size_bytes": 11251,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF06.png"
+    },
+    {
+      "name": "icon_AF06_nobg.png",
+      "path": "icons/icon_AF06_nobg.png",
+      "kind": "icon",
+      "size_bytes": 13233,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF06_nobg.png"
+    },
+    {
+      "name": "icon_AF07.png",
+      "path": "icons/icon_AF07.png",
+      "kind": "icon",
+      "size_bytes": 14602,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF07.png"
+    },
+    {
+      "name": "icon_AF07_nobg.png",
+      "path": "icons/icon_AF07_nobg.png",
+      "kind": "icon",
+      "size_bytes": 16482,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF07_nobg.png"
+    },
+    {
+      "name": "icon_AF08.png",
+      "path": "icons/icon_AF08.png",
+      "kind": "icon",
+      "size_bytes": 13059,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF08.png"
+    },
+    {
+      "name": "icon_AF08_nobg.png",
+      "path": "icons/icon_AF08_nobg.png",
+      "kind": "icon",
+      "size_bytes": 14636,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF08_nobg.png"
+    },
+    {
+      "name": "icon_AF09.png",
+      "path": "icons/icon_AF09.png",
+      "kind": "icon",
+      "size_bytes": 13797,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF09.png"
+    },
+    {
+      "name": "icon_AF09_nobg.png",
+      "path": "icons/icon_AF09_nobg.png",
+      "kind": "icon",
+      "size_bytes": 15807,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF09_nobg.png"
+    },
+    {
+      "name": "icon_AF10.png",
+      "path": "icons/icon_AF10.png",
+      "kind": "icon",
+      "size_bytes": 20075,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF10.png"
+    },
+    {
+      "name": "icon_AF10_nobg.png",
+      "path": "icons/icon_AF10_nobg.png",
+      "kind": "icon",
+      "size_bytes": 22558,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF10_nobg.png"
+    },
+    {
+      "name": "icon_AF11.png",
+      "path": "icons/icon_AF11.png",
+      "kind": "icon",
+      "size_bytes": 19101,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF11.png"
+    },
+    {
+      "name": "icon_AF11_nobg.png",
+      "path": "icons/icon_AF11_nobg.png",
+      "kind": "icon",
+      "size_bytes": 22057,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF11_nobg.png"
+    },
+    {
+      "name": "icon_AF12.png",
+      "path": "icons/icon_AF12.png",
+      "kind": "icon",
+      "size_bytes": 18036,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF12.png"
+    },
+    {
+      "name": "icon_AF12_nobg.png",
+      "path": "icons/icon_AF12_nobg.png",
+      "kind": "icon",
+      "size_bytes": 20683,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF12_nobg.png"
+    },
+    {
+      "name": "icon_AF13.png",
+      "path": "icons/icon_AF13.png",
+      "kind": "icon",
+      "size_bytes": 18255,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF13.png"
+    },
+    {
+      "name": "icon_AF13_nobg.png",
+      "path": "icons/icon_AF13_nobg.png",
+      "kind": "icon",
+      "size_bytes": 21015,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF13_nobg.png"
+    },
+    {
+      "name": "icon_AF14.png",
+      "path": "icons/icon_AF14.png",
+      "kind": "icon",
+      "size_bytes": 12445,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF14.png"
+    },
+    {
+      "name": "icon_AF14_nobg.png",
+      "path": "icons/icon_AF14_nobg.png",
+      "kind": "icon",
+      "size_bytes": 14721,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF14_nobg.png"
+    },
+    {
+      "name": "icon_AF15.png",
+      "path": "icons/icon_AF15.png",
+      "kind": "icon",
+      "size_bytes": 21111,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF15.png"
+    },
+    {
+      "name": "icon_AF15_nobg.png",
+      "path": "icons/icon_AF15_nobg.png",
+      "kind": "icon",
+      "size_bytes": 23708,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF15_nobg.png"
+    },
+    {
+      "name": "icon_AF16.png",
+      "path": "icons/icon_AF16.png",
+      "kind": "icon",
+      "size_bytes": 23282,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF16.png"
+    },
+    {
+      "name": "icon_AF16_nobg.png",
+      "path": "icons/icon_AF16_nobg.png",
+      "kind": "icon",
+      "size_bytes": 26869,
+      "download_url": "/api/jobs/20260410_113122_2bfb1c9f/artifacts/icons/icon_AF16_nobg.png"
+    }
+  ],
+  "pipeline_result": {
+    "figure_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/figure.png",
+    "samed_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/samed.png",
+    "boxlib_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/boxlib.json",
+    "icon_infos": [
+      {
+        "id": 0,
+        "label": "<AF>01",
+        "label_clean": "AF01",
+        "x1": 280,
+        "y1": 146,
+        "x2": 313,
+        "y2": 180,
+        "width": 33,
+        "height": 34,
+        "crop_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF01.png",
+        "nobg_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF01_nobg.png"
+      },
+      {
+        "id": 1,
+        "label": "<AF>02",
+        "label_clean": "AF02",
+        "x1": 280,
+        "y1": 318,
+        "x2": 313,
+        "y2": 353,
+        "width": 33,
+        "height": 35,
+        "crop_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF02.png",
+        "nobg_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF02_nobg.png"
+      },
+      {
+        "id": 2,
+        "label": "<AF>03",
+        "label_clean": "AF03",
+        "x1": 36,
+        "y1": 571,
+        "x2": 116,
+        "y2": 677,
+        "width": 80,
+        "height": 106,
+        "crop_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF03.png",
+        "nobg_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF03_nobg.png"
+      },
+      {
+        "id": 3,
+        "label": "<AF>04",
+        "label_clean": "AF04",
+        "x1": 164,
+        "y1": 324,
+        "x2": 231,
+        "y2": 418,
+        "width": 67,
+        "height": 94,
+        "crop_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF04.png",
+        "nobg_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF04_nobg.png"
+      },
+      {
+        "id": 4,
+        "label": "<AF>05",
+        "label_clean": "AF05",
+        "x1": 162,
+        "y1": 134,
+        "x2": 230,
+        "y2": 226,
+        "width": 68,
+        "height": 92,
+        "crop_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF05.png",
+        "nobg_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF05_nobg.png"
+      },
+      {
+        "id": 5,
+        "label": "<AF>06",
+        "label_clean": "AF06",
+        "x1": 34,
+        "y1": 323,
+        "x2": 91,
+        "y2": 417,
+        "width": 57,
+        "height": 94,
+        "crop_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF06.png",
+        "nobg_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF06_nobg.png"
+      },
+      {
+        "id": 6,
+        "label": "<AF>07",
+        "label_clean": "AF07",
+        "x1": 1244,
+        "y1": 331,
+        "x2": 1311,
+        "y2": 431,
+        "width": 67,
+        "height": 100,
+        "crop_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF07.png",
+        "nobg_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF07_nobg.png"
+      },
+      {
+        "id": 7,
+        "label": "<AF>08",
+        "label_clean": "AF08",
+        "x1": 39,
+        "y1": 136,
+        "x2": 110,
+        "y2": 224,
+        "width": 71,
+        "height": 88,
+        "crop_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF08.png",
+        "nobg_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF08_nobg.png"
+      },
+      {
+        "id": 8,
+        "label": "<AF>09",
+        "label_clean": "AF09",
+        "x1": 436,
+        "y1": 190,
+        "x2": 502,
+        "y2": 290,
+        "width": 66,
+        "height": 100,
+        "crop_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF09.png",
+        "nobg_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF09_nobg.png"
+      },
+      {
+        "id": 9,
+        "label": "<AF>10",
+        "label_clean": "AF10",
+        "x1": 1047,
+        "y1": 399,
+        "x2": 1125,
+        "y2": 539,
+        "width": 78,
+        "height": 140,
+        "crop_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF10.png",
+        "nobg_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF10_nobg.png"
+      },
+      {
+        "id": 10,
+        "label": "<AF>11",
+        "label_clean": "AF11",
+        "x1": 1185,
+        "y1": 140,
+        "x2": 1276,
+        "y2": 251,
+        "width": 91,
+        "height": 111,
+        "crop_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF11.png",
+        "nobg_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF11_nobg.png"
+      },
+      {
+        "id": 11,
+        "label": "<AF>12",
+        "label_clean": "AF12",
+        "x1": 1171,
+        "y1": 566,
+        "x2": 1243,
+        "y2": 697,
+        "width": 72,
+        "height": 131,
+        "crop_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF12.png",
+        "nobg_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF12_nobg.png"
+      },
+      {
+        "id": 12,
+        "label": "<AF>13",
+        "label_clean": "AF13",
+        "x1": 1311,
+        "y1": 568,
+        "x2": 1383,
+        "y2": 697,
+        "width": 72,
+        "height": 129,
+        "crop_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF13.png",
+        "nobg_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF13_nobg.png"
+      },
+      {
+        "id": 13,
+        "label": "<AF>14",
+        "label_clean": "AF14",
+        "x1": 727,
+        "y1": 299,
+        "x2": 795,
+        "y2": 380,
+        "width": 68,
+        "height": 81,
+        "crop_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF14.png",
+        "nobg_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF14_nobg.png"
+      },
+      {
+        "id": 14,
+        "label": "<AF>15",
+        "label_clean": "AF15",
+        "x1": 807,
+        "y1": 316,
+        "x2": 867,
+        "y2": 469,
+        "width": 60,
+        "height": 153,
+        "crop_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF15.png",
+        "nobg_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF15_nobg.png"
+      },
+      {
+        "id": 15,
+        "label": "<AF>16",
+        "label_clean": "AF16",
+        "x1": 645,
+        "y1": 322,
+        "x2": 716,
+        "y2": 469,
+        "width": 71,
+        "height": 147,
+        "crop_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF16.png",
+        "nobg_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/icons/icon_AF16_nobg.png"
+      }
+    ],
+    "template_svg_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/template.svg",
+    "optimized_template_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/optimized_template.svg",
+    "final_svg_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/final.svg"
+  },
+  "bundle_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_113122_2bfb1c9f/bundle.zip"
+}

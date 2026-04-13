@@ -52,6 +52,43 @@ jest.mock('@plait/draw', () => ({
 }));
 
 describe('convertSvgToDrawnix', () => {
+  const originalGetBBox = (globalThis as any).SVGElement?.prototype?.getBBox;
+
+  beforeAll(() => {
+    if (!(globalThis as any).SVGElement) {
+      return;
+    }
+    (globalThis as any).SVGElement.prototype.getBBox = function () {
+      const encoded = this.getAttribute?.('data-bbox');
+      if (encoded) {
+        const [x, y, width, height] = encoded
+          .split(/[\s,]+/)
+          .map((item: string) => Number.parseFloat(item));
+        return { x, y, width, height };
+      }
+      const tagName = this.tagName?.toLowerCase?.() || '';
+      if (tagName === 'text') {
+        const x = Number(this.getAttribute?.('x') || 0);
+        const fontSize = Number(this.getAttribute?.('font-size') || 16);
+        const text = this.textContent || '';
+        return {
+          x,
+          y: Number(this.getAttribute?.('y') || 0) - fontSize,
+          width: Math.max(text.length * fontSize * 0.6, fontSize),
+          height: Math.max(fontSize * 1.2, 20),
+        };
+      }
+      return { x: 0, y: 0, width: 10, height: 10 };
+    };
+  });
+
+  afterAll(() => {
+    if (!(globalThis as any).SVGElement) {
+      return;
+    }
+    (globalThis as any).SVGElement.prototype.getBBox = originalGetBBox;
+  });
+
   it('extracts text, converts connector arrow, and keeps component image on svg coordinates', () => {
     const input = `
       <svg xmlns="http://www.w3.org/2000/svg" width="400" height="200">
@@ -63,7 +100,7 @@ describe('convertSvgToDrawnix', () => {
         <g>
           <rect id="bg" width="100%" height="100%" fill="#ffffff" />
           <rect id="box" class="fill-box" x="20" y="20" width="120" height="80" />
-          <text id="label" class="text-label" x="80" y="70">Hello</text>
+          <text id="label" class="text-label" x="80" y="70" data-bbox="32 44 96 26">Hello</text>
           <path id="arrow" class="stroke-main" d="m170,60l110,0l-5,-5m5,5l-5,5" />
           <image id="icon_AF04" x="300" y="10" width="50" height="60" href="data:image/png;base64,old" />
         </g>
@@ -115,6 +152,10 @@ describe('convertSvgToDrawnix', () => {
         type: 'geometry',
         shape: 'text',
         text: 'Hello',
+        points: [
+          [32, 44],
+          [128, 70],
+        ],
       })
     );
   });
@@ -122,8 +163,11 @@ describe('convertSvgToDrawnix', () => {
   it('keeps unsupported path arrows inside component image', () => {
     const input = `
       <svg xmlns="http://www.w3.org/2000/svg" width="320" height="180">
+        <style>
+          .fill-arrow { fill: #E8E3D9; stroke: #111; stroke-width: 4; }
+        </style>
         <g>
-          <path id="fancy-arrow" d="M10 50 Q 60 0 120 50" fill="none" stroke="#111" />
+          <path id="fancy-arrow" class="fill-arrow" data-bbox="10 20 120 50" d="M10 50 Q 60 0 120 50" />
         </g>
       </svg>
     `;
@@ -134,10 +178,11 @@ describe('convertSvgToDrawnix', () => {
     expect(result.summary.componentCount).toBe(1);
     expect(result.elements[0]).toEqual(
       expect.objectContaining({
-        id: 'svg-base-layer',
+        id: 'fancy-arrow',
         type: 'image',
       })
     );
+    expect(decodeURIComponent((result.elements[0] as any).url)).toContain('viewBox="6 16 128 58"');
   });
 
   it('parses zip package and prefers _nobg component asset', async () => {

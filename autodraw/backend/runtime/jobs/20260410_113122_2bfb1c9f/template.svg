@@ -1,0 +1,182 @@
+<svg viewBox="0 0 1408 768" width="1408" height="768" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1408" height="768" fill="#f0f2f5" />
+
+  <!-- Left Column: CURRENT STATUS -->
+  <rect x="10" y="10" width="340" height="748" rx="15" fill="#e9ecef" stroke="#ced4da" stroke-width="2" />
+  <path d="M10 25 A 15 15 0 0 1 25 10 H 335 A 15 15 0 0 1 350 25 V 85 H 10 Z" fill="#2c3e50" />
+  <text x="180" y="45" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="22">CURRENT STATUS:</text>
+  <text x="180" y="75" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="22">HIGH-EFFORT DRAWING</text>
+
+  <!-- Left Section 1: Visio/PowerPoint -->
+  <g id="AF08" transform="translate(25, 170)">
+    <rect width="70" height="120" fill="#808080" stroke="black" stroke-width="2"/>
+    <text x="35" y="60" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="14">&lt;AF&gt;08</text>
+  </g>
+  <g id="AF05" transform="translate(130, 160)">
+    <rect width="80" height="130" fill="#808080" stroke="black" stroke-width="2"/>
+    <text x="40" y="65" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="14">&lt;AF&gt;05</text>
+  </g>
+  <g id="AF01" transform="translate(230, 190)">
+    <rect width="40" height="40" fill="#808080" stroke="black" stroke-width="2"/>
+    <text x="20" y="20" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="10">&lt;AF&gt;01</text>
+  </g>
+  <text x="180" y="325" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="18">Visio/PowerPoint</text>
+  <text x="280" y="250" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="16">High Time</text>
+  <text x="280" y="270" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="16">Investment</text>
+
+  <!-- Left Section 2: Draw.io -->
+  <g id="AF06" transform="translate(25, 420)">
+    <rect width="70" height="120" fill="#808080" stroke="black" stroke-width="2"/>
+    <text x="35" y="60" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="14">&lt;AF&gt;06</text>
+  </g>
+  <g id="AF04" transform="translate(120, 420)">
+    <rect width="100" height="120" fill="#808080" stroke="black" stroke-width="2"/>
+    <text x="50" y="60" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="14">&lt;AF&gt;04</text>
+  </g>
+  <g id="AF02" transform="translate(230, 420)">
+    <rect width="40" height="40" fill="#808080" stroke="black" stroke-width="2"/>
+    <text x="20" y="20" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="10">&lt;AF&gt;02</text>
+  </g>
+  <text x="180" y="570" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="18">[Draw.io]/Excalidraw</text>
+  <text x="280" y="490" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="16">Low</text>
+  <text x="280" y="510" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="16">Efficiency</text>
+  <text x="280" y="530" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="16">Unstructured</text>
+  <text x="280" y="550" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="16">Output</text>
+
+  <!-- Left Section 3: LLM Prompting -->
+  <text x="110" y="615" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="16">LLM</text>
+  <text x="110" y="635" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="16">Prompting</text>
+  <path d="M125 600 L125 650 L110 650 L140 685 L170 650 L155 650 L155 600 Z" fill="#e74c3c" />
+  
+  <g id="AF03" transform="translate(25, 715)">
+    <rect width="80" height="150" transform="translate(0, -150)" fill="#808080" stroke="black" stroke-width="2"/>
+    <text x="40" y="-75" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="14">&lt;AF&gt;03</text>
+  </g>
+  <rect x="110" y="700" width="220" height="120" rx="10" fill="white" stroke="#3498db" stroke-width="2" transform="translate(0,-15)" />
+  <text x="220" y="725" text-anchor="middle" font-family="Arial" font-size="12">TIP: Need careful prompting</text>
+  <text x="220" y="740" text-anchor="middle" font-family="Arial" font-size="12">to get close results</text>
+
+  <!-- Proposed Integrated System Arrow -->
+  <path d="M360 400 Q 380 400 380 350 L 380 180 Q 380 130 360 130" fill="none" stroke="#58a682" stroke-width="40" />
+  <text transform="translate(375, 450) rotate(-90)" fill="white" font-family="Arial" font-weight="bold" font-size="20">PROPOSED INTEGRATED SYSTEM</text>
+
+  <!-- Middle Section: PLATFORM -->
+  <rect x="395" y="10" width="765" height="748" rx="15" fill="#eef2f3" stroke="#ced4da" stroke-width="2" />
+  <path d="M395 25 A 15 15 0 0 1 410 10 H 1130 L 1160 55 L 1130 100 H 410 A 15 15 0 0 1 395 85 Z" fill="#0b5377" />
+  <text x="780" y="55" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="24">INTEGRATED RESEARCH DIAGRAMMING PLATFORM</text>
+
+  <!-- Module 1 -->
+  <rect x="405" y="110" width="230" height="638" rx="10" fill="white" stroke="#0b5377" stroke-width="1" />
+  <rect x="405" y="110" width="230" height="80" rx="10" fill="#0b5377" />
+  <text x="520" y="130" text-anchor="middle" fill="white" font-family="Arial" font-size="14">MODULE 1:</text>
+  <text x="520" y="155" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="16">AI SMART PROMPT</text>
+  <text x="520" y="175" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="16">GENERATION</text>
+  <g id="AF09" transform="translate(420, 250)">
+    <rect width="60" height="120" fill="#808080" stroke="black" stroke-width="2"/>
+    <text x="30" y="60" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="12">&lt;AF&gt;09</text>
+  </g>
+  <text x="520" y="390" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="16">User Prompt Input</text>
+  <path d="M520 410 L 520 470" stroke="#0b5377" stroke-width="4" marker-end="url(#arrowhead)" />
+  <rect x="420" y="480" width="200" height="100" rx="10" fill="#f8f9fa" stroke="#58a682" stroke-width="3" />
+  <text x="520" y="530" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="14">Intelligent Interface</text>
+  <path d="M520 590 L 520 650" stroke="#0b5377" stroke-width="4" marker-end="url(#arrowhead)" />
+  <rect x="405" y="690" width="230" height="58" rx="10" fill="#2c3e50" />
+  <text x="520" y="715" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="12">KEY AIM 1: REDUCED</text>
+  <text x="520" y="735" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="12">PROMPT DIFFICULTY</text>
+
+  <!-- Module 2 -->
+  <rect x="645" y="110" width="265" height="638" rx="10" fill="white" stroke="#0b5377" stroke-width="1" />
+  <rect x="645" y="110" width="265" height="80" rx="10" fill="#0b5377" />
+  <text x="777" y="130" text-anchor="middle" fill="white" font-family="Arial" font-size="14">MODULE 2:</text>
+  <text x="777" y="155" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="16">MULTI-AGENT</text>
+  <text x="777" y="175" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="16">COLLABORATIVE DESIGN</text>
+  <text x="777" y="210" text-anchor="middle" font-family="Arial" font-size="14">(Core Intelligence)</text>
+  
+  <g id="AF16" transform="translate(655, 420)">
+    <rect width="60" height="180" fill="#808080" stroke="black" stroke-width="2"/>
+    <text x="30" y="90" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="12">&lt;AF&gt;16</text>
+  </g>
+  <g id="AF14" transform="translate(735, 390)">
+    <rect width="90" height="100" fill="#808080" stroke="black" stroke-width="2"/>
+    <text x="45" y="50" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="12">&lt;AF&gt;14</text>
+  </g>
+  <g id="AF15" transform="translate(840, 420)">
+    <rect width="60" height="180" fill="#808080" stroke="black" stroke-width="2"/>
+    <text x="30" y="90" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="12">&lt;AF&gt;15</text>
+  </g>
+  
+  <rect x="645" y="690" width="265" height="58" rx="10" fill="#2c3e50" />
+  <text x="777" y="715" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="12">KEY AIM 2: AGENT COLLABORATION</text>
+  <text x="777" y="735" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="12">ACROSS FULL PIPELINE</text>
+
+  <!-- Module 3 -->
+  <rect x="920" y="110" width="230" height="638" rx="10" fill="white" stroke="#0b5377" stroke-width="1" />
+  <rect x="920" y="110" width="230" height="80" rx="10" fill="#0b5377" />
+  <text x="1035" y="130" text-anchor="middle" fill="white" font-family="Arial" font-size="14">MODULE 3:</text>
+  <text x="1035" y="155" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="16">HUMAN-AI INTERACTION</text>
+  <text x="1035" y="175" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="16">&amp; REFINEMENT</text>
+  
+  <rect x="930" y="230" width="210" height="150" rx="10" fill="#333" />
+  <rect x="940" y="240" width="190" height="130" fill="white" />
+  
+  <rect x="930" y="405" width="210" height="200" rx="10" fill="#333" />
+  <rect x="940" y="415" width="190" height="180" fill="white" />
+  <g id="AF10" transform="translate(1050, 510)">
+    <rect width="90" height="180" fill="#808080" stroke="black" stroke-width="2"/>
+    <text x="45" y="90" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="14">&lt;AF&gt;10</text>
+  </g>
+
+  <rect x="920" y="690" width="230" height="58" rx="10" fill="#2c3e50" />
+  <text x="1035" y="715" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="12">KEY AIM 3: FULL EDITABILITY</text>
+  <text x="1035" y="735" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="12">IN OPEN-SOURCE PLATFORM</text>
+
+  <!-- Right Column: EXPECTED CONTRIBUTIONS -->
+  <rect x="1175" y="10" width="223" height="748" rx="15" fill="#e9ecef" stroke="#ced4da" stroke-width="2" />
+  <path d="M1175 25 A 15 15 0 0 1 1190 10 H 1383 A 15 15 0 0 1 1398 25 V 85 H 1175 Z" fill="#2c3e50" />
+  <text x="1287" y="45" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="18">EXPECTED</text>
+  <text x="1287" y="75" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="18">CONTRIBUTIONS</text>
+
+  <!-- Right Section 1 -->
+  <text x="1287" y="120" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="16">1. Application Level:</text>
+  <text x="1287" y="140" text-anchor="middle" font-family="Arial" font-size="12">High-quality scientific paper</text>
+  <g id="AF11" transform="translate(1190, 180)">
+    <rect width="100" height="140" fill="#808080" stroke="black" stroke-width="2"/>
+    <text x="50" y="70" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="14">&lt;AF&gt;11</text>
+  </g>
+
+  <!-- Right Section 2 -->
+  <text x="1287" y="410" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="16">2. Academic Level</text>
+  <g id="AF07" transform="translate(1240, 435)">
+    <rect width="90" height="120" fill="#808080" stroke="black" stroke-width="2"/>
+    <text x="45" y="60" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="14">&lt;AF&gt;07</text>
+  </g>
+
+  <!-- Right Section 3 -->
+  <text x="1287" y="710" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="16">3. Engineering Level</text>
+  <g id="AF12" transform="translate(1190, 735)">
+    <rect width="60" height="170" transform="translate(0, -170)" fill="#808080" stroke="black" stroke-width="2"/>
+    <text x="30" y="-85" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="14">&lt;AF&gt;12</text>
+  </g>
+  <g id="AF13" transform="translate(1330, 735)">
+    <rect width="60" height="170" transform="translate(0, -170)" fill="#808080" stroke="black" stroke-width="2"/>
+    <text x="30" y="-85" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="14">&lt;AF&gt;13</text>
+  </g>
+
+  <!-- Connections and Arrows -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orientation="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#0b5377" />
+    </marker>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#58a682;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0b5377;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Main Flow Arrows -->
+  <path d="M635 520 L 655 520" stroke="url(#grad1)" stroke-width="25" marker-end="url(#arrowhead)" />
+  <path d="M910 520 L 930 520" stroke="url(#grad1)" stroke-width="25" marker-end="url(#arrowhead)" />
+  <path d="M1150 520 L 1175 520" stroke="url(#grad1)" stroke-width="25" marker-end="url(#arrowhead)" />
+
+</svg>

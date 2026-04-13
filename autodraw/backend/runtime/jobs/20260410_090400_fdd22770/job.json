@@ -1,0 +1,49 @@
+{
+  "job_id": "20260410_090400_fdd22770",
+  "request_payload": {
+    "method_text": "科研论文中的方法论图表，包括流程图、系统架构图、实验管线图等，是传递研究思路和技术方案的核心载体。一幅高质量的科研图表不仅能够帮助审稿人快速把握论文逻辑，还直接影响论文的可读性与发表竞争力。然而，当前科研人员在制作此类图表时普遍面临\"高投入、低效率\"的困境。一方面，传统绘图工具（如 Visio、PowerPoint）操作繁琐，研究者需要耗费大量时间在元素排列、连线调整和风格统一等低层次任务上；另一方面，虽然近年来涌现了 [Draw.io](http://Draw.io)、Excalidraw 等在线绘图平台，但这些工具的核心范式仍停留在\"手动拖拽\"阶段，缺乏对科研绘图场景的语义级理解与智能化辅助能力。\n\n与此同时，大语言模型（Large Language Model, LLM）和多模态模型的快速发展为\"自然语言驱动绘图\"提供了新的技术可能。研究者已开始尝试借助 GPT-4[7]、Claude 等通用大模型生成绘图代码或描述，但在实践中面临显著的\"提示词瓶颈\"问题，即用户往往需要反复调试 Prompt 才能获得接近预期的输出结果。更为关键的是，近期 ScImage[1] 和 SciFlow-Bench[2] 等评估工作已经表明，即使经过精心设计的提示词，当前多模态模型在科研图表生成中的空间关系准确性、结构可恢复性等指标上仍存在明显不足，生成结果缺乏结构化的可编辑性，难以在学术场景中直接应用。\n\n基于上述背景，本课题提出构建一套融合「提示词智能生成、AI 智能体协作与人工交互精修」的一体化科研绘图系统。该系统以开源白板工具 Drawnix（基于 Plait 绘图框架）为技术平台，旨在实现从用户自然语言需求到可编辑矢量图表的端到端智能化流程。研究的核心目标包括三个方面：其一，降低科研人员使用 AI 绘图的提示词编写门槛；其二，通过多 Agent 协作机制覆盖意图解析、布局优化和风格迁移的完整链路；其三，利用 Plait JSON 原生格式实现零损耗渲染与全属性可编辑。\n\n本课题的研究意义体现在以下几个层面。在应用层面，系统将显著提升科研图表的制作效率，使研究者能够将更多精力聚焦于科研本身，而非繁琐的图表绘制过程。在学术层面，本研究探索了大语言模型与交互式绘图工具深度融合的技术范式，为「自然语言到结构化图表」这一新兴方向提供了系统性的方法论贡献。在工程层面，本课题基于开源白板工具 Drawnix 进行开发，研究成果可直接回馈至开源社区，为同类工具的 AI 能力增强提供可复用的技术方案与实践参考。",
+    "provider": "qingyun",
+    "api_key": null,
+    "base_url": null,
+    "image_model": null,
+    "image_size": "4K",
+    "svg_model": null,
+    "sam_prompt": "icon,person,robot,animal",
+    "min_score": 0.0,
+    "sam_backend": "fal",
+    "sam_api_url": null,
+    "sam_api_key": null,
+    "sam_max_masks": 32,
+    "rmbg_model_path": null,
+    "stop_after": 5,
+    "placeholder_mode": "label",
+    "optimize_iterations": 0,
+    "merge_threshold": 0.001,
+    "reference_image_path": null
+  },
+  "job_dir": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_090400_fdd22770",
+  "log_path": "/Users/bytedance/Documents/upc/autofigure-edit/AutoFigure-Edit/paperdraw/backend/runtime/jobs/20260410_090400_fdd22770/run.log",
+  "status": "failed",
+  "created_at": "2026-04-10T09:04:00.742816",
+  "started_at": "2026-04-10T09:04:00.749537",
+  "finished_at": "2026-04-10T09:04:28.026883",
+  "error_message": "Qingyun API 错误: 429 - {\"error\":{\"message\":\"当前分组上游负载已饱和，请稍后再试 (request id: 20260410170401906739006ZnRj7lM7)\",\"type\":\"upstream_error\",\"param\":\"\",\"code\":\"429\"}}",
+  "artifacts": [
+    {
+      "name": "run.log",
+      "path": "run.log",
+      "kind": "log",
+      "size_bytes": 1307,
+      "download_url": "/api/jobs/20260410_090400_fdd22770/artifacts/run.log"
+    },
+    {
+      "name": "manifest.json",
+      "path": "manifest.json",
+      "kind": "manifest",
+      "size_bytes": 4018,
+      "download_url": "/api/jobs/20260410_090400_fdd22770/artifacts/manifest.json"
+    }
+  ],
+  "pipeline_result": null,
+  "bundle_path": null
+}
