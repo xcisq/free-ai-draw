@@ -40,6 +40,7 @@ def run_pipeline(request: CreateJobRequest, output_dir: Path, log_path: Path) ->
         with redirect_stdout(tee_stdout), redirect_stderr(tee_stderr):
             print(f"[meta] output_dir={output_dir}")
             print(f"[meta] provider={request.provider}")
+            print(f"[meta] start_stage={request.start_stage}")
             if resolved_reference_path:
                 print(f"[meta] reference_image_path={resolved_reference_path}")
             if resolved_sam_api_url:
@@ -53,7 +54,7 @@ def run_pipeline(request: CreateJobRequest, output_dir: Path, log_path: Path) ->
                 autofigure2.REFERENCE_IMAGE_PATH = resolved_reference_path
                 if resolved_sam_api_url:
                     autofigure2.SAM3_FAL_API_URL = resolved_sam_api_url
-                return autofigure2.method_to_svg(
+                result = autofigure2.method_to_svg(
                     method_text=request.method_text,
                     output_dir=str(output_dir),
                     api_key=request.api_key,
@@ -72,7 +73,9 @@ def run_pipeline(request: CreateJobRequest, output_dir: Path, log_path: Path) ->
                     optimize_iterations=request.optimize_iterations,
                     merge_threshold=request.merge_threshold,
                     image_size=request.image_size,
+                    start_stage=request.start_stage,
                 )
+                return result
             finally:
                 autofigure2.USE_REFERENCE_IMAGE = previous_use_reference_image
                 autofigure2.REFERENCE_IMAGE_PATH = previous_reference_image_path

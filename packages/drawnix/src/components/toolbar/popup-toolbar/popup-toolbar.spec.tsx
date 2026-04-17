@@ -148,10 +148,6 @@ jest.mock('./arrow-mark-button', () => ({
   ArrowMarkButton: () => <div>arrow</div>,
 }));
 
-jest.mock('../../../llm-mermaid/components/board-style-panel', () => ({
-  BoardStylePanel: () => <div>board-style-panel</div>,
-}));
-
 jest.mock('../../../plugins/freehand/type', () => ({
   Freehand: {
     isFreehand: () => false,
@@ -161,22 +157,6 @@ jest.mock('../../../plugins/freehand/type', () => ({
 describe('PopupToolbar', () => {
   beforeEach(() => {
     mockSetPositionReference.mockReset();
-  });
-
-  it('选中元素后应显示 AI 样式按钮', () => {
-    const { container } = render(<PopupToolbar />);
-
-    const aiButton = screen.getByRole('button', { name: 'AI 样式' });
-    expect(aiButton).toBeTruthy();
-    expect(aiButton.className).toContain('tool-icon_type_button--show');
-    expect(container.querySelector('.popup-ai-style-button')).toBe(aiButton);
-  });
-
-  it('AI 样式弹层应标记为附着元素，避免点击时清空选区', () => {
-    const { container } = render(<PopupToolbar />);
-
-    const content = container.querySelector('.popup-ai-style-content');
-    expect(content?.className).toContain('attached');
   });
 
   it('更多操作按钮应只渲染一次，重复渲染后也不应增殖', () => {

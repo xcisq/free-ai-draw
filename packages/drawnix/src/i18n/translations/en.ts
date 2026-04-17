@@ -68,6 +68,11 @@ const enTranslations: Translations = {
   'general.moreOptions': 'More Options',
   'general.duplicate': 'Duplicate',
   'general.delete': 'Delete',
+  'general.layerOrder': 'Layer Order',
+  'general.bringForward': 'Bring Forward',
+  'general.sendBackward': 'Send Backward',
+  'general.bringToFront': 'Bring to Front',
+  'general.sendToBack': 'Send to Back',
 
   // Language
   'language.switcher': 'Language',
@@ -107,7 +112,8 @@ const enTranslations: Translations = {
   'dialog.svg.description':
     'Upload a ZIP asset package that contains the main SVG and a `components/` directory. Drawnix will prefer `_nobg` component images and rebuild texts, arrows, and components using the main SVG coordinate system.',
   'dialog.svg.syntax': 'ZIP Package Info',
-  'dialog.svg.placeholder': 'After selecting a ZIP package, the main SVG name and component count will appear here…',
+  'dialog.svg.placeholder':
+    'After selecting a ZIP package, the main SVG name and component count will appear here…',
   'dialog.svg.preview': 'Import Preview',
   'dialog.svg.insert': 'Insert',
   'dialog.svg.upload': 'Upload ZIP Package',
@@ -116,12 +122,119 @@ const enTranslations: Translations = {
   'dialog.svg.summary.arrows': 'Connector arrows',
   'dialog.svg.summary.components': 'Components',
   'dialog.svg.summary.backgrounds': 'Ignored backgrounds',
+  'dialog.autodraw.basicInfo': 'Basic Info',
+  'dialog.autodraw.resources': 'Resources',
+  'dialog.autodraw.chooseFile': 'Choose File',
+  'dialog.autodraw.advancedSettings': 'Advanced Settings',
+  'dialog.autodraw.noJob': 'No Job',
+  'dialog.autodraw.filterLogs': 'Filter logs...',
+  'dialog.autodraw.autoScroll': 'Auto-scroll',
+  'dialog.autodraw.clearLogs': 'Clear Logs',
+  'dialog.autodraw.description':
+    'Enter method text and upload a reference style image. Autodraw will call the backend, stream logs, and import the generated bundle into the canvas.',
+  'dialog.autodraw.backendUrl': 'Backend URL',
+  'dialog.autodraw.methodText': 'Method Text',
+  'dialog.autodraw.placeholder': 'Describe the method you want to visualize...',
+  'dialog.autodraw.referenceImage': 'Reference Style Image',
+  'dialog.autodraw.uploadZip': 'Import Local ZIP',
+  'dialog.autodraw.bundleHint':
+    'Upload a local bundle.zip to render it directly into the canvas without creating a backend job.',
+  'dialog.autodraw.existingJobId': 'Existing Job ID',
+  'dialog.autodraw.existingJobPlaceholder':
+    'Enter any job_id and load its flow',
+  'dialog.autodraw.loadJob': 'Load Job',
+  'dialog.autodraw.provider': 'Provider',
+  'dialog.autodraw.apiKey': 'API Key',
+  'dialog.autodraw.baseUrl': 'Base URL',
+  'dialog.autodraw.imageModel': 'Image Model',
+  'dialog.autodraw.svgModel': 'SVG Model',
+  'dialog.autodraw.generate': 'Generate',
+  'dialog.autodraw.resume': 'Resume',
+  'dialog.autodraw.copyJobId': 'Copy ID',
+  'dialog.autodraw.copied': 'Copied',
+  'dialog.autodraw.viewFlow': 'View Flow',
+  'dialog.autodraw.hideWorkbench': 'Minimize',
+  'dialog.autodraw.referenceGallery': 'Reference Gallery',
+  'dialog.autodraw.galleryChooseFolder': 'Choose Gallery Folder',
+  'dialog.autodraw.galleryRefresh': 'Refresh Gallery',
+  'dialog.autodraw.galleryDisconnect': 'Disconnect Gallery',
+  'dialog.autodraw.galleryDirectoryReady': 'Gallery Connected',
+  'dialog.autodraw.galleryHint':
+    'Choose a local folder as the style gallery. Each file name becomes the visible style name.',
+  'dialog.autodraw.galleryLive': 'Persistent Gallery',
+  'dialog.autodraw.galleryEmpty':
+    'No usable images in the gallery yet. Supported: png, jpg, jpeg, webp.',
+  'dialog.autodraw.galleryLoading': 'Loading gallery...',
+  'dialog.autodraw.galleryUnsupported':
+    'This browser cannot read a local gallery folder. Use Chromium or the temporary upload below.',
+  'dialog.autodraw.galleryPermissionHint':
+    'Gallery permission is missing. Reconnect or refresh the selected folder.',
+  'dialog.autodraw.galleryLoadFailed': 'Failed to load gallery',
+  'dialog.autodraw.galleryMissingSelection':
+    'The previously selected reference is no longer in the gallery.',
+  'dialog.autodraw.manualReference': 'Temporary Upload',
+  'dialog.autodraw.manualReferenceHint':
+    'Temporary uploads only last for the current session. Put reusable references into the gallery above.',
+  'dialog.autodraw.selectedStyle': 'Current Reference Style',
+  'dialog.autodraw.assetRoom': 'Asset Room',
+  'dialog.autodraw.assetHint':
+    'Generated figures, icons, and SVGs appear here as they are produced. Click any visual asset to enlarge it.',
+  'dialog.autodraw.assetHintLive':
+    'Only previewable visual assets are shown here, and the shelf updates live with pipeline progress.',
+  'dialog.autodraw.noAssets':
+    'Assets will appear here once the pipeline starts producing them.',
+  'dialog.autodraw.openPreview': 'Open Preview',
+  'dialog.autodraw.timeline': 'Timeline',
+  'dialog.autodraw.rawLogs': 'Raw Logs',
+  'dialog.autodraw.history': 'History',
+  'dialog.autodraw.noHistory': 'No history yet',
+  'dialog.autodraw.clearHistory': 'Clear History',
+  'dialog.autodraw.importMonitor': 'Import Monitor',
+  'dialog.autodraw.returnWorkbench': 'Expand Workbench',
+  'dialog.autodraw.importWatchingHint':
+    'The workbench docks itself while importing so you can watch the actual assembly on the canvas.',
+  'dialog.autodraw.historyJob': 'Generated Job',
+  'dialog.autodraw.historyLocal': 'Local ZIP',
+  'dialog.autodraw.statusLabel': 'Status',
+  'dialog.autodraw.jobId': 'Job ID',
+  'dialog.autodraw.failedStage': 'Failed Stage',
+  'dialog.autodraw.logMode': 'Log Mode',
+  'dialog.autodraw.emptyLogs': 'No logs yet',
+  'dialog.autodraw.summary.texts': 'Texts',
+  'dialog.autodraw.summary.arrows': 'Arrows',
+  'dialog.autodraw.summary.components': 'Components',
+  'dialog.autodraw.workbench': 'Pipeline Workbench',
+  'dialog.autodraw.activity': 'Live Activity',
+  'dialog.autodraw.latestImport': 'Canvas Assembly',
+  'dialog.autodraw.readyHint':
+    'Describe the method and add a reference image to watch the pipeline assemble here step by step.',
+  'dialog.autodraw.runningStageHint':
+    'The board favors assets from the active stage. If that stage has no visual file yet, only progress stays visible here.',
+  'dialog.autodraw.referenceHint':
+    'Use a paper figure with a close visual rhythm to stabilize typography and layout.',
+  'dialog.autodraw.stage.generateFigure': 'Generate Figure',
+  'dialog.autodraw.stage.parseStructure': 'Parse Structure',
+  'dialog.autodraw.stage.extractAssets': 'Extract Assets',
+  'dialog.autodraw.stage.rebuildSvg': 'Rebuild SVG',
+  'dialog.autodraw.stage.importCanvas': 'Import to Canvas',
+  'dialog.autodraw.status.idle': 'Ready',
+  'dialog.autodraw.status.queued': 'Queued',
+  'dialog.autodraw.status.running': 'Running',
+  'dialog.autodraw.status.submitting': 'Submitting',
+  'dialog.autodraw.status.importing': 'Importing',
+  'dialog.autodraw.status.succeeded': 'Succeeded',
+  'dialog.autodraw.status.failed': 'Failed',
+  'dialog.autodraw.error.noMethodText': 'Please enter method text first',
+  'dialog.autodraw.error.submitFailed': 'Failed to submit job',
+  'dialog.autodraw.error.jobFailed': 'Job failed',
+  'dialog.autodraw.error.noBundle': 'Job succeeded but no bundle was returned',
+  'dialog.autodraw.error.logFailed': 'Failed to fetch logs',
   'dialog.error.loadMermaid': 'Failed to load Mermaid library',
 
   // Extra tools menu items
   'extraTools.mermaidToDrawnix': 'Mermaid to Drawnix',
   'extraTools.markdownToDrawnix': 'Markdown to Drawnix',
-  'extraTools.svgToDrawnix': 'SVG to Drawnix',
+  'extraTools.autodraw': 'Autodraw',
 
   // Clean confirm dialog
   'cleanConfirm.title': 'Clear Board',
@@ -135,6 +248,7 @@ const enTranslations: Translations = {
 
   // Tool popup items
   'popupToolbar.fillColor': 'Fill Color',
+  'popupToolbar.fontFamily': 'Font',
   'popupToolbar.fontSize': 'Font Size',
   'popupToolbar.fontColor': 'Font Color',
   'popupToolbar.link': 'Insert Link',
@@ -145,7 +259,8 @@ const enTranslations: Translations = {
   'iconLibrary.upload': 'Upload Icons',
   'iconLibrary.uploading': 'Uploading...',
   'iconLibrary.empty': 'Upload SVG, PNG, or JPG icon assets to get started.',
-  'iconLibrary.hint': 'Click an icon to insert it onto the board. If a node is selected, it will be replaced directly.',
+  'iconLibrary.hint':
+    'Click an icon to insert it onto the board. If a node is selected, it will be replaced directly.',
   'iconLibrary.remove': 'Remove icon',
 
   // Text placeholders
@@ -192,43 +307,12 @@ const enTranslations: Translations = {
   'mind.centralText': 'Central Topic',
   'mind.abstractNodeText': 'Summary',
 
-  // PaperDraw
-  'extraTools.paperdrawToFlowchart': 'PaperDraw Flowchart',
-  'dialog.paperdraw.description': 'Enter text describing a research method or workflow, and AI will automatically extract entities and relationships to generate a flowchart.',
-  'dialog.paperdraw.placeholder': 'Enter your text description here...',
-  'dialog.paperdraw.analyze': 'Analyze',
-  'dialog.paperdraw.analyzing': 'Analyzing...',
-  'dialog.paperdraw.skip': 'Skip',
-  'dialog.paperdraw.confirm': 'Confirm',
-  'dialog.paperdraw.insert': 'Insert to Canvas',
-  'dialog.paperdraw.configTitle': 'LLM Configuration',
-  'dialog.paperdraw.apiKey': 'API Key',
-  'dialog.paperdraw.baseUrl': 'Base URL',
-  'dialog.paperdraw.model': 'Model',
-  'dialog.paperdraw.error.noApiKey': 'Please configure API Key first',
-  'dialog.paperdraw.error.analyzeFailed': 'Analysis failed, please try again',
-  'dialog.paperdraw.error.invalidOptimizeSelection':
-    'Select at least 2 rectangular nodes before optimizing a partial region',
-  'dialog.paperdraw.error.structureConfirmationRequired':
-    'The current result still looks like a single-path flow. Confirm the main spine before generating a draft.',
-  'dialog.paperdraw.fallback.pipelineLayout':
-    'Pipeline template layout is unavailable, switched to compatibility layout automatically',
-  'dialog.paperdraw.toggleSemantic': 'Semantic View',
-  'dialog.paperdraw.qaTitle': 'Please confirm the following',
-  'dialog.paperdraw.qaStructureGuard':
-    'This input still lacks enough structure. Confirm the main modules or main relations before generating a draft.',
-  'dialog.paperdraw.optimizeLayout': 'Optimize Layout',
-  'dialog.paperdraw.optimizeSelection': 'Reflow Selected Region',
-  'dialog.paperdraw.optimizeGlobal': 'Reflow Entire Diagram',
-  'dialog.paperdraw.engine.pipeline': 'Pipeline Template Layout',
-  'dialog.paperdraw.engine.legacy': 'Compatibility Layout',
-
-  // LLM Mermaid
-  'toolbar.llmMermaid': 'AI Pipeline',
+  'toolbar.llmMermaid': 'auto-mermaid',
   'dialog.llmMermaid.title': 'AI Pipeline Assistant',
   'dialog.llmMermaid.chat': 'Chat',
   'dialog.llmMermaid.preview': 'Preview',
-  'dialog.llmMermaid.placeholder': 'Describe the flowchart you want to generate...',
+  'dialog.llmMermaid.placeholder':
+    'Describe the flowchart you want to generate...',
   'dialog.llmMermaid.insert': 'Insert',
   'dialog.llmMermaid.close': 'Close',
 

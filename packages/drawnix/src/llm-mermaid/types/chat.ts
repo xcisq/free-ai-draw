@@ -3,7 +3,6 @@
  */
 
 import type { GenerationContext } from './config';
-import type { StyleScheme } from './style';
 
 /**
  * 聊天消息角色
@@ -13,7 +12,7 @@ export type MessageRole = 'user' | 'assistant' | 'system';
 /**
  * 聊天消息类型
  */
-export type MessageType = 'text' | 'mermaid' | 'style';
+export type MessageType = 'text' | 'mermaid';
 
 /**
  * 交互阶段
@@ -51,8 +50,6 @@ export interface MessageMetadata {
   mermaidCode?: string;
   /** 流式阶段提取出的 Mermaid 候选 */
   streamingMermaidCode?: string;
-  /** 样式方案 */
-  styleScheme?: StyleScheme;
   /** 生成上下文 */
   generationContext?: Partial<GenerationContext>;
   /** 归一化后的上下文 */

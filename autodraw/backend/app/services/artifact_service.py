@@ -9,6 +9,7 @@ KNOWN_ARTIFACT_KINDS = {
     "figure.png": "figure",
     "samed.png": "samed",
     "boxlib.json": "boxlib",
+    "scene.json": "scene_json",
     "template.svg": "template_svg",
     "optimized_template.svg": "optimized_template_svg",
     "final.svg": "final_svg",

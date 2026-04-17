@@ -13,8 +13,7 @@ import { LinkElement } from '@plait/common';
 export enum DialogType {
   mermaidToDrawnix = 'mermaidToDrawnix',
   markdownToDrawnix = 'markdownToDrawnix',
-  svgToDrawnix = 'svgToDrawnix',
-  paperdrawToFlowchart = 'paperdrawToFlowchart',
+  autodraw = 'autodraw',
   llmMermaid = 'llmMermaid',
 }
 

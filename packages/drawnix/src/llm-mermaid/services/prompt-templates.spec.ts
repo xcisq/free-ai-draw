@@ -8,16 +8,12 @@ import {
   buildMermaidUserPrompt,
   extractJsonBlock,
   getInitialPrompt,
-  getBoardStyleMultipleSchemesPrompt,
   getMermaidGenerationPrompt,
-  getDefaultStyleRecommendationPrompt,
-  getStyleOptimizationPrompt,
   extractMermaidCode,
   validateMermaidCode,
-  getStyleAdjustmentPrompt,
   getMermaidRepairPrompt,
 } from './prompt-templates';
-import type { GenerationContext, GraphInfo } from '../types';
+import type { GenerationContext } from '../types';
 
 describe('PromptTemplates', () => {
   describe('getInitialPrompt', () => {
@@ -75,62 +71,6 @@ describe('PromptTemplates', () => {
     });
   });
 
-  describe('getStyleOptimizationPrompt', () => {
-    it('应该生成样式优化提示词', () => {
-      const graphInfo: GraphInfo = {
-        nodes: [
-          { id: '1', label: 'Node 1', inDegree: 0, outDegree: 1, type: 'input' },
-          { id: '2', label: 'Node 2', inDegree: 1, outDegree: 1, type: 'process' },
-          { id: '3', label: 'Node 3', inDegree: 1, outDegree: 0, type: 'output' },
-        ],
-        edges: [
-          { id: 'e1', source: '1', target: '2' },
-          { id: 'e2', source: '2', target: '3' },
-        ],
-        groups: [],
-        depth: 2,
-        avgDegree: 1.33,
-        nodeCount: 3,
-      };
-
-      const prompt = getStyleOptimizationPrompt(graphInfo, '输入节点用蓝色，输出节点用红色');
-      expect(prompt).toContain('3');
-      expect(prompt).toContain('2');
-      expect(prompt).toContain('输入节点用蓝色，输出节点用红色');
-      expect(prompt).toContain('classDef');
-    });
-  });
-
-  describe('getDefaultStyleRecommendationPrompt', () => {
-    it('应该生成完整 Mermaid 样式推荐提示词', () => {
-      const graphInfo: GraphInfo = {
-        nodes: [
-          { id: 'A', label: 'Input', inDegree: 0, outDegree: 1, type: 'input' },
-          { id: 'B', label: 'Encoder', inDegree: 1, outDegree: 1, type: 'process' },
-        ],
-        edges: [{ id: 'e1', source: 'A', target: 'B' }],
-        groups: [{ id: 'g1', label: 'Encoder', memberIds: ['B'] }],
-        depth: 2,
-        avgDegree: 1,
-        nodeCount: 2,
-      };
-
-      const prompt = getDefaultStyleRecommendationPrompt(
-        'flowchart LR\nA[Input] --> B[Encoder]',
-        graphInfo,
-        {
-          usageScenario: 'paper',
-          theme: 'academic',
-        }
-      );
-
-      expect(prompt).toContain('学术论文插图');
-      expect(prompt).toContain('学术风格');
-      expect(prompt).toContain('完整 Mermaid 代码');
-      expect(prompt).toContain('flowchart LR');
-    });
-  });
-
   describe('extractMermaidCode', () => {
     it('应该从 markdown 代码块中提取 Mermaid 代码', () => {
       const text = '```mermaid\nflowchart LR\nA --> B\n```';
@@ -165,61 +105,6 @@ describe('PromptTemplates', () => {
     it('没有 Mermaid 主体时应该返回空字符串', () => {
       const code = extractMermaidCode('这是模型的解释文字，但没有任何图代码。');
       expect(code).toBe('');
-    });
-  });
-
-  describe('getBoardStyleMultipleSchemesPrompt', () => {
-    it('应该生成 JSON 方案提示词', () => {
-      const prompt = getBoardStyleMultipleSchemesPrompt(
-        {
-          total: 6,
-          originalTotal: 4,
-          shapeCount: 4,
-          lineCount: 2,
-          textCount: 0,
-          relatedLineCount: 2,
-          includeConnectedLines: true,
-          fills: ['#ffffff'],
-          strokes: ['#333333'],
-          fontSizes: [14, 16],
-          semanticNodeCounts: { input: 1, process: 2, output: 1, module: 1 },
-          lineRoleCounts: { main: 1, secondary: 1 },
-          textRoleCounts: { title: 1, body: 3 },
-          groupedShapeCount: 3,
-          ungroupedShapeCount: 1,
-          moduleCount: 1,
-          branchingNodeCount: 1,
-          mergeNodeCount: 1,
-          layoutBias: 'horizontal',
-          roleLabelExamples: {
-            input: ['输入图像'],
-            process: ['特征提取', '分类器'],
-            output: ['预测结果'],
-            module: ['编码模块'],
-          },
-        },
-        '更专业一点',
-        3
-      );
-
-      expect(prompt).toContain('严格输出 JSON');
-      expect(prompt).toContain('原始选中数：4');
-      expect(prompt).toContain('实际优化数：6');
-      expect(prompt).toContain('自动补入关联线：2');
-      expect(prompt).toContain('更专业一点');
-      expect(prompt).toContain('"schemes"');
-      expect(prompt).toContain('lineShape');
-      expect(prompt).toContain('straight / elbow');
-      expect(prompt).toContain('不要使用 curve');
-      expect(prompt).toContain('node.input');
-      expect(prompt).toContain('node.module');
-      expect(prompt).toContain('node.grouped');
-      expect(prompt).toContain('line.main');
-      expect(prompt).toContain('text.title');
-      expect(prompt).toContain('不要把所有矩形节点设成同一种填充色');
-      expect(prompt).toContain('同一模块内元素一个相近的基础色家族');
-      expect(prompt).toContain('模块内相似、模块间可分、全图统一');
-      expect(prompt).toContain('muted palette');
     });
   });
 
@@ -336,37 +221,6 @@ describe('PromptTemplates', () => {
       const result = validateMermaidCode(invalidCode);
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain('存在未完整的连接语句');
-    });
-  });
-
-  describe('getStyleAdjustmentPrompt', () => {
-    it('应该生成样式调整提示词', () => {
-      const currentMermaid = 'flowchart LR\nA --> B\nB --> C';
-      const prompt = getStyleAdjustmentPrompt(currentMermaid, '把 A 节点改成蓝色');
-      expect(prompt).toContain(currentMermaid);
-      expect(prompt).toContain('把 A 节点改成蓝色');
-    });
-
-    it('应该携带图表信息并要求返回完整 Mermaid 代码', () => {
-      const prompt = getStyleAdjustmentPrompt(
-        'flowchart LR\nA --> B',
-        '给 Encoder 模块加个虚线边框',
-        {
-          nodes: [
-            { id: 'A', label: 'Input', inDegree: 0, outDegree: 1, type: 'input' },
-            { id: 'B', label: 'Encoder', inDegree: 1, outDegree: 0, type: 'process' },
-          ],
-          edges: [{ id: 'e1', source: 'A', target: 'B' }],
-          groups: [{ id: 'g1', label: 'Encoder', memberIds: ['B'] }],
-          depth: 2,
-          avgDegree: 1,
-          nodeCount: 2,
-        }
-      );
-
-      expect(prompt).toContain('图表信息');
-      expect(prompt).toContain('stroke-dasharray');
-      expect(prompt).toContain('完整 Mermaid 代码');
     });
   });
 

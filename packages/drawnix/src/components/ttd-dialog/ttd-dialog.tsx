@@ -3,11 +3,7 @@ import { Dialog, DialogContent } from '../dialog/dialog';
 import MermaidToDrawnix from './mermaid-to-drawnix';
 import { DialogType, useDrawnix } from '../../hooks/use-drawnix';
 import MarkdownToDrawnix from './markdown-to-drawnix';
-import SvgToDrawnix from './svg-to-drawnix';
-
-const PaperDrawDialog = lazy(
-  () => import('../../paperdraw/components/paperdraw-dialog')
-);
+import AutodrawDialog from '../../autodraw/components/autodraw-dialog';
 
 const LLMMermaidDialog = lazy(
   () => import('../../llm-mermaid/components/llm-mermaid-dialog')
@@ -44,31 +40,19 @@ export const TTDDialog = ({ container }: { container: HTMLElement | null }) => {
         </DialogContent>
       </Dialog>
       <Dialog
-        open={appState.openDialogType === DialogType.svgToDrawnix}
+        open={appState.openDialogType === DialogType.autodraw}
         onOpenChange={(open) => {
           setAppState({
             ...appState,
-            openDialogType: open ? DialogType.svgToDrawnix : null,
+            openDialogType: open ? DialogType.autodraw : null,
           });
         }}
       >
-        <DialogContent className="Dialog ttd-dialog" container={container}>
-          <SvgToDrawnix />
-        </DialogContent>
-      </Dialog>
-      <Dialog
-        open={appState.openDialogType === DialogType.paperdrawToFlowchart}
-        onOpenChange={(open) => {
-          setAppState({
-            ...appState,
-            openDialogType: open ? DialogType.paperdrawToFlowchart : null,
-          });
-        }}
-      >
-        <DialogContent className="Dialog ttd-dialog" container={container}>
-          <Suspense fallback={<div style={{ padding: 16 }}>Loading...</div>}>
-            <PaperDrawDialog />
-          </Suspense>
+        <DialogContent
+          className="Dialog ttd-dialog autodraw-dialog-modal"
+          container={container}
+        >
+          <AutodrawDialog />
         </DialogContent>
       </Dialog>
       <Dialog
@@ -80,7 +64,10 @@ export const TTDDialog = ({ container }: { container: HTMLElement | null }) => {
           });
         }}
       >
-        <DialogContent className="Dialog ttd-dialog llm-mermaid-dialog" container={container}>
+        <DialogContent
+          className="Dialog ttd-dialog llm-mermaid-dialog"
+          container={container}
+        >
           <Suspense fallback={<div style={{ padding: 16 }}>Loading...</div>}>
             <LLMMermaidDialog container={container} />
           </Suspense>

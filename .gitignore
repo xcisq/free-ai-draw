@@ -44,3 +44,11 @@ Thumbs.db
 # local env
 .env.local
 apps/web/.env.local
+
+# python
+__pycache__/
+*.pyc
+
+# autodraw local runtime outputs (do not commit)
+autodraw/backend/.env
+autodraw/backend/runtime/

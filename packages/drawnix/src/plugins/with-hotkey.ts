@@ -12,6 +12,7 @@ import { BoardCreationMode, setCreationMode } from '@plait/common';
 import { MindPointerType } from '@plait/mind';
 import { FreehandShape } from './freehand/type';
 import { ArrowLineShape, BasicShapes } from '@plait/draw';
+import { moveSelectionOneStepPreservingBackground } from '../utils/background-layer';
 
 export const buildDrawnixHotkeyPlugin = (
   updateAppState: (appState: Partial<DrawnixState>) => void
@@ -50,6 +51,16 @@ export const buildDrawnixHotkeyPlugin = (
         }
         if (isHotkey(['mod+u'])(event)) {
           addImage(board);
+          event.preventDefault();
+          return;
+        }
+        if (isHotkey(['mod+]'], { byKey: true })(event)) {
+          moveSelectionOneStepPreservingBackground(board, 'up');
+          event.preventDefault();
+          return;
+        }
+        if (isHotkey(['mod+['], { byKey: true })(event)) {
+          moveSelectionOneStepPreservingBackground(board, 'down');
           event.preventDefault();
           return;
         }

@@ -1,1 +1,193 @@
-/* Your styles goes here. */
+.appShell {
+  height: 100vh;
+  position: relative;
+  background: #f7f8fb;
+}
+
+.schemeActionRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.topBarTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.schemeDescription {
+  max-width: 520px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #667085;
+}
+
+.schemeControl {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.schemeLabel {
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.schemeSelect {
+  min-width: 140px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 13px;
+  outline: none;
+}
+
+.schemeSelect:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.14);
+}
+
+.resetButton {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #344054;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.applyButton {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #1d4ed8;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.applyButton:hover {
+  background: #1d4ed8;
+}
+
+.resetButton:hover:not(:disabled) {
+  background: #f9fafb;
+}
+
+.resetButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ruleHint {
+  max-width: 320px;
+  padding: 8px 10px;
+  border: 1px solid #e4e7ec;
+  border-radius: 10px;
+  background: rgba(248, 250, 252, 0.92);
+  box-sizing: border-box;
+}
+
+.ruleHintTitle {
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #667085;
+}
+
+.ruleHintText {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #344054;
+}
+
+.boardContainer {
+  height: 100vh;
+  min-height: 100vh;
+}
+
+.rolePreviewList {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rolePreviewCard {
+  min-width: 180px;
+  padding: 8px 10px;
+  border: 1px solid #e4e7ec;
+  border-radius: 10px;
+  background: rgba(248, 250, 252, 0.92);
+  box-sizing: border-box;
+}
+
+.rolePreviewLabel {
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #667085;
+}
+
+.rolePreviewText {
+  font-size: 13px;
+  line-height: 1.35;
+  color: #111827;
+}
+
+.floatingTools {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+}
+
+.fontPanel {
+  width: min(360px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e4e7ec;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(12px);
+  box-sizing: border-box;
+}
+
+.fontPanelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.openButton,
+.closeButton {
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid #d0d5dd;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.openButton {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+}
+
+.openButton:hover,
+.closeButton:hover {
+  background: #f9fafb;
+}

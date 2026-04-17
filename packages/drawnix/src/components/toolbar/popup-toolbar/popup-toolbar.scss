@@ -1,4 +1,30 @@
 .popup-toolbar {
+    .popup-font-family {
+        height: var(--lg-button-size);
+        min-width: 92px;
+        max-width: 132px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 10px;
+        border: none;
+        border-radius: var(--border-radius-sm);
+        background-color: var(--color-surface-secondary-container);
+        color: var(--color-on-surface);
+        cursor: pointer;
+        &:not([data-disable-hover]):hover {
+            background-color: var(--color-surface-primary-container);
+        }
+    }
+    .popup-font-family__label {
+        width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: center;
+        font-size: 13px;
+        line-height: 1;
+    }
     .popup-font-size {
         height: var(--lg-button-size);
         display: flex;

@@ -463,6 +463,60 @@ export const DuplicateIcon = createIcon(
   </svg>
 );
 
+export const LayerOrderIcon = createIcon(
+  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor">
+    <g strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 2.917L16.667 6.25 10 9.583 3.333 6.25 10 2.917Z"></path>
+      <path d="M5.417 9.167 10 11.458 14.583 9.167"></path>
+      <path d="M5.417 12.5 10 14.792 14.583 12.5"></path>
+    </g>
+  </svg>
+);
+
+export const BringForwardIcon = createIcon(
+  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor">
+    <g strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3.75" y="9.583" width="8.333" height="5.417" rx="1.25"></rect>
+      <path d="M10 11.667V5"></path>
+      <path d="M7.917 7.083 10 5l2.083 2.083"></path>
+      <path d="M13.75 4.583h2.5"></path>
+    </g>
+  </svg>
+);
+
+export const SendBackwardIcon = createIcon(
+  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor">
+    <g strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="7.917" y="5" width="8.333" height="5.417" rx="1.25"></rect>
+      <path d="M10 8.333V15"></path>
+      <path d="M7.917 12.917 10 15l2.083-2.083"></path>
+      <path d="M3.75 15.417h2.5"></path>
+    </g>
+  </svg>
+);
+
+export const BringToFrontIcon = createIcon(
+  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor">
+    <g strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4.167 15.417h11.667"></path>
+      <rect x="5.417" y="9.583" width="9.167" height="4.167" rx="1.25"></rect>
+      <path d="M10 9.167V4.167"></path>
+      <path d="M7.917 6.25 10 4.167l2.083 2.083"></path>
+    </g>
+  </svg>
+);
+
+export const SendToBackIcon = createIcon(
+  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor">
+    <g strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4.167 4.583h11.667"></path>
+      <rect x="5.417" y="6.25" width="9.167" height="4.167" rx="1.25"></rect>
+      <path d="M10 10.833v5"></path>
+      <path d="M7.917 13.75 10 15.833l2.083-2.083"></path>
+    </g>
+  </svg>
+);
+
 export const FeltTipPenIcon = createIcon(
   <svg
     viewBox="0 0 1024 1024"
@@ -663,16 +717,6 @@ export const FontSizeStepperDownIcon: React.FC<
     </svg>
   );
 };
-
-export const PaperDrawIcon = createIcon(
-  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-    <g stroke="none" fill="currentColor">
-      <path d="M3.5 1C2.67157 1 2 1.67157 2 2.5V13.5C2 14.3284 2.67157 15 3.5 15H12.5C13.3284 15 14 14.3284 14 13.5V5.5L10 1H3.5ZM3.2 2.5C3.2 2.33431 3.33431 2.2 3.5 2.2H9.4V5C9.4 5.55228 9.84772 6 10.4 6H12.8V13.5C12.8 13.6657 12.6657 13.8 12.5 13.8H3.5C3.33431 13.8 3.2 13.6657 3.2 13.5V2.5Z" />
-      <path d="M11.5 3.5L12 4.5L13 5L12 5.5L11.5 6.5L11 5.5L10 5L11 4.5L11.5 3.5Z" fillRule="evenodd" />
-      <path d="M6 7.5L6.5 8.5L7.5 9L6.5 9.5L6 10.5L5.5 9.5L4.5 9L5.5 8.5L6 7.5Z" fillRule="evenodd" />
-    </g>
-  </svg>
-);
 
 export const AIMermaidIcon = createIcon(
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">

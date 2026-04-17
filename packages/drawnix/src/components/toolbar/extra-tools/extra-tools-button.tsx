@@ -1,12 +1,15 @@
-import { useBoard } from "@plait-board/react-board";
-import { Popover, PopoverContent, PopoverTrigger } from "../../popover/popover";
-import { PlaitBoard } from "@plait/core";
-import { useState } from "react";
-import { ToolButton } from "../../tool-button";
-import { ExtraToolsIcon } from "../../icons";
-import Menu from "../../menu/menu";
-import { MarkdownToDrawnixItem, MermaidToDrawnixItem, PaperDrawItem, SvgToDrawnixItem } from "./menu-items";
-import { useI18n } from "../../../i18n";
+import { useBoard } from '@plait-board/react-board';
+import { Popover, PopoverContent, PopoverTrigger } from '../../popover/popover';
+import { PlaitBoard } from '@plait/core';
+import { useState } from 'react';
+import { ToolButton } from '../../tool-button';
+import { ExtraToolsIcon } from '../../icons';
+import Menu from '../../menu/menu';
+import {
+  MarkdownToDrawnixItem,
+  MermaidToDrawnixItem,
+} from './menu-items';
+import { useI18n } from '../../../i18n';
 
 export const ExtraToolsButton = () => {
   const board = useBoard();
@@ -44,8 +47,6 @@ export const ExtraToolsButton = () => {
         >
           <MermaidToDrawnixItem></MermaidToDrawnixItem>
           <MarkdownToDrawnixItem></MarkdownToDrawnixItem>
-          <SvgToDrawnixItem></SvgToDrawnixItem>
-          <PaperDrawItem></PaperDrawItem>
         </Menu>
       </PopoverContent>
     </Popover>

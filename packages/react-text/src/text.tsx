@@ -25,6 +25,28 @@ import { LinkComponent, withInlineLink } from './plugins/with-link';
 
 export type TextComponentProps = TextProps;
 
+export const toCssLength = (value: unknown): string | undefined => {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? `${value}px` : undefined;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+    // If the author already provided a CSS unit, keep it.
+    if (/[a-z%]+$/i.test(trimmed)) {
+      return trimmed;
+    }
+    const parsed = Number.parseFloat(trimmed);
+    return Number.isFinite(parsed) ? `${parsed}px` : undefined;
+  }
+  return undefined;
+};
+
 export const Text: React.FC<TextComponentProps> = (
   props: TextComponentProps
 ) => {
@@ -164,8 +186,24 @@ const Leaf: React.FC<RenderLeafProps> = ({ children, leaf, attributes }) => {
   }
 
   const fontSizeValue = (leaf as CustomText)['font-size'];
+  const fontFamilyValue = (leaf as any)['font-family'] || (leaf as any).fontFamily;
+  const fontWeightValue = (leaf as any).fontWeight;
+  const fontStyleValue = (leaf as any).fontStyle;
+  const lineHeightValue = (leaf as any)['line-height'] || (leaf as any).lineHeight;
+  const letterSpacingValue =
+    (leaf as any)['letter-spacing'] || (leaf as any).letterSpacing;
+  const opacityValue = (leaf as any).opacity;
   const style: CSSProperties = {
-    color: (leaf as CustomText).color
+    color: (leaf as CustomText).color,
+    ...(toCssLength(fontSizeValue) ? { fontSize: toCssLength(fontSizeValue) } : {}),
+    ...(fontFamilyValue ? { fontFamily: fontFamilyValue } : {}),
+    ...(fontWeightValue ? { fontWeight: fontWeightValue } : {}),
+    ...(fontStyleValue ? { fontStyle: fontStyleValue } : {}),
+    ...(toCssLength(lineHeightValue) ? { lineHeight: toCssLength(lineHeightValue) } : {}),
+    ...(toCssLength(letterSpacingValue)
+      ? { letterSpacing: toCssLength(letterSpacingValue) }
+      : {}),
+    ...(opacityValue ? { opacity: Number(opacityValue) } : {}),
   };
 
   return (

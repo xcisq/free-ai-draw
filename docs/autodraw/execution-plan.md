@@ -18,6 +18,7 @@
 详细方案、接口协议、交互设计与数据流见：
 
 - [drawnix-integration-plan.md](file:///Users/bytedance/Documents/upc/draw_xcl/drawnix/docs/autodraw/drawnix-integration-plan.md)
+- [scene-driven-drawnix-plan.md](file:///Users/bytedance/Documents/upc/draw_xcl/drawnix/docs/autodraw/scene-driven-drawnix-plan.md)
 
 ## 2. 总目标
 
@@ -62,14 +63,16 @@
 ## 3.5 阶段 A5：bundle 自动导入
 
 - 下载 `bundle.zip`
-- 解析 `final.svg`
-- 解析 `icons/*_nobg.png`
-- 调用 `svg-import` 自动导入
+- 优先解析 `scene.json`
+- 按需读取 `assets/*`
+- 调用 `scene-import` 自动导入
+- `scene-import` 失败时回退到 `svg-import`
 
 ## 3.6 阶段 A6：协议增强
 
 - 为 `manifest.json` 增加稳定导入契约
 - 明确前后端导入字段版本
+- 增加 `scene.json` 与 schema 版本约束
 
 ## 4. 验收标准
 

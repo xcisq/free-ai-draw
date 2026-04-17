@@ -2,13 +2,33 @@ import React from 'react';
 import { ToolButton } from '../../tool-button';
 import classNames from 'classnames';
 import { useI18n } from '../../../i18n';
-import { deleteFragment, duplicateElements, PlaitBoard } from '@plait/core';
-import { DuplicateIcon, MoreOptionsIcon, TrashIcon } from '../../icons';
+import {
+  canSetZIndex,
+  deleteFragment,
+  duplicateElements,
+  getSelectedElements,
+  PlaitBoard,
+} from '@plait/core';
+import {
+  BringForwardIcon,
+  BringToFrontIcon,
+  DuplicateIcon,
+  LayerOrderIcon,
+  MoreOptionsIcon,
+  SendBackwardIcon,
+  SendToBackIcon,
+  TrashIcon,
+} from '../../icons';
 import { Popover, PopoverContent, PopoverTrigger } from '../../popover/popover';
 import Menu from '../../menu/menu';
 import MenuItem from '../../menu/menu-item';
 import { useState } from 'react';
 import { getShortcutKey } from '../../../utils/common';
+import {
+  isBackgroundLayerElement,
+  moveSelectionOneStepPreservingBackground,
+  moveSelectionToEdgePreservingBackground,
+} from '../../../utils/background-layer';
 
 export type MoreOptionsButtonProps = {
   board: PlaitBoard;
@@ -20,6 +40,61 @@ export const MoreOptionsButton: React.FC<MoreOptionsButtonProps> = ({
   const { t } = useI18n();
   const container = PlaitBoard.getBoardContainer(board);
   const [menuOpen, setMenuOpen] = useState(false);
+  const hasBackgroundSelection = getSelectedElements(board).some((element) =>
+    isBackgroundLayerElement(element)
+  );
+  const canReorderLayer =
+    !PlaitBoard.isReadonly(board) &&
+    canSetZIndex(board) &&
+    !hasBackgroundSelection;
+
+  const layerMenu = (
+    <Menu
+      className={classNames('popup-toolbar-layer-order-menu')}
+      onSelect={() => {
+        setMenuOpen(false);
+      }}
+    >
+      <MenuItem
+        onSelect={() => {
+          moveSelectionOneStepPreservingBackground(board, 'up');
+        }}
+        icon={BringForwardIcon}
+        shortcut={getShortcutKey('CtrlOrCmd+]')}
+        aria-label={t('general.bringForward')}
+      >
+        {t('general.bringForward')}
+      </MenuItem>
+      <MenuItem
+        onSelect={() => {
+          moveSelectionOneStepPreservingBackground(board, 'down');
+        }}
+        icon={SendBackwardIcon}
+        shortcut={getShortcutKey('CtrlOrCmd+[')}
+        aria-label={t('general.sendBackward')}
+      >
+        {t('general.sendBackward')}
+      </MenuItem>
+      <MenuItem
+        onSelect={() => {
+          moveSelectionToEdgePreservingBackground(board, 'up');
+        }}
+        icon={BringToFrontIcon}
+        aria-label={t('general.bringToFront')}
+      >
+        {t('general.bringToFront')}
+      </MenuItem>
+      <MenuItem
+        onSelect={() => {
+          moveSelectionToEdgePreservingBackground(board, 'down');
+        }}
+        icon={SendToBackIcon}
+        aria-label={t('general.sendToBack')}
+      >
+        {t('general.sendToBack')}
+      </MenuItem>
+    </Menu>
+  );
 
   return (
     <Popover
@@ -60,6 +135,15 @@ export const MoreOptionsButton: React.FC<MoreOptionsButtonProps> = ({
             aria-label={t('general.duplicate')}
           >
             {t('general.duplicate')}
+          </MenuItem>
+          <MenuItem
+            onSelect={() => {}}
+            icon={LayerOrderIcon}
+            aria-label={t('general.layerOrder')}
+            disabled={!canReorderLayer}
+            submenu={layerMenu}
+          >
+            {t('general.layerOrder')}
           </MenuItem>
           <MenuItem
             onSelect={() => {

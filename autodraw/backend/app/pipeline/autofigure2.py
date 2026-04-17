@@ -6,6 +6,7 @@ Paper Method 到 SVG 图标替换完整流程 (Label 模式增强版 + Box合并
 - bianxie: Bianxie API (https://api.bianxie.ai/v1) - 使用 OpenAI SDK
 - qingyun: 青云聚合 API (https://api.qingyuntop.top/v1) - OpenAI 兼容
 - gemini: Google Gemini 官方 API (https://ai.google.dev/)
+- local: 本地 OpenAI 兼容服务 (http://127.0.0.1:8045/v1)
 
 占位符模式 (--placeholder_mode):
 - none: 无特殊样式（默认黑色边框）
@@ -125,6 +126,8 @@ def _get_provider_api_key(provider: str, api_key: Optional[str]) -> Optional[str
             or os.environ.get("GOOGLE_API_KEY")
             or os.environ.get("API_KEY")
         )
+    if provider == "local":
+        return os.environ.get("LOCAL_API_KEY") or os.environ.get("API_KEY")
     return api_key
 
 
@@ -166,9 +169,14 @@ PROVIDER_CONFIGS = {
         "default_image_model": "gemini-3-pro-image-preview",
         "default_svg_model": "gemini-3.1-pro",
     },
+    "local": {
+        "base_url": os.environ.get("LOCAL_BASE_URL", "http://127.0.0.1:8045/v1"),
+        "default_image_model": os.environ.get("LOCAL_IMAGE_MODEL", "gemini-3-pro-image"),
+        "default_svg_model": os.environ.get("LOCAL_SVG_MODEL", "gemini-3.1-pro-high"),
+    },
 }
 
-ProviderType = Literal["openrouter", "bianxie", "qingyun", "gemini"]
+ProviderType = Literal["openrouter", "bianxie", "qingyun", "gemini", "local"]
 PlaceholderMode = Literal["none", "box", "label"]
 GEMINI_DEFAULT_IMAGE_SIZE = "4K"
 IMAGE_SIZE_CHOICES = ("1K", "2K", "4K")
@@ -245,6 +253,8 @@ def call_llm_text(
     """
     if provider == "bianxie":
         return _call_bianxie_text(prompt, api_key, model, base_url, max_tokens, temperature)
+    if provider == "local":
+        return _call_local_text(prompt, api_key, model, base_url, max_tokens, temperature)
     if provider == "gemini":
         return _call_gemini_text(prompt, api_key, model, max_tokens, temperature)
     if provider == "qingyun":
@@ -306,6 +316,8 @@ def call_llm_multimodal(
     """
     if provider == "bianxie":
         return _call_bianxie_multimodal(contents, api_key, model, base_url, max_tokens, temperature)
+    if provider == "local":
+        return _call_local_multimodal(contents, api_key, model, base_url, max_tokens, temperature)
     if provider == "gemini":
         return _call_gemini_multimodal(contents, api_key, model, max_tokens, temperature)
     if provider == "qingyun":
@@ -365,6 +377,15 @@ def call_llm_image_generation(
     """
     if provider == "bianxie":
         return _call_bianxie_image_generation(prompt, api_key, model, base_url, reference_image)
+    if provider == "local":
+        return _call_local_image_generation(
+            prompt,
+            api_key,
+            model,
+            base_url,
+            reference_image,
+            image_size=image_size,
+        )
     if provider == "gemini":
         return _call_gemini_image_generation(
             prompt=prompt,
@@ -522,6 +543,120 @@ def _call_bianxie_image_generation(
         return None
     except Exception as e:
         print(f"[Bianxie] 图像生成 API 调用失败: {e}")
+        raise
+
+
+def _map_local_image_size(image_size: str) -> str:
+    return {
+        "1K": "1024x1024",
+        "2K": "1216x896",
+        "4K": "1280x720",
+    }.get(image_size, "1024x1024")
+
+
+def _call_local_text(
+    prompt: str,
+    api_key: str,
+    model: str,
+    base_url: str,
+    max_tokens: int = 16000,
+    temperature: float = 0.7,
+) -> Optional[str]:
+    try:
+        from openai import OpenAI
+
+        client = OpenAI(base_url=base_url, api_key=api_key)
+        completion = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        return completion.choices[0].message.content if completion and completion.choices else None
+    except Exception as e:
+        print(f"[Local] 文本 API 调用失败: {e}")
+        raise
+
+
+def _call_local_multimodal(
+    contents: List[Any],
+    api_key: str,
+    model: str,
+    base_url: str,
+    max_tokens: int = 16000,
+    temperature: float = 0.7,
+) -> Optional[str]:
+    try:
+        from openai import OpenAI
+
+        client = OpenAI(base_url=base_url, api_key=api_key)
+        message_content: List[Dict[str, Any]] = []
+        for part in contents:
+            if isinstance(part, str):
+                message_content.append({"type": "text", "text": part})
+            elif isinstance(part, Image.Image):
+                buf = io.BytesIO()
+                part.save(buf, format='PNG')
+                image_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+                message_content.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/png;base64,{image_b64}"}
+                })
+
+        completion = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": message_content}],
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        return completion.choices[0].message.content if completion and completion.choices else None
+    except Exception as e:
+        print(f"[Local] 多模态 API 调用失败: {e}")
+        raise
+
+
+def _call_local_image_generation(
+    prompt: str,
+    api_key: str,
+    model: str,
+    base_url: str,
+    reference_image: Optional[Image.Image] = None,
+    image_size: str = GEMINI_DEFAULT_IMAGE_SIZE,
+) -> Optional[Image.Image]:
+    try:
+        from openai import OpenAI
+
+        client = OpenAI(base_url=base_url, api_key=api_key)
+        if reference_image is None:
+            messages: List[Dict[str, Any]] = [{"role": "user", "content": prompt}]
+        else:
+            buf = io.BytesIO()
+            reference_image.save(buf, format='PNG')
+            image_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+            message_content = [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}},
+            ]
+            messages = [{"role": "user", "content": message_content}]
+
+        completion = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            extra_body={"size": _map_local_image_size(image_size)},
+        )
+
+        content = completion.choices[0].message.content if completion and completion.choices else None
+        if not content:
+            return None
+        pattern = r'data:image/(png|jpeg|jpg|webp);base64,([A-Za-z0-9+/=]+)'
+        match = re.search(pattern, content)
+        if match:
+            image_base64 = match.group(2)
+            image_data = base64.b64decode(image_base64)
+            return Image.open(io.BytesIO(image_data))
+        return None
+    except Exception as e:
+        print(f"[Local] 图像生成 API 调用失败: {e}")
         raise
 
 
@@ -2198,58 +2333,68 @@ def segment_with_sam3(
     backend = sam_backend
     if backend == "api":
         backend = "fal"
+    handled_backend = False
 
     if backend == "local":
-        from sam3.model_builder import build_sam3_image_model
-        from sam3.model.sam3_image_processor import Sam3Processor
-        import sam3
+        try:
+            from sam3.model_builder import build_sam3_image_model
+            from sam3.model.sam3_image_processor import Sam3Processor
+            import sam3
+        except ModuleNotFoundError as exc:
+            if exc.name == "sam3":
+                print("[warn] 本地未安装 sam3，自动回退到 fal SAM3 API 模式")
+                backend = "fal"
+            else:
+                raise
 
-        sam3_dir = Path(sam3.__path__[0]) if hasattr(sam3, '__path__') else Path(sam3.__file__).parent
-        bpe_path = sam3_dir / "assets" / "bpe_simple_vocab_16e6.txt.gz"
-        if not bpe_path.exists():
-            bpe_path = None
-            print("警告: 未找到 bpe 文件，使用默认路径")
+        if backend == "local":
+            sam3_dir = Path(sam3.__path__[0]) if hasattr(sam3, '__path__') else Path(sam3.__file__).parent
+            bpe_path = sam3_dir / "assets" / "bpe_simple_vocab_16e6.txt.gz"
+            if not bpe_path.exists():
+                bpe_path = None
+                print("警告: 未找到 bpe 文件，使用默认路径")
 
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        print(f"使用设备: {device}")
-        model = build_sam3_image_model(device=device, bpe_path=str(bpe_path) if bpe_path else None)
-        processor = Sam3Processor(model, device=device)
-        inference_state = processor.set_image(image)
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            print(f"使用设备: {device}")
+            model = build_sam3_image_model(device=device, bpe_path=str(bpe_path) if bpe_path else None)
+            processor = Sam3Processor(model, device=device)
+            inference_state = processor.set_image(image)
 
-        for prompt in prompt_list:
-            print(f"\n  正在检测: '{prompt}'")
-            output = processor.set_text_prompt(state=inference_state, prompt=prompt)
+            for prompt in prompt_list:
+                print(f"\n  正在检测: '{prompt}'")
+                output = processor.set_text_prompt(state=inference_state, prompt=prompt)
 
-            boxes = output["boxes"]
-            scores = output["scores"]
+                boxes = output["boxes"]
+                scores = output["scores"]
 
-            if isinstance(boxes, torch.Tensor):
-                boxes = boxes.cpu().numpy()
-            if isinstance(scores, torch.Tensor):
-                scores = scores.cpu().numpy()
+                if isinstance(boxes, torch.Tensor):
+                    boxes = boxes.cpu().numpy()
+                if isinstance(scores, torch.Tensor):
+                    scores = scores.cpu().numpy()
 
-            prompt_count = 0
-            for box, score in zip(boxes, scores):
-                if score >= min_score:
-                    x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
-                    all_detected_boxes.append({
-                        "x1": x1, "y1": y1, "x2": x2, "y2": y2,
-                        "score": float(score),
-                        "prompt": prompt  # 记录来源 prompt
-                    })
-                    prompt_count += 1
-                    print(f"    对象 {prompt_count}: ({x1}, {y1}, {x2}, {y2}), score={score:.3f}")
-                else:
-                    print(f"    跳过: score={score:.3f} < {min_score}")
+                prompt_count = 0
+                for box, score in zip(boxes, scores):
+                    if score >= min_score:
+                        x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
+                        all_detected_boxes.append({
+                            "x1": x1, "y1": y1, "x2": x2, "y2": y2,
+                            "score": float(score),
+                            "prompt": prompt  # 记录来源 prompt
+                        })
+                        prompt_count += 1
+                        print(f"    对象 {prompt_count}: ({x1}, {y1}, {x2}, {y2}), score={score:.3f}")
+                    else:
+                        print(f"    跳过: score={score:.3f} < {min_score}")
 
-            print(f"  '{prompt}' 检测到 {prompt_count} 个有效对象")
-            total_detected += prompt_count
+                print(f"  '{prompt}' 检测到 {prompt_count} 个有效对象")
+                total_detected += prompt_count
 
-        del model, processor
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+            del model, processor
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            handled_backend = True
 
-    elif backend == "fal":
+    if not handled_backend and backend == "fal":
         api_key = _get_fal_api_key(sam_api_key)
         max_masks = max(1, min(32, int(sam_max_masks)))
         image_data_uri, remote_image_meta = _image_to_remote_sam3_data_uri(image)
@@ -2288,7 +2433,8 @@ def segment_with_sam3(
 
             print(f"  '{prompt}' 检测到 {prompt_count} 个有效对象")
             total_detected += prompt_count
-    elif backend == "roboflow":
+        handled_backend = True
+    elif not handled_backend and backend == "roboflow":
         api_key = _get_roboflow_api_key(sam_api_key)
         prompt_summary = ",".join(prompt_list)
         print(
@@ -2324,7 +2470,9 @@ def segment_with_sam3(
 
         print(f"  workflow 检测到 {prompt_count} 个有效对象")
         total_detected += prompt_count
-    else:
+        handled_backend = True
+
+    if not handled_backend:
         raise ValueError(f"未知 SAM3 后端: {sam_backend}")
 
     print(f"\n总计检测: {total_detected} 个对象 (来自 {len(prompt_list)} 个 prompts)")
@@ -3477,6 +3625,7 @@ def method_to_svg(
     optimize_iterations: int = 2,
     merge_threshold: float = 0.9,
     image_size: str = GEMINI_DEFAULT_IMAGE_SIZE,
+    start_stage: int = 1,
 ) -> dict:
     """
     完整流程：Paper Method → SVG with Icons
@@ -3535,6 +3684,7 @@ def method_to_svg(
     print(f"SAM后端: {sam_backend_value}")
     if sam_backend_value == "fal":
         print(f"SAM3 API max_masks: {sam_max_masks}")
+    print(f"起始步骤: {start_stage}")
     print(f"执行到步骤: {stop_after}")
     print(f"占位符模式: {placeholder_mode}")
     print(f"优化迭代次数: {optimize_iterations}")
@@ -3543,17 +3693,30 @@ def method_to_svg(
         print(f"生图分辨率: {image_size}")
     print("=" * 60)
 
-    # 步骤一：生成图片
     figure_path = output_dir / "figure.png"
-    generate_figure_from_method(
-        method_text=method_text,
-        output_path=str(figure_path),
-        api_key=api_key,
-        model=image_gen_model,
-        base_url=base_url,
-        provider=provider,
-        image_size=image_size,
-    )
+    samed_path = output_dir / "samed.png"
+    boxlib_path = output_dir / "boxlib.json"
+    template_svg_path = output_dir / "template.svg"
+    optimized_template_path = output_dir / "optimized_template.svg"
+    final_svg_path = output_dir / "final.svg"
+
+    # 步骤一：生成图片
+    if start_stage <= 1:
+        try:
+            generate_figure_from_method(
+                method_text=method_text,
+                output_path=str(figure_path),
+                api_key=api_key,
+                model=image_gen_model,
+                base_url=base_url,
+                provider=provider,
+                image_size=image_size,
+            )
+        except Exception as exc:
+            raise PipelineStageError(1, str(exc)) from exc
+    else:
+        _require_existing_file(figure_path, start_stage, "figure.png")
+        print(f"[resume] 跳过步骤 1，复用 {figure_path}")
 
     if stop_after == 1:
         print("\n" + "=" * 60)
@@ -3570,16 +3733,27 @@ def method_to_svg(
         }
 
     # 步骤二：SAM3 分割（包含Box合并）
-    samed_path, boxlib_path, valid_boxes = segment_with_sam3(
-        image_path=str(figure_path),
-        output_dir=str(output_dir),
-        text_prompts=sam_prompts,
-        min_score=min_score,
-        merge_threshold=merge_threshold,
-        sam_backend=sam_backend_value,
-        sam_api_key=sam_api_key,
-        sam_max_masks=sam_max_masks,
-    )
+    if start_stage <= 2:
+        try:
+            samed_path_str, boxlib_path_str, valid_boxes = segment_with_sam3(
+                image_path=str(figure_path),
+                output_dir=str(output_dir),
+                text_prompts=sam_prompts,
+                min_score=min_score,
+                merge_threshold=merge_threshold,
+                sam_backend=sam_backend_value,
+                sam_api_key=sam_api_key,
+                sam_max_masks=sam_max_masks,
+            )
+            samed_path = Path(samed_path_str)
+            boxlib_path = Path(boxlib_path_str)
+        except Exception as exc:
+            raise PipelineStageError(2, str(exc)) from exc
+    else:
+        _require_existing_file(samed_path, start_stage, "samed.png")
+        _require_existing_file(boxlib_path, start_stage, "boxlib.json")
+        valid_boxes = _load_resume_boxes(boxlib_path)
+        print(f"[resume] 跳过步骤 2，复用 {boxlib_path}")
 
     no_icon_mode = len(valid_boxes) == 0
     if no_icon_mode:
@@ -3593,8 +3767,8 @@ def method_to_svg(
         print("=" * 60)
         return {
             "figure_path": str(figure_path),
-            "samed_path": samed_path,
-            "boxlib_path": boxlib_path,
+            "samed_path": str(samed_path),
+            "boxlib_path": str(boxlib_path),
             "icon_infos": [],
             "template_svg_path": None,
             "optimized_template_path": None,
@@ -3603,16 +3777,28 @@ def method_to_svg(
 
     # 步骤三：裁切 + 去背景
     icon_infos = []
-    if no_icon_mode:
-        print("步骤三跳过：当前为无图标回退模式")
+    if start_stage <= 3:
+        if no_icon_mode:
+            print("步骤三跳过：当前为无图标回退模式")
+        else:
+            try:
+                _ensure_rmbg2_access_ready(rmbg_model_path)
+                icon_infos = crop_and_remove_background(
+                    image_path=str(figure_path),
+                    boxlib_path=str(boxlib_path),
+                    output_dir=str(output_dir),
+                    rmbg_model_path=rmbg_model_path,
+                )
+            except Exception as exc:
+                raise PipelineStageError(3, str(exc)) from exc
     else:
-        _ensure_rmbg2_access_ready(rmbg_model_path)
-        icon_infos = crop_and_remove_background(
-            image_path=str(figure_path),
-            boxlib_path=boxlib_path,
-            output_dir=str(output_dir),
-            rmbg_model_path=rmbg_model_path,
-        )
+        if no_icon_mode:
+            print("[resume] 步骤三跳过：当前为无图标回退模式")
+        else:
+            icon_infos = _load_resume_icon_infos(output_dir, valid_boxes)
+            if not icon_infos:
+                raise PipelineStageError(start_stage, "Resume 失败，缺少 icons 目录或图标文件")
+            print(f"[resume] 跳过步骤 3，复用 {len(icon_infos)} 个图标")
 
     if stop_after == 3:
         print("\n" + "=" * 60)
@@ -3620,8 +3806,8 @@ def method_to_svg(
         print("=" * 60)
         return {
             "figure_path": str(figure_path),
-            "samed_path": samed_path,
-            "boxlib_path": boxlib_path,
+            "samed_path": str(samed_path),
+            "boxlib_path": str(boxlib_path),
             "icon_infos": icon_infos,
             "template_svg_path": None,
             "optimized_template_path": None,
@@ -3629,45 +3815,46 @@ def method_to_svg(
         }
 
     # 步骤四：生成 SVG 模板
-    template_svg_path = output_dir / "template.svg"
-    optimized_template_path = output_dir / "optimized_template.svg"
-    final_svg_path = output_dir / "final.svg"
-    try:
-        generate_svg_template(
-            figure_path=str(figure_path),
-            samed_path=samed_path,
-            boxlib_path=boxlib_path,
-            output_path=str(template_svg_path),
-            api_key=api_key,
-            model=svg_gen_model,
-            base_url=base_url,
-            provider=provider,
-            placeholder_mode=placeholder_mode,
-            no_icon_mode=no_icon_mode,
-        )
+    if start_stage <= 4:
+        try:
+            generate_svg_template(
+                figure_path=str(figure_path),
+                samed_path=str(samed_path),
+                boxlib_path=str(boxlib_path),
+                output_path=str(template_svg_path),
+                api_key=api_key,
+                model=svg_gen_model,
+                base_url=base_url,
+                provider=provider,
+                placeholder_mode=placeholder_mode,
+                no_icon_mode=no_icon_mode,
+            )
 
-        # 步骤 4.6：LLM 优化 SVG 模板（可配置迭代次数，0 表示跳过）
-        optimize_svg_with_llm(
-            figure_path=str(figure_path),
-            samed_path=samed_path,
-            final_svg_path=str(template_svg_path),
-            output_path=str(optimized_template_path),
-            api_key=api_key,
-            model=svg_gen_model,
-            base_url=base_url,
-            provider=provider,
-            max_iterations=optimize_iterations,
-            skip_base64_validation=True,
-            no_icon_mode=no_icon_mode,
-        )
-    except Exception as exc:
-        if not no_icon_mode:
-            raise
-        print(f"无图标模式下 SVG 重建失败（{exc}），改用内嵌原图的保底 SVG")
-        create_embedded_figure_svg(
-            figure_path=str(figure_path),
-            output_path=str(final_svg_path),
-        )
+            optimize_svg_with_llm(
+                figure_path=str(figure_path),
+                samed_path=str(samed_path),
+                final_svg_path=str(template_svg_path),
+                output_path=str(optimized_template_path),
+                api_key=api_key,
+                model=svg_gen_model,
+                base_url=base_url,
+                provider=provider,
+                max_iterations=optimize_iterations,
+                skip_base64_validation=True,
+                no_icon_mode=no_icon_mode,
+            )
+        except Exception as exc:
+            if not no_icon_mode:
+                raise PipelineStageError(4, str(exc)) from exc
+            print(f"无图标模式下 SVG 重建失败（{exc}），改用内嵌原图的保底 SVG")
+            create_embedded_figure_svg(
+                figure_path=str(figure_path),
+                output_path=str(final_svg_path),
+            )
+    else:
+        if not template_svg_path.is_file() and not optimized_template_path.is_file():
+            raise PipelineStageError(start_stage, "Resume 失败，缺少 template.svg 或 optimized_template.svg")
+        print("[resume] 跳过步骤 4，复用已有 SVG 模板")
 
     if stop_after == 4:
         print("\n" + "=" * 60)
@@ -3675,8 +3862,8 @@ def method_to_svg(
         print("=" * 60)
         return {
             "figure_path": str(figure_path),
-            "samed_path": samed_path,
-            "boxlib_path": boxlib_path,
+            "samed_path": str(samed_path),
+            "boxlib_path": str(boxlib_path),
             "icon_infos": icon_infos,
             "template_svg_path": str(template_svg_path) if template_svg_path.is_file() else None,
             "optimized_template_path": str(optimized_template_path) if optimized_template_path.is_file() else None,
@@ -3686,54 +3873,60 @@ def method_to_svg(
     svg_template_for_replace = optimized_template_path if optimized_template_path.is_file() else template_svg_path
 
     # 步骤五：图标替换
-    if no_icon_mode:
-        if svg_template_for_replace.is_file():
-            shutil.copyfile(svg_template_for_replace, final_svg_path)
-            print("无图标模式：跳过图标替换，直接输出 SVG")
-        else:
-            print("无图标模式缺少模板 SVG，生成保底 final.svg")
-            create_embedded_figure_svg(
-                figure_path=str(figure_path),
-                output_path=str(final_svg_path),
-            )
-    else:
-        # 步骤 4.7：坐标系对齐
-        print("\n" + "-" * 50)
-        print("步骤 4.7：坐标系对齐")
-        print("-" * 50)
-
-        figure_img = Image.open(figure_path)
-        figure_width, figure_height = figure_img.size
-        print(f"原图尺寸: {figure_width} x {figure_height}")
-
-        with open(svg_template_for_replace, 'r', encoding='utf-8') as f:
-            svg_code = f.read()
-
-        svg_width, svg_height = get_svg_dimensions(svg_code)
-
-        if svg_width and svg_height:
-            print(f"SVG 尺寸: {svg_width} x {svg_height}")
-
-            if abs(svg_width - figure_width) < 1 and abs(svg_height - figure_height) < 1:
-                print("尺寸匹配，使用 1:1 坐标映射")
-                scale_factors = (1.0, 1.0)
+    if start_stage <= 5:
+        try:
+            if no_icon_mode:
+                if svg_template_for_replace.is_file():
+                    shutil.copyfile(svg_template_for_replace, final_svg_path)
+                    print("无图标模式：跳过图标替换，直接输出 SVG")
+                else:
+                    print("无图标模式缺少模板 SVG，生成保底 final.svg")
+                    create_embedded_figure_svg(
+                        figure_path=str(figure_path),
+                        output_path=str(final_svg_path),
+                    )
             else:
-                scale_x, scale_y = calculate_scale_factors(
-                    figure_width, figure_height, svg_width, svg_height
-                )
-                scale_factors = (scale_x, scale_y)
-                print(f"尺寸不匹配，计算缩放因子: scale_x={scale_x:.4f}, scale_y={scale_y:.4f}")
-        else:
-            print("警告: 无法提取 SVG 尺寸，使用 1:1 坐标映射")
-            scale_factors = (1.0, 1.0)
+                print("\n" + "-" * 50)
+                print("步骤 4.7：坐标系对齐")
+                print("-" * 50)
 
-        replace_icons_in_svg(
-            template_svg_path=str(svg_template_for_replace),
-            icon_infos=icon_infos,
-            output_path=str(final_svg_path),
-            scale_factors=scale_factors,
-            match_by_label=(placeholder_mode == "label"),
-        )
+                figure_img = Image.open(figure_path)
+                figure_width, figure_height = figure_img.size
+                print(f"原图尺寸: {figure_width} x {figure_height}")
+
+                with open(svg_template_for_replace, 'r', encoding='utf-8') as f:
+                    svg_code = f.read()
+
+                svg_width, svg_height = get_svg_dimensions(svg_code)
+
+                if svg_width and svg_height:
+                    print(f"SVG 尺寸: {svg_width} x {svg_height}")
+
+                    if abs(svg_width - figure_width) < 1 and abs(svg_height - figure_height) < 1:
+                        print("尺寸匹配，使用 1:1 坐标映射")
+                        scale_factors = (1.0, 1.0)
+                    else:
+                        scale_x, scale_y = calculate_scale_factors(
+                            figure_width, figure_height, svg_width, svg_height
+                        )
+                        scale_factors = (scale_x, scale_y)
+                        print(f"尺寸不匹配，计算缩放因子: scale_x={scale_x:.4f}, scale_y={scale_y:.4f}")
+                else:
+                    print("警告: 无法提取 SVG 尺寸，使用 1:1 坐标映射")
+                    scale_factors = (1.0, 1.0)
+
+                replace_icons_in_svg(
+                    template_svg_path=str(svg_template_for_replace),
+                    icon_infos=icon_infos,
+                    output_path=str(final_svg_path),
+                    scale_factors=scale_factors,
+                    match_by_label=(placeholder_mode == "label"),
+                )
+        except Exception as exc:
+            raise PipelineStageError(5, str(exc)) from exc
+    else:
+        _require_existing_file(final_svg_path, start_stage, "final.svg")
+        print("[resume] 跳过步骤 5，复用 final.svg")
 
     print("\n" + "=" * 60)
     print("流程完成！")
@@ -3748,8 +3941,8 @@ def method_to_svg(
 
     return {
         "figure_path": str(figure_path),
-        "samed_path": samed_path,
-        "boxlib_path": boxlib_path,
+        "samed_path": str(samed_path),
+        "boxlib_path": str(boxlib_path),
         "icon_infos": icon_infos,
         "template_svg_path": str(template_svg_path) if template_svg_path.is_file() else None,
         "optimized_template_path": str(optimized_template_path) if optimized_template_path.is_file() else None,
@@ -3782,6 +3975,48 @@ def create_embedded_figure_svg(
 
     print(f"内嵌 figure.png 的保底 SVG 已保存: {output_path_obj}")
     return str(output_path_obj)
+
+
+class PipelineStageError(RuntimeError):
+    def __init__(self, stage: int, message: str) -> None:
+        super().__init__(message)
+        self.stage = stage
+
+
+def _require_existing_file(path: Path, stage: int, description: str) -> None:
+    if not path.is_file():
+        raise PipelineStageError(stage, f"Resume 失败，缺少 {description}: {path}")
+
+
+def _load_resume_boxes(boxlib_path: Path) -> list[dict]:
+    data = json.loads(boxlib_path.read_text(encoding='utf-8'))
+    return data.get("boxes", [])
+
+
+def _load_resume_icon_infos(output_dir: Path, boxes: list[dict]) -> list[dict]:
+    icons_dir = output_dir / "icons"
+    icon_infos: list[dict] = []
+    for box_info in boxes:
+        label = box_info.get("label", f"<AF>{box_info.get('id', 0) + 1:02d}")
+        label_clean = label.replace("<", "").replace(">", "")
+        nobg_path = icons_dir / f"icon_{label_clean}_nobg.png"
+        crop_path = icons_dir / f"icon_{label_clean}.png"
+        if not nobg_path.is_file() and not crop_path.is_file():
+            continue
+        icon_infos.append({
+            "id": box_info.get("id", 0),
+            "label": label,
+            "label_clean": label_clean,
+            "x1": box_info["x1"],
+            "y1": box_info["y1"],
+            "x2": box_info["x2"],
+            "y2": box_info["y2"],
+            "width": box_info["x2"] - box_info["x1"],
+            "height": box_info["y2"] - box_info["y1"],
+            "crop_path": str(crop_path) if crop_path.is_file() else None,
+            "nobg_path": str(nobg_path if nobg_path.is_file() else crop_path),
+        })
+    return icon_infos
 
 
 # ============================================================================
@@ -3832,7 +4067,7 @@ if __name__ == "__main__":
     parser.add_argument("--reference_image_path", default=None, help="参考图片路径（可选）")
 
     # SAM3 参数
-    parser.add_argument("--sam_prompt", default="icon,robot,animal,person", help="SAM3 文本提示，支持逗号分隔多个prompt（如 'icon,diagram,arrow'，默认: icon）")
+    parser.add_argument("--sam_prompt", default="icon,robot,animal,person,arrow", help="SAM3 文本提示，支持逗号分隔多个prompt（如 'icon,diagram,arrow'，默认: icon）")
     parser.add_argument("--min_score", type=float, default=0.0, help="SAM3 最低置信度阈值（默认: 0.0）")
     parser.add_argument(
         "--sam_backend",

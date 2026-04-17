@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .routers.health import router as health_router
 from .routers.jobs import router as jobs_router
+from .routers.uploads import router as uploads_router
 
 
 app = FastAPI(title="AutoFigure Backend", version="0.1.0")
@@ -18,6 +19,7 @@ app.add_middleware(
 )
 app.include_router(health_router)
 app.include_router(jobs_router)
+app.include_router(uploads_router)
 
 
 @app.get("/")
@@ -26,5 +28,6 @@ def root() -> dict[str, str]:
         "service": "autofigure-backend",
         "health": "/healthz",
         "jobs": "/api/jobs",
+        "uploads": "/api/uploads",
         "runtime_dir": str(settings.runtime_dir),
     }

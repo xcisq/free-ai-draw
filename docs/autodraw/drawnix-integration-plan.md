@@ -19,6 +19,10 @@
 
 本文件用于方案评审、范围确认与后续开发执行基线。在评审通过前，不进入正式开发。
 
+关于后端产物从 `SVG` 单一事实源升级为 `scene.json` 单一事实源的后续方案，详见：
+
+- [scene-driven-drawnix-plan.md](file:///Users/bytedance/Documents/upc/draw_xcl/drawnix/docs/autodraw/scene-driven-drawnix-plan.md)
+
 ## 2. 范围界定
 
 ## 2.1 本次能力边界
@@ -37,7 +41,7 @@
 当前阶段不优先处理：
 
 - 复用或改造现有 `PaperDraw Flowchart` 本地分析流程
-- 后端直接生成 Plait JSON
+- 后端直接让 LLM 输出最终 Plait JSON
 - 生产级部署、鉴权、多租户、任务取消
 - 实时 WebSocket 推送
 - 云存储或 CDN 级资源分发

@@ -17,10 +17,4 @@
   }
 }
 
-// 右侧工具栏（AI Pipeline 按钮）
-.app-toolbar-right {
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  z-index: 100;
-}
+// NOTE: keep app-toolbar styles scoped here; middle toolbar buttons live in CreationToolbar.

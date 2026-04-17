@@ -30,7 +30,7 @@ import {
   DrawPointerType,
   FlowchartSymbols,
 } from '@plait/draw';
-import { FreehandPanel , FREEHANDS } from './freehand-panel/freehand-panel';
+import { FreehandPanel, FREEHANDS } from './freehand-panel/freehand-panel';
 import { ShapePicker } from '../shape-picker';
 import { ArrowPicker } from '../arrow-picker';
 import { useState } from 'react';
@@ -47,6 +47,8 @@ import { Translations, useI18n } from '../../i18n';
 import { SHAPES } from '../shape-picker';
 import { ARROWS } from '../arrow-picker';
 import { IconLibraryPanel } from './icon-library-panel/icon-library-panel';
+import { AutodrawToolbarButton } from '../../autodraw/components/autodraw-toolbar-button';
+import { LLMMermaidButton } from './llm-mermaid-button';
 
 export enum PopupKey {
   'shape' = 'shape',
@@ -151,8 +153,12 @@ export const CreationToolbar = () => {
     useState<AppToolButtonProps>(
       BUTTONS.find((button) => button.key === PopupKey.freehand)!
     );
-  const [lastShapePointer, setLastShapePointer] = useState<DrawPointerType | undefined>(SHAPES[0].pointer);
-  const [lastArrowPointer, setLastArrowPointer] = useState<DrawPointerType | undefined>(ARROWS[0].pointer);
+  const [lastShapePointer, setLastShapePointer] = useState<
+    DrawPointerType | undefined
+  >(SHAPES[0].pointer);
+  const [lastArrowPointer, setLastArrowPointer] = useState<
+    DrawPointerType | undefined
+  >(ARROWS[0].pointer);
 
   const onPointerDown = (pointer: DrawnixPointerType) => {
     setCreationMode(board, BoardCreationMode.dnd);
@@ -166,17 +172,19 @@ export const CreationToolbar = () => {
 
   const isChecked = (button: AppToolButtonProps) => {
     return (
-      PlaitBoard.isPointer(board, button.pointer) && !arrowOpen && !shapeOpen && !freehandOpen
+      PlaitBoard.isPointer(board, button.pointer) &&
+      !arrowOpen &&
+      !shapeOpen &&
+      !freehandOpen
     );
   };
 
   const checkCurrentPointerIsFreehand = (board: PlaitBoard) => {
     return PlaitBoard.isInPointer(board, [
-      FreehandShape.feltTipPen, 
+      FreehandShape.feltTipPen,
       FreehandShape.eraser,
     ]);
   };
-
 
   return (
     <Island
@@ -203,12 +211,19 @@ export const CreationToolbar = () => {
                     type="icon"
                     visible={true}
                     selected={
-                      freehandOpen ||
-                      checkCurrentPointerIsFreehand(board)
+                      freehandOpen || checkCurrentPointerIsFreehand(board)
                     }
                     icon={lastFreehandButton.icon}
-                    title={lastFreehandButton.titleKey ? t(lastFreehandButton.titleKey) : 'Freehand'}
-                    aria-label={lastFreehandButton.titleKey ? t(lastFreehandButton.titleKey) : 'Freehand'}
+                    title={
+                      lastFreehandButton.titleKey
+                        ? t(lastFreehandButton.titleKey)
+                        : 'Freehand'
+                    }
+                    aria-label={
+                      lastFreehandButton.titleKey
+                        ? t(lastFreehandButton.titleKey)
+                        : 'Freehand'
+                    }
                     onPointerDown={() => {
                       setFreehandOpen(!freehandOpen);
                       onPointerDown(lastFreehandButton.pointer!);
@@ -258,10 +273,13 @@ export const CreationToolbar = () => {
                       if (isShapePointer(board)) {
                         BoardTransforms.updatePointerType(board, board.pointer);
                       } else {
-                        setPointer(lastShapePointer || SHAPES[0].pointer)
+                        setPointer(lastShapePointer || SHAPES[0].pointer);
                         setCreationMode(board, BoardCreationMode.drawing);
-                        BoardTransforms.updatePointerType(board, lastShapePointer || SHAPES[0].pointer);
-                      } 
+                        BoardTransforms.updatePointerType(
+                          board,
+                          lastShapePointer || SHAPES[0].pointer
+                        );
+                      }
                     }}
                   />
                 </PopoverTrigger>
@@ -301,7 +319,10 @@ export const CreationToolbar = () => {
                         BoardTransforms.updatePointerType(board, board.pointer);
                       } else {
                         setCreationMode(board, BoardCreationMode.drawing);
-                        BoardTransforms.updatePointerType(board, lastArrowPointer || ARROWS[0].pointer);
+                        BoardTransforms.updatePointerType(
+                          board,
+                          lastArrowPointer || ARROWS[0].pointer
+                        );
                         setPointer(lastArrowPointer || ARROWS[0].pointer);
                       }
                     }}
@@ -321,31 +342,34 @@ export const CreationToolbar = () => {
           }
           if (button.key === 'icon-library') {
             return (
-              <Popover
-                key={index}
-                open={iconLibraryOpen}
-                sideOffset={12}
-                onOpenChange={(open) => {
-                  setIconLibraryOpen(open);
-                }}
-              >
-                <PopoverTrigger asChild>
-                  <ToolButton
-                    type="icon"
-                    visible={true}
-                    selected={iconLibraryOpen}
-                    icon={button.icon}
-                    title={button.titleKey ? t(button.titleKey) : ''}
-                    aria-label={button.titleKey ? t(button.titleKey) : ''}
-                    onPointerDown={() => {
-                      setIconLibraryOpen(!iconLibraryOpen);
-                    }}
-                  />
-                </PopoverTrigger>
-                <PopoverContent container={container}>
-                  <IconLibraryPanel board={board} />
-                </PopoverContent>
-              </Popover>
+              <div key={index} style={{ display: 'flex', gap: '4px' }}>
+                <Popover
+                  open={iconLibraryOpen}
+                  sideOffset={12}
+                  onOpenChange={(open) => {
+                    setIconLibraryOpen(open);
+                  }}
+                >
+                  <PopoverTrigger asChild>
+                    <ToolButton
+                      type="icon"
+                      visible={true}
+                      selected={iconLibraryOpen}
+                      icon={button.icon}
+                      title={button.titleKey ? t(button.titleKey) : ''}
+                      aria-label={button.titleKey ? t(button.titleKey) : ''}
+                      onPointerDown={() => {
+                        setIconLibraryOpen(!iconLibraryOpen);
+                      }}
+                    />
+                  </PopoverTrigger>
+                  <PopoverContent container={container}>
+                    <IconLibraryPanel board={board} />
+                  </PopoverContent>
+                </Popover>
+                <AutodrawToolbarButton />
+                <LLMMermaidButton />
+              </div>
             );
           }
           if (button.key === 'extra-tools') {

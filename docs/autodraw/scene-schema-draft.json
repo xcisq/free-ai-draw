@@ -1,0 +1,978 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://drawnix.dev/schema/autodraw/scene.schema.json",
+  "title": "Autodraw Scene Schema",
+  "description": "Schema draft for Autodraw scene-driven Drawnix import pipeline.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "version",
+    "source",
+    "canvas",
+    "theme",
+    "assets",
+    "elements"
+  ],
+  "properties": {
+    "type": {
+      "const": "drawnix-scene"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "canvas": {
+      "$ref": "#/$defs/canvas"
+    },
+    "theme": {
+      "$ref": "#/$defs/theme"
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/asset"
+      }
+    },
+    "elements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/element"
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/openMetadata"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "openMetadata": {
+      "type": "object"
+    },
+    "point": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "items": false
+    },
+    "bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "jobId",
+        "generator",
+        "pipelineVersion"
+      ],
+      "properties": {
+        "jobId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "generator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pipelineVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceJobId": {
+          "type": "string"
+        },
+        "resumeFromStage": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "canvas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "height",
+        "background"
+      ],
+      "properties": {
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "background": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "preset",
+        "tokens"
+      ],
+      "properties": {
+        "preset": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tokens": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          }
+        }
+      }
+    },
+    "assetImage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "path",
+        "mimeType",
+        "width",
+        "height"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "image"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mimeType": {
+          "enum": [
+            "image/png",
+            "image/jpeg",
+            "image/svg+xml",
+            "image/webp"
+          ]
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "checksum": {
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/openMetadata"
+        }
+      }
+    },
+    "assetFont": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "path",
+        "mimeType",
+        "family"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "font"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mimeType": {
+          "enum": [
+            "font/ttf",
+            "font/otf",
+            "font/woff",
+            "font/woff2"
+          ]
+        },
+        "family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "weight": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 900
+        },
+        "style": {
+          "enum": [
+            "normal",
+            "italic"
+          ]
+        },
+        "metadata": {
+          "$ref": "#/$defs/openMetadata"
+        }
+      }
+    },
+    "asset": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/assetImage"
+        },
+        {
+          "$ref": "#/$defs/assetFont"
+        }
+      ]
+    },
+    "baseElement": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "zIndex": {
+          "type": "integer"
+        },
+        "groupId": {
+          "$ref": "#/$defs/id"
+        },
+        "metadata": {
+          "$ref": "#/$defs/openMetadata"
+        }
+      }
+    },
+    "textStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fontFamily",
+        "fontSize",
+        "fill"
+      ],
+      "properties": {
+        "fontFamily": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fontSize": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "fontWeight": {
+          "type": [
+            "integer",
+            "string"
+          ]
+        },
+        "fontStyle": {
+          "enum": [
+            "normal",
+            "italic",
+            "oblique"
+          ]
+        },
+        "fill": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stroke": {
+          "type": "string"
+        },
+        "strokeWidth": {
+          "type": "number",
+          "minimum": 0
+        },
+        "lineHeight": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "letterSpacing": {
+          "type": "number"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "textLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height",
+        "anchor",
+        "baseline",
+        "rotation",
+        "wrapMode"
+      ],
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "anchor": {
+          "enum": [
+            "start",
+            "middle",
+            "end"
+          ]
+        },
+        "baseline": {
+          "enum": [
+            "alphabetic",
+            "middle",
+            "hanging",
+            "mathematical",
+            "text-top",
+            "text-bottom",
+            "central",
+            "ideographic"
+          ]
+        },
+        "rotation": {
+          "type": "number"
+        },
+        "wrapMode": {
+          "enum": [
+            "none",
+            "soft-wrap",
+            "hard-breaks"
+          ]
+        }
+      }
+    },
+    "textRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text"
+      ],
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "style": {
+          "$ref": "#/$defs/textStyle"
+        }
+      }
+    },
+    "textEditing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "native-text",
+            "native-text-in-shape",
+            "svg-fragment-text"
+          ]
+        },
+        "preserveVisualPriority": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        }
+      }
+    },
+    "textElement": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseElement"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "kind",
+            "text",
+            "layout",
+            "style",
+            "editing"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "kind": {
+              "const": "text"
+            },
+            "text": {
+              "type": "string"
+            },
+            "layout": {
+              "$ref": "#/$defs/textLayout"
+            },
+            "style": {
+              "$ref": "#/$defs/textStyle"
+            },
+            "runs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/textRun"
+              }
+            },
+            "editing": {
+              "$ref": "#/$defs/textEditing"
+            },
+            "sourceText": {
+              "type": "string"
+            },
+            "zIndex": {
+              "type": "integer"
+            },
+            "groupId": {
+              "$ref": "#/$defs/id"
+            },
+            "metadata": {
+              "$ref": "#/$defs/openMetadata"
+            }
+          }
+        }
+      ]
+    },
+    "shapeStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fill",
+        "stroke",
+        "strokeWidth"
+      ],
+      "properties": {
+        "fill": {
+          "type": "string"
+        },
+        "stroke": {
+          "type": "string"
+        },
+        "strokeWidth": {
+          "type": "number",
+          "minimum": 0
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "shadowToken": {
+          "type": "string"
+        }
+      }
+    },
+    "shapeElement": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseElement"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "kind",
+            "shapeType",
+            "bounds",
+            "style"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "kind": {
+              "const": "shape"
+            },
+            "shapeType": {
+              "enum": [
+                "rectangle",
+                "round-rectangle",
+                "ellipse",
+                "diamond",
+                "text"
+              ]
+            },
+            "bounds": {
+              "$ref": "#/$defs/bounds"
+            },
+            "cornerRadius": {
+              "type": "number",
+              "minimum": 0
+            },
+            "style": {
+              "$ref": "#/$defs/shapeStyle"
+            },
+            "textRef": {
+              "$ref": "#/$defs/id"
+            },
+            "zIndex": {
+              "type": "integer"
+            },
+            "groupId": {
+              "$ref": "#/$defs/id"
+            },
+            "metadata": {
+              "$ref": "#/$defs/openMetadata"
+            }
+          }
+        }
+      ]
+    },
+    "imageEditing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "replaceable"
+      ],
+      "properties": {
+        "mode": {
+          "const": "native-image"
+        },
+        "replaceable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "imageElement": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseElement"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "kind",
+            "assetRef",
+            "layout",
+            "editing"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "kind": {
+              "const": "image"
+            },
+            "assetRef": {
+              "$ref": "#/$defs/id"
+            },
+            "layout": {
+              "$ref": "#/$defs/bounds"
+            },
+            "editing": {
+              "$ref": "#/$defs/imageEditing"
+            },
+            "preserveAspectRatio": {
+              "enum": [
+                "xMidYMid meet",
+                "none"
+              ]
+            },
+            "zIndex": {
+              "type": "integer"
+            },
+            "groupId": {
+              "$ref": "#/$defs/id"
+            },
+            "metadata": {
+              "$ref": "#/$defs/openMetadata"
+            }
+          }
+        }
+      ]
+    },
+    "portBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "elementId",
+        "port"
+      ],
+      "properties": {
+        "elementId": {
+          "$ref": "#/$defs/id"
+        },
+        "port": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "connectorStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stroke",
+        "strokeWidth",
+        "endMarker"
+      ],
+      "properties": {
+        "stroke": {
+          "type": "string"
+        },
+        "strokeWidth": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "startMarker": {
+          "enum": [
+            "none",
+            "arrow"
+          ]
+        },
+        "endMarker": {
+          "enum": [
+            "none",
+            "arrow"
+          ]
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "connectorRouting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "shape",
+        "points"
+      ],
+      "properties": {
+        "shape": {
+          "enum": [
+            "straight",
+            "polyline",
+            "elbow"
+          ]
+        },
+        "points": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/point"
+          }
+        }
+      }
+    },
+    "connectorElement": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseElement"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "kind",
+            "from",
+            "to",
+            "routing",
+            "style",
+            "semanticRole"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "kind": {
+              "const": "connector"
+            },
+            "from": {
+              "$ref": "#/$defs/portBinding"
+            },
+            "to": {
+              "$ref": "#/$defs/portBinding"
+            },
+            "routing": {
+              "$ref": "#/$defs/connectorRouting"
+            },
+            "style": {
+              "$ref": "#/$defs/connectorStyle"
+            },
+            "semanticRole": {
+              "enum": [
+                "primary-flow",
+                "secondary-flow",
+                "annotation",
+                "feedback"
+              ]
+            },
+            "zIndex": {
+              "type": "integer"
+            },
+            "groupId": {
+              "$ref": "#/$defs/id"
+            },
+            "metadata": {
+              "$ref": "#/$defs/openMetadata"
+            }
+          }
+        }
+      ]
+    },
+    "groupElement": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseElement"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "kind",
+            "children"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "kind": {
+              "const": "group"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/id"
+              }
+            },
+            "zIndex": {
+              "type": "integer"
+            },
+            "groupId": {
+              "$ref": "#/$defs/id"
+            },
+            "metadata": {
+              "$ref": "#/$defs/openMetadata"
+            }
+          }
+        }
+      ]
+    },
+    "fragmentElement": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseElement"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "kind",
+            "layout",
+            "content"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "kind": {
+              "const": "fragment"
+            },
+            "layout": {
+              "$ref": "#/$defs/bounds"
+            },
+            "content": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "format",
+                "data"
+              ],
+              "properties": {
+                "format": {
+                  "enum": [
+                    "svg-inline",
+                    "svg-data-url",
+                    "png-data-url"
+                  ]
+                },
+                "data": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "editing": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "mode"
+              ],
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "locked-fragment",
+                    "recompilable-fragment"
+                  ]
+                }
+              }
+            },
+            "zIndex": {
+              "type": "integer"
+            },
+            "groupId": {
+              "$ref": "#/$defs/id"
+            },
+            "metadata": {
+              "$ref": "#/$defs/openMetadata"
+            }
+          }
+        }
+      ]
+    },
+    "frameElement": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseElement"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "kind",
+            "bounds",
+            "style"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/id"
+            },
+            "kind": {
+              "const": "frame"
+            },
+            "bounds": {
+              "$ref": "#/$defs/bounds"
+            },
+            "style": {
+              "$ref": "#/$defs/shapeStyle"
+            },
+            "labelRef": {
+              "$ref": "#/$defs/id"
+            },
+            "zIndex": {
+              "type": "integer"
+            },
+            "groupId": {
+              "$ref": "#/$defs/id"
+            },
+            "metadata": {
+              "$ref": "#/$defs/openMetadata"
+            }
+          }
+        }
+      ]
+    },
+    "element": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/textElement"
+        },
+        {
+          "$ref": "#/$defs/shapeElement"
+        },
+        {
+          "$ref": "#/$defs/imageElement"
+        },
+        {
+          "$ref": "#/$defs/connectorElement"
+        },
+        {
+          "$ref": "#/$defs/groupElement"
+        },
+        {
+          "$ref": "#/$defs/fragmentElement"
+        },
+        {
+          "$ref": "#/$defs/frameElement"
+        }
+      ]
+    }
+  }
+}

@@ -197,13 +197,6 @@ export class LLMChatService {
   }
 
   /**
-   * 生成样式方案
-   */
-  async generateStyle(prompt: string): Promise<string> {
-    return this.sendPrompt(prompt, this.getStyleSystemPrompt());
-  }
-
-  /**
    * 定向修复 Mermaid 代码
    */
   async repairMermaid(prompt: string, options?: ChatOptions): Promise<string> {
@@ -215,21 +208,6 @@ export class LLMChatService {
    */
   private getSystemPrompt(): string {
     return getInitialPrompt();
-  }
-
-  /**
-   * 获取样式优化系统提示词
-   */
-  private getStyleSystemPrompt(): string {
-    return `你是一个专业的 Mermaid 图表样式设计助手。
-
-你的任务是根据当前 Mermaid 代码和用户的样式需求，返回修改后的完整 Mermaid 代码。
-
-请遵循以下规则：
-1. 不改变节点结构、节点 ID、连接关系和 subgraph 层级
-2. 优先通过 classDef、class、::: 来实现样式调整
-3. 如需虚线边框，请使用 stroke-dasharray
-4. 仅输出完整 Mermaid 代码，不要添加解释`;
   }
 
   /**

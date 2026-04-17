@@ -6,13 +6,28 @@ export interface SvgPackageComponentAsset {
   url: string;
 }
 
+export interface SvgPackageIconBox {
+  id: number;
+  label: string;
+  normalizedLabel: string;
+  iconId: string;
+  prompt?: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  score?: number;
+}
+
 export interface SvgAssetPackage {
   fileName: string;
   svgText: string;
   componentAssets: Record<string, SvgPackageComponentAsset>;
+  iconBoxMap: Record<string, SvgPackageIconBox>;
 }
 
 const SVG_FILE_CANDIDATES = ['final_edited.svg', 'final.svg'];
+const COMPONENT_ASSET_FOLDERS = ['/components/', '/icons/'];
 
 const normalizePath = (value: string) => value.replace(/\\/g, '/');
 
@@ -22,6 +37,9 @@ const getBaseName = (value: string) => {
 };
 
 const stripExtension = (value: string) => value.replace(/\.[^.]+$/, '');
+
+const normalizePlaceholderLabel = (value: string) =>
+  value.replace(/[^a-z0-9]/gi, '').toUpperCase();
 
 const arrayBufferToBase64 = (input: Uint8Array) => {
   let binary = '';
@@ -109,10 +127,17 @@ const pickSvgEntry = (entries: string[]) => {
   });
 };
 
+const pickBoxlibEntry = (entries: string[]) => {
+  return entries
+    .map((entry) => normalizePath(entry))
+    .find((entry) => getBaseName(entry).toLowerCase() === 'boxlib.json');
+};
+
 export const parseSvgAssetPackage = async (file: File): Promise<SvgAssetPackage> => {
   const archive = unzipSync(await readFileAsUint8Array(file));
   const entryNames = Object.keys(archive);
   const svgEntry = pickSvgEntry(entryNames);
+  const boxlibEntry = pickBoxlibEntry(entryNames);
 
   if (!svgEntry) {
     throw new Error('ZIP 中未找到总 SVG 文件');
@@ -125,10 +150,11 @@ export const parseSvgAssetPackage = async (file: File): Promise<SvgAssetPackage>
 
   const svgText = await decodeUtf8(svgBytes);
   const componentAssets: Record<string, SvgPackageComponentAsset> = {};
+  const iconBoxMap: Record<string, SvgPackageIconBox> = {};
 
   for (const entryName of entryNames) {
     const normalized = normalizePath(entryName);
-    if (!normalized.includes('/components/')) {
+    if (!COMPONENT_ASSET_FOLDERS.some((folder) => normalized.includes(folder))) {
       continue;
     }
     const baseName = getBaseName(normalized);
@@ -157,9 +183,52 @@ export const parseSvgAssetPackage = async (file: File): Promise<SvgAssetPackage>
     }
   }
 
+  if (boxlibEntry) {
+    const boxlibBytes = archive[boxlibEntry];
+    if (boxlibBytes) {
+      try {
+        const boxlibText = await decodeUtf8(boxlibBytes);
+        const parsed = JSON.parse(boxlibText) as {
+          boxes?: Array<{
+            id?: number;
+            label?: string;
+            prompt?: string;
+            x1?: number;
+            y1?: number;
+            x2?: number;
+            y2?: number;
+            score?: number;
+          }>;
+        };
+        for (const box of parsed.boxes || []) {
+          const label = typeof box.label === 'string' ? box.label.trim() : '';
+          const normalizedLabel = normalizePlaceholderLabel(label);
+          if (!normalizedLabel) {
+            continue;
+          }
+          iconBoxMap[normalizedLabel] = {
+            id: typeof box.id === 'number' ? box.id : Object.keys(iconBoxMap).length,
+            label,
+            normalizedLabel,
+            iconId: `icon_${normalizedLabel}`,
+            prompt: box.prompt,
+            x1: typeof box.x1 === 'number' ? box.x1 : 0,
+            y1: typeof box.y1 === 'number' ? box.y1 : 0,
+            x2: typeof box.x2 === 'number' ? box.x2 : 0,
+            y2: typeof box.y2 === 'number' ? box.y2 : 0,
+            score: typeof box.score === 'number' ? box.score : undefined,
+          };
+        }
+      } catch {
+        // Ignore malformed boxlib metadata and continue importing the SVG.
+      }
+    }
+  }
+
   return {
     fileName: getBaseName(svgEntry),
     svgText,
     componentAssets,
+    iconBoxMap,
   };
 };

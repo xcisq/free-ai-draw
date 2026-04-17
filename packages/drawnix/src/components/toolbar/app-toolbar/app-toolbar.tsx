@@ -25,7 +25,6 @@ import Menu from '../../menu/menu';
 import MenuSeparator from '../../menu/menu-separator';
 import { useI18n } from '../../../i18n';
 import { AppLogo } from '../../app-logo';
-import { LLMMermaidButton } from '../llm-mermaid-button';
 import './app-toolbar.scss';
 
 export const AppToolbar = () => {
@@ -112,7 +111,6 @@ export const AppToolbar = () => {
             }}
             disabled={isRedoDisabled}
           />
-          <LLMMermaidButton />
           {selectedElements.length > 0 && (
             <ToolButton
               className="duplicate"
@@ -141,13 +139,6 @@ export const AppToolbar = () => {
               }}
             />
           )}
-        </Stack.Row>
-      </Island>
-
-      {/* 右侧 AI Pipeline 按钮 */}
-      <Island padding={1} className={classNames('app-toolbar-right', ATTACHED_ELEMENT_CLASS_NAME)}>
-        <Stack.Row gap={1}>
-          <LLMMermaidButton />
         </Stack.Row>
       </Island>
     </>

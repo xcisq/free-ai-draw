@@ -1,168 +1,286 @@
 import { Translations } from '../types';
 
 const arTranslations: Translations = {
-    // Toolbar items
-    "toolbar.hand": "اليد — H",
-    "toolbar.selection": "التحديد — V",
-    "toolbar.mind": "خريطة ذهنية — M",
-    'toolbar.eraser': 'ممحاة — E',
-    "toolbar.text": "نص — T",
-    "toolbar.pen": "قلم — P",
-    "toolbar.arrow": "سهم — A",
-    "toolbar.shape": "أشكال",
-    "toolbar.image": "صورة — Cmd+U",
-    "toolbar.iconLibrary": "مكتبة الأيقونات",
-    "toolbar.extraTools": "أدوات إضافية",
+  // Toolbar items
+  'toolbar.hand': 'اليد — H',
+  'toolbar.selection': 'التحديد — V',
+  'toolbar.mind': 'خريطة ذهنية — M',
+  'toolbar.eraser': 'ممحاة — E',
+  'toolbar.text': 'نص — T',
+  'toolbar.pen': 'قلم — P',
+  'toolbar.arrow': 'سهم — A',
+  'toolbar.shape': 'أشكال',
+  'toolbar.image': 'صورة — Cmd+U',
+  'toolbar.iconLibrary': 'مكتبة الأيقونات',
+  'toolbar.extraTools': 'أدوات إضافية',
 
-    "toolbar.arrow.straight": "سهم مستقيم",
-    "toolbar.arrow.elbow": "سهم بزوايا",
-    "toolbar.arrow.curve": "سهم منحني",
+  'toolbar.arrow.straight': 'سهم مستقيم',
+  'toolbar.arrow.elbow': 'سهم بزوايا',
+  'toolbar.arrow.curve': 'سهم منحني',
 
-    "toolbar.shape.rectangle": "مستطيل — R",
-    "toolbar.shape.ellipse": "بيضاوي — O",
-    "toolbar.shape.triangle": "مثلث",
-    "toolbar.shape.terminal": "نهائي",
-    "toolbar.shape.noteCurlyLeft": "ملاحظة معقوفة — يسار",
-    "toolbar.shape.noteCurlyRight": "ملاحظة معقوفة — يمين",
-    "toolbar.shape.diamond": "معين",
-    "toolbar.shape.parallelogram": "متوازي أضلاع",
-    "toolbar.shape.roundRectangle": "مستطيل دائري الحواف",
+  'toolbar.shape.rectangle': 'مستطيل — R',
+  'toolbar.shape.ellipse': 'بيضاوي — O',
+  'toolbar.shape.triangle': 'مثلث',
+  'toolbar.shape.terminal': 'نهائي',
+  'toolbar.shape.noteCurlyLeft': 'ملاحظة معقوفة — يسار',
+  'toolbar.shape.noteCurlyRight': 'ملاحظة معقوفة — يمين',
+  'toolbar.shape.diamond': 'معين',
+  'toolbar.shape.parallelogram': 'متوازي أضلاع',
+  'toolbar.shape.roundRectangle': 'مستطيل دائري الحواف',
 
+  // Zoom controls
+  'zoom.in': 'تكبير — Cmd++',
+  'zoom.out': 'تصغير — Cmd+-',
+  'zoom.fit': 'ملاءمة الشاشة',
+  'zoom.100': 'تكبير إلى 100%',
 
-    // Zoom controls
-    "zoom.in": "تكبير — Cmd++",
-    "zoom.out": "تصغير — Cmd+-",
-    "zoom.fit": "ملاءمة الشاشة",
-    "zoom.100": "تكبير إلى 100%",
+  // Themes
+  'theme.default': 'افتراضي',
+  'theme.colorful': 'ملون',
+  'theme.soft': 'ناعم',
+  'theme.retro': 'كلاسيكي',
+  'theme.dark': 'داكن',
+  'theme.starry': 'ليلي',
 
-    // Themes
-    "theme.default": "افتراضي",
-    "theme.colorful": "ملون",
-    "theme.soft": "ناعم",
-    "theme.retro": "كلاسيكي",
-    "theme.dark": "داكن",
-    "theme.starry": "ليلي",
+  // Colors
+  'color.none': 'لون الموضوع',
+  'color.unknown': 'لون آخر',
+  'color.default': 'أسود أساسي',
+  'color.white': 'أبيض',
+  'color.gray': 'رمادي',
+  'color.deepBlue': 'أزرق غامق',
+  'color.red': 'أحمر',
+  'color.green': 'أخضر',
+  'color.yellow': 'أصفر',
+  'color.purple': 'بنفسجي',
+  'color.orange': 'برتقالي',
+  'color.pastelPink': 'وردي فاتح',
+  'color.cyan': 'سماوي',
+  'color.brown': 'بني',
+  'color.forestGreen': 'أخضر غامق (غابة)',
+  'color.lightGray': 'رمادي فاتح',
 
-    // Colors
-    "color.none": "لون الموضوع",
-    "color.unknown": "لون آخر",
-    "color.default": "أسود أساسي",
-    "color.white": "أبيض",
-    "color.gray": "رمادي",
-    "color.deepBlue": "أزرق غامق",
-    "color.red": "أحمر",
-    "color.green": "أخضر",
-    "color.yellow": "أصفر",
-    "color.purple": "بنفسجي",
-    "color.orange": "برتقالي",
-    "color.pastelPink": "وردي فاتح",
-    "color.cyan": "سماوي",
-    "color.brown": "بني",
-    "color.forestGreen": "أخضر غامق (غابة)",
-    "color.lightGray": "رمادي فاتح",
+  // General
+  'general.undo': 'تراجع',
+  'general.redo': 'إعادة',
+  'general.menu': 'قائمة التطبيق',
+  'general.moreOptions': 'خيارات إضافية',
+  'general.duplicate': 'تكرار',
+  'general.delete': 'حذف',
+  'general.layerOrder': 'الطبقات',
+  'general.bringForward': 'تقديم خطوة',
+  'general.sendBackward': 'إرسال للخلف خطوة',
+  'general.bringToFront': 'إحضار إلى الأمام',
+  'general.sendToBack': 'إرسال إلى الخلف',
 
-    // General
-    "general.undo": "تراجع",
-    "general.redo": "إعادة",
-    "general.menu": "قائمة التطبيق",
-    "general.moreOptions": "خيارات إضافية",
-    "general.duplicate": "تكرار",
-    "general.delete": "حذف",
+  // Language
+  'language.switcher': 'اللغة',
+  'language.chinese': '中文',
+  'language.english': 'English',
+  'language.russian': 'Русский',
+  'language.arabic': 'عربي',
+  'language.vietnamese': 'Tiếng Việt',
 
-    // Language
-    "language.switcher": "اللغة",
-    "language.chinese": "中文",
-    "language.english": "English",
-    "language.russian": "Русский",
-    "language.arabic": "عربي",
-    'language.vietnamese': 'Tiếng Việt',
+  // Menu items
+  'menu.open': 'فتح',
+  'menu.saveFile': 'حفظ الملف',
+  'menu.exportImage': 'تصدير صورة',
+  'menu.exportImage.svg': 'SVG',
+  'menu.exportImage.png': 'PNG',
+  'menu.exportImage.jpg': 'JPG',
+  'menu.cleanBoard': 'مسح اللوحة',
+  'menu.github': 'غيت هب',
 
-    // Menu items
-    "menu.open": "فتح",
-    "menu.saveFile": "حفظ الملف",
-    "menu.exportImage": "تصدير صورة",
-    "menu.exportImage.svg": "SVG",
-    "menu.exportImage.png": "PNG",
-    "menu.exportImage.jpg": "JPG",
-    "menu.cleanBoard": "مسح اللوحة",
-    "menu.github": "غيت هب",
+  // Dialog translations
+  'dialog.mermaid.title': 'من Mermaid إلى Drawnix',
+  'dialog.mermaid.description': 'يدعم حاليًا',
+  'dialog.mermaid.flowchart': 'المخططات الانسيابية',
+  'dialog.mermaid.sequence': 'مخططات التسلسل',
+  'dialog.mermaid.class': 'مخططات الفئات',
+  'dialog.mermaid.otherTypes': '، وأنواع أخرى من المخططات (تُعرض كصور).',
+  'dialog.mermaid.syntax': 'صيغة Mermaid',
+  'dialog.mermaid.placeholder': 'اكتب تعريف المخطط هنا...',
+  'dialog.mermaid.preview': 'معاينة',
+  'dialog.mermaid.insert': 'إدراج',
+  'dialog.markdown.description':
+    'يدعم التحويل التلقائي من Markdown إلى خريطة ذهنية.',
+  'dialog.markdown.syntax': 'صيغة Markdown',
+  'dialog.markdown.placeholder': 'اكتب نص Markdown هنا...',
+  'dialog.markdown.preview': 'معاينة',
+  'dialog.markdown.insert': 'إدراج',
+  'dialog.svg.description':
+    'ارفع حزمة ZIP تحتوي على ملف SVG الرئيسي ومجلد `components/`. سيعطي Drawnix أولوية لصور `_nobg` ويعيد بناء النصوص والأسهم والمكونات وفق إحداثيات SVG الرئيسي.',
+  'dialog.svg.syntax': 'معلومات حزمة ZIP',
+  'dialog.svg.placeholder':
+    'بعد اختيار حزمة ZIP سيظهر هنا اسم ملف SVG الرئيسي وعدد المكونات…',
+  'dialog.svg.preview': 'معاينة الاستيراد',
+  'dialog.svg.insert': 'إدراج',
+  'dialog.svg.upload': 'رفع حزمة ZIP',
+  'dialog.svg.error.invalidSvg': 'محتوى SVG غير صالح',
+  'dialog.svg.summary.texts': 'النصوص',
+  'dialog.svg.summary.arrows': 'أسهم الربط',
+  'dialog.svg.summary.components': 'المكونات',
+  'dialog.svg.summary.backgrounds': 'الخلفيات المتجاهلة',
+  'dialog.autodraw.description':
+    'Enter method text and upload a reference style image. Autodraw will call the backend, stream logs, and import the generated bundle into the canvas.',
+  'dialog.autodraw.basicInfo': 'Basic Info',
+  'dialog.autodraw.resources': 'Resources',
+  'dialog.autodraw.chooseFile': 'Choose File',
+  'dialog.autodraw.advancedSettings': 'Advanced Settings',
+  'dialog.autodraw.noJob': 'No Job',
+  'dialog.autodraw.filterLogs': 'Filter logs...',
+  'dialog.autodraw.autoScroll': 'Auto-scroll',
+  'dialog.autodraw.clearLogs': 'Clear Logs',
+  'dialog.autodraw.backendUrl': 'Backend URL',
+  'dialog.autodraw.methodText': 'Method Text',
+  'dialog.autodraw.placeholder': 'Describe the method you want to visualize...',
+  'dialog.autodraw.referenceImage': 'Reference Style Image',
+  'dialog.autodraw.uploadZip': 'Import Local ZIP',
+  'dialog.autodraw.bundleHint':
+    'Upload a local bundle.zip to render it directly into the canvas without creating a backend job.',
+  'dialog.autodraw.existingJobId': 'Existing Job ID',
+  'dialog.autodraw.existingJobPlaceholder':
+    'Enter any job_id and load its flow',
+  'dialog.autodraw.loadJob': 'Load Job',
+  'dialog.autodraw.provider': 'Provider',
+  'dialog.autodraw.apiKey': 'API Key',
+  'dialog.autodraw.baseUrl': 'Base URL',
+  'dialog.autodraw.imageModel': 'Image Model',
+  'dialog.autodraw.svgModel': 'SVG Model',
+  'dialog.autodraw.generate': 'Generate',
+  'dialog.autodraw.resume': 'Resume',
+  'dialog.autodraw.copyJobId': 'Copy ID',
+  'dialog.autodraw.copied': 'Copied',
+  'dialog.autodraw.viewFlow': 'View Flow',
+  'dialog.autodraw.hideWorkbench': 'Minimize',
+  'dialog.autodraw.referenceGallery': 'Reference Gallery',
+  'dialog.autodraw.galleryChooseFolder': 'Choose Gallery Folder',
+  'dialog.autodraw.galleryRefresh': 'Refresh Gallery',
+  'dialog.autodraw.galleryDisconnect': 'Disconnect Gallery',
+  'dialog.autodraw.galleryDirectoryReady': 'Gallery Connected',
+  'dialog.autodraw.galleryHint':
+    'Choose a local folder as the style gallery. Each file name becomes the visible style name.',
+  'dialog.autodraw.galleryLive': 'Persistent Gallery',
+  'dialog.autodraw.galleryEmpty':
+    'No usable images in the gallery yet. Supported: png, jpg, jpeg, webp.',
+  'dialog.autodraw.galleryLoading': 'Loading gallery...',
+  'dialog.autodraw.galleryUnsupported':
+    'This browser cannot read a local gallery folder. Use Chromium or the temporary upload below.',
+  'dialog.autodraw.galleryPermissionHint':
+    'Gallery permission is missing. Reconnect or refresh the selected folder.',
+  'dialog.autodraw.galleryLoadFailed': 'Failed to load gallery',
+  'dialog.autodraw.galleryMissingSelection':
+    'The previously selected reference is no longer in the gallery.',
+  'dialog.autodraw.manualReference': 'Temporary Upload',
+  'dialog.autodraw.manualReferenceHint':
+    'Temporary uploads only last for the current session. Put reusable references into the gallery above.',
+  'dialog.autodraw.selectedStyle': 'Current Reference Style',
+  'dialog.autodraw.assetRoom': 'Asset Room',
+  'dialog.autodraw.assetHint':
+    'Generated figures, icons, and SVGs appear here as they are produced. Click any visual asset to enlarge it.',
+  'dialog.autodraw.assetHintLive':
+    'Only previewable visual assets are shown here, and the shelf updates live with pipeline progress.',
+  'dialog.autodraw.noAssets':
+    'Assets will appear here once the pipeline starts producing them.',
+  'dialog.autodraw.openPreview': 'Open Preview',
+  'dialog.autodraw.timeline': 'Timeline',
+  'dialog.autodraw.rawLogs': 'Raw Logs',
+  'dialog.autodraw.history': 'History',
+  'dialog.autodraw.noHistory': 'No history yet',
+  'dialog.autodraw.clearHistory': 'Clear History',
+  'dialog.autodraw.importMonitor': 'Import Monitor',
+  'dialog.autodraw.returnWorkbench': 'Expand Workbench',
+  'dialog.autodraw.importWatchingHint':
+    'The workbench docks itself while importing so you can watch the actual assembly on the canvas.',
+  'dialog.autodraw.historyJob': 'Generated Job',
+  'dialog.autodraw.historyLocal': 'Local ZIP',
+  'dialog.autodraw.statusLabel': 'Status',
+  'dialog.autodraw.jobId': 'Job ID',
+  'dialog.autodraw.failedStage': 'Failed Stage',
+  'dialog.autodraw.logMode': 'Log Mode',
+  'dialog.autodraw.emptyLogs': 'No logs yet',
+  'dialog.autodraw.summary.texts': 'Texts',
+  'dialog.autodraw.summary.arrows': 'Arrows',
+  'dialog.autodraw.summary.components': 'Components',
+  'dialog.autodraw.workbench': 'Pipeline Workbench',
+  'dialog.autodraw.activity': 'Live Activity',
+  'dialog.autodraw.latestImport': 'Canvas Assembly',
+  'dialog.autodraw.readyHint':
+    'Describe the method and add a reference image to watch the pipeline assemble here step by step.',
+  'dialog.autodraw.runningStageHint':
+    'The board favors assets from the active stage. If that stage has no visual file yet, only progress stays visible here.',
+  'dialog.autodraw.referenceHint':
+    'Use a paper figure with a close visual rhythm to stabilize typography and layout.',
+  'dialog.autodraw.stage.generateFigure': 'Generate Figure',
+  'dialog.autodraw.stage.parseStructure': 'Parse Structure',
+  'dialog.autodraw.stage.extractAssets': 'Extract Assets',
+  'dialog.autodraw.stage.rebuildSvg': 'Rebuild SVG',
+  'dialog.autodraw.stage.importCanvas': 'Import to Canvas',
+  'dialog.autodraw.status.idle': 'Ready',
+  'dialog.autodraw.status.queued': 'Queued',
+  'dialog.autodraw.status.running': 'Running',
+  'dialog.autodraw.status.submitting': 'Submitting',
+  'dialog.autodraw.status.importing': 'Importing',
+  'dialog.autodraw.status.succeeded': 'Succeeded',
+  'dialog.autodraw.status.failed': 'Failed',
+  'dialog.autodraw.error.noMethodText': 'Please enter method text first',
+  'dialog.autodraw.error.submitFailed': 'Failed to submit job',
+  'dialog.autodraw.error.jobFailed': 'Job failed',
+  'dialog.autodraw.error.noBundle': 'Job succeeded but no bundle was returned',
+  'dialog.autodraw.error.logFailed': 'Failed to fetch logs',
+  'dialog.error.loadMermaid': 'فشل في تحميل مكتبة Mermaid',
 
-    // Dialog translations
-    "dialog.mermaid.title": "من Mermaid إلى Drawnix",
-    "dialog.mermaid.description": "يدعم حاليًا",
-    "dialog.mermaid.flowchart": "المخططات الانسيابية",
-    "dialog.mermaid.sequence": "مخططات التسلسل",
-    "dialog.mermaid.class": "مخططات الفئات",
-    "dialog.mermaid.otherTypes": "، وأنواع أخرى من المخططات (تُعرض كصور).",
-    "dialog.mermaid.syntax": "صيغة Mermaid",
-    "dialog.mermaid.placeholder": "اكتب تعريف المخطط هنا...",
-    "dialog.mermaid.preview": "معاينة",
-    "dialog.mermaid.insert": "إدراج",
-    "dialog.markdown.description": "يدعم التحويل التلقائي من Markdown إلى خريطة ذهنية.",
-    "dialog.markdown.syntax": "صيغة Markdown",
-    "dialog.markdown.placeholder": "اكتب نص Markdown هنا...",
-    "dialog.markdown.preview": "معاينة",
-    "dialog.markdown.insert": "إدراج",
-    "dialog.svg.description": "ارفع حزمة ZIP تحتوي على ملف SVG الرئيسي ومجلد `components/`. سيعطي Drawnix أولوية لصور `_nobg` ويعيد بناء النصوص والأسهم والمكونات وفق إحداثيات SVG الرئيسي.",
-    "dialog.svg.syntax": "معلومات حزمة ZIP",
-    "dialog.svg.placeholder": "بعد اختيار حزمة ZIP سيظهر هنا اسم ملف SVG الرئيسي وعدد المكونات…",
-    "dialog.svg.preview": "معاينة الاستيراد",
-    "dialog.svg.insert": "إدراج",
-    "dialog.svg.upload": "رفع حزمة ZIP",
-    "dialog.svg.error.invalidSvg": "محتوى SVG غير صالح",
-    "dialog.svg.summary.texts": "النصوص",
-    "dialog.svg.summary.arrows": "أسهم الربط",
-    "dialog.svg.summary.components": "المكونات",
-    "dialog.svg.summary.backgrounds": "الخلفيات المتجاهلة",
-    "dialog.error.loadMermaid": "فشل في تحميل مكتبة Mermaid",
+  // Extra tools menu items
+  'extraTools.mermaidToDrawnix': 'من Mermaid إلى Drawnix',
+  'extraTools.markdownToDrawnix': 'من Markdown إلى Drawnix',
+  'extraTools.autodraw': 'Autodraw',
 
-    // Extra tools menu items
-    "extraTools.mermaidToDrawnix": "من Mermaid إلى Drawnix",
-    "extraTools.markdownToDrawnix": "من Markdown إلى Drawnix",
-    "extraTools.svgToDrawnix": "من SVG إلى Drawnix",
+  // Clean confirm dialog
+  'cleanConfirm.title': 'مسح اللوحة',
+  'cleanConfirm.description':
+    'سيؤدي هذا إلى مسح اللوحة بالكامل. هل تريد المتابعة؟',
+  'cleanConfirm.cancel': 'إلغاء',
+  'cleanConfirm.ok': 'موافق',
 
-    // Clean confirm dialog
-    "cleanConfirm.title": "مسح اللوحة",
-    "cleanConfirm.description": "سيؤدي هذا إلى مسح اللوحة بالكامل. هل تريد المتابعة؟",
-    "cleanConfirm.cancel": "إلغاء",
-    "cleanConfirm.ok": "موافق",
+  // Link popup items
+  'popupLink.delLink': 'حذف الرابط',
 
-    // Link popup items
-    "popupLink.delLink": "حذف الرابط",
+  // Tool popup items
+  'popupToolbar.fillColor': 'لون التعبئة',
+  'popupToolbar.fontFamily': 'الخط',
+  'popupToolbar.fontSize': 'حجم الخط',
+  'popupToolbar.fontColor': 'لون الخط',
+  'popupToolbar.link': 'إدراج رابط',
+  'popupToolbar.stroke': 'الحد',
+  'popupToolbar.opacity': 'مستوى شفافية',
 
-    // Tool popup items
-    "popupToolbar.fillColor": "لون التعبئة",
-    "popupToolbar.fontSize": "حجم الخط",
-    "popupToolbar.fontColor": "لون الخط",
-    "popupToolbar.link": "إدراج رابط",
-    "popupToolbar.stroke": "الحد",
-    'popupToolbar.opacity': 'مستوى شفافية',
+  // Icon library
+  'iconLibrary.upload': 'رفع الأيقونات',
+  'iconLibrary.uploading': 'جارٍ الرفع...',
+  'iconLibrary.empty':
+    'ارفع ملفات SVG أو PNG أو JPG لبدء بناء مكتبة الأيقونات.',
+  'iconLibrary.hint':
+    'انقر على الأيقونة لإضافتها إلى اللوحة. إذا كانت هناك عقدة محددة فسيتم استبدالها مباشرة.',
+  'iconLibrary.remove': 'حذف الأيقونة',
 
-    // Icon library
-    "iconLibrary.upload": "رفع الأيقونات",
-    "iconLibrary.uploading": "جارٍ الرفع...",
-    "iconLibrary.empty": "ارفع ملفات SVG أو PNG أو JPG لبدء بناء مكتبة الأيقونات.",
-    "iconLibrary.hint": "انقر على الأيقونة لإضافتها إلى اللوحة. إذا كانت هناك عقدة محددة فسيتم استبدالها مباشرة.",
-    "iconLibrary.remove": "حذف الأيقونة",
+  // Text placeholders
+  'textPlaceholders.link': 'رابط',
+  'textPlaceholders.text': 'نص',
 
-    // Text placeholders
-    "textPlaceholders.link": "رابط",
-    "textPlaceholders.text": "نص",
+  // Line tool
+  'line.source': 'بداية',
+  'line.target': 'نهاية',
+  'line.arrow': 'سهم',
+  'line.none': 'لا شيء',
 
-    // Line tool
-    "line.source": "بداية",
-    "line.target": "نهاية",
-    "line.arrow": "سهم",
-    "line.none": "لا شيء",
+  // Stroke style
+  'stroke.solid': 'صلب',
+  'stroke.dashed': 'متقطع',
+  'stroke.dotted': 'منقط',
 
-    // Stroke style
-    "stroke.solid": "صلب",
-    "stroke.dashed": "متقطع",
-    "stroke.dotted": "منقط",
-
-    //markdown example
-    //   "markdown.example": "# لقد بدأت\n\n- دعني أرى من تسبب بهذا الخطأ 🕵️ ♂️ 🔍\n  - 😯 💣\n    - اتضح أنه أنا 👈 🎯 💘\n\n- بشكل غير متوقع، لا يعمل؛ لماذا 🚫 ⚙️ ❓\n  - بشكل غير متوقع، أصبح يعمل الآن؛ لماذا؟ 🎢 ✨\n    - 🤯 ⚡ ➡️ 🎉\n\n- ما الذي يمكن تشغيله 🐞 🚀\n  - إذًا لا تلمسه 🛑 ✋\n    - 👾 💥 🏹 🎯\n\n## ولد أم بنت 👶 ❓ 🤷 ♂️ ♀️\n\n### مرحبًا بالعالم 👋 🌍 ✨ 💻\n\n#### واو، مبرمج 🤯 ⌨️ 💡 👩 💻",
-    'markdown.example': `# I have started
+  //markdown example
+  //   "markdown.example": "# لقد بدأت\n\n- دعني أرى من تسبب بهذا الخطأ 🕵️ ♂️ 🔍\n  - 😯 💣\n    - اتضح أنه أنا 👈 🎯 💘\n\n- بشكل غير متوقع، لا يعمل؛ لماذا 🚫 ⚙️ ❓\n  - بشكل غير متوقع، أصبح يعمل الآن؛ لماذا؟ 🎢 ✨\n    - 🤯 ⚡ ➡️ 🎉\n\n- ما الذي يمكن تشغيله 🐞 🚀\n  - إذًا لا تلمسه 🛑 ✋\n    - 👾 💥 🏹 🎯\n\n## ولد أم بنت 👶 ❓ 🤷 ♂️ ♀️\n\n### مرحبًا بالعالم 👋 🌍 ✨ 💻\n\n#### واو، مبرمج 🤯 ⌨️ 💡 👩 💻",
+  'markdown.example': `# I have started
 
   - دعني أرى من تسبب بهذا الخطأ  🕵️ ♂️ 🔍
     - 😯 💣
@@ -182,60 +300,30 @@ const arTranslations: Translations = {
 
   #### Wow, a programmer 🤯 ⌨️ 💡 👩 💻`,
 
-    // Draw elements text
-    "draw.lineText": "نص",
-    "draw.geometryText": "نص",
+  // Draw elements text
+  'draw.lineText': 'نص',
+  'draw.geometryText': 'نص',
 
-    // Mind map elements text
-    "mind.centralText": "الموضوع المركزي",
-    "mind.abstractNodeText": "ملخص",
-    
-    // PaperDraw
-    'extraTools.paperdrawToFlowchart': 'PaperDraw مخطط انسيابي',
-    'dialog.paperdraw.description': 'أدخل نصًا يصف طريقة بحث أو سير عمل، وسيقوم AI تلقائيًا باستخراج الكيانات والعلاقات لإنشاء مخطط انسيابي.',
-    'dialog.paperdraw.placeholder': 'أدخل وصف النص هنا...',
-    'dialog.paperdraw.analyze': 'تحليل',
-    'dialog.paperdraw.analyzing': 'جارٍ التحليل...',
-    'dialog.paperdraw.skip': 'تخطي',
-    'dialog.paperdraw.confirm': 'تأكيد',
-    'dialog.paperdraw.insert': 'إدراج في اللوحة',
-    'dialog.paperdraw.configTitle': 'إعدادات LLM',
-    'dialog.paperdraw.apiKey': 'API Key',
-    'dialog.paperdraw.baseUrl': 'Base URL',
-    'dialog.paperdraw.model': 'النموذج',
-    'dialog.paperdraw.error.noApiKey': 'يرجى تكوين API Key أولاً',
-    'dialog.paperdraw.error.analyzeFailed': 'فشل التحليل، يرجى المحاولة مرة أخرى',
-    'dialog.paperdraw.error.invalidOptimizeSelection':
-      'يرجى تحديد عقدتين مستطيلتين على الأقل قبل إعادة ترتيب الجزء المحدد',
-    'dialog.paperdraw.error.structureConfirmationRequired':
-      'النتيجة الحالية ما زالت تبدو كتدفق أحادي المسار. يرجى تأكيد العمود الفقري الرئيسي قبل إنشاء المسودة.',
-    'dialog.paperdraw.fallback.pipelineLayout':
-      'تخطيط قالب المسار غير متاح الآن، وتم التبديل تلقائيًا إلى التخطيط المتوافق',
-    'dialog.paperdraw.toggleSemantic': 'عرض دلالي',
-    'dialog.paperdraw.qaTitle': 'يرجى تأكيد ما يلي',
-    'dialog.paperdraw.qaStructureGuard':
-      'هذا الإدخال ما زال يفتقر إلى بنية كافية. يرجى تأكيد الوحدات الرئيسية أو الوصلات الرئيسية قبل إنشاء المسودة.',
-    'dialog.paperdraw.optimizeLayout': 'تحسين التخطيط',
-    'dialog.paperdraw.optimizeSelection': 'إعادة ترتيب الجزء المحدد',
-    'dialog.paperdraw.optimizeGlobal': 'إعادة ترتيب المخطط بالكامل',
-    'dialog.paperdraw.engine.pipeline': 'تخطيط قالب المسار',
-    'dialog.paperdraw.engine.legacy': 'تخطيط متوافق',
+  // Mind map elements text
+  'mind.centralText': 'الموضوع المركزي',
+  'mind.abstractNodeText': 'ملخص',
 
-    'toolbar.llmMermaid': 'AI Pipeline',
-    'dialog.llmMermaid.title': 'مساعد AI Pipeline',
-    'dialog.llmMermaid.chat': 'محادثة AI',
-    'dialog.llmMermaid.preview': 'معاينة',
-    'dialog.llmMermaid.placeholder': 'صف المخطط الذي تريد إنشاءه...',
-    'dialog.llmMermaid.insert': 'إدراج',
-    'dialog.llmMermaid.close': 'إغلاق',
-    'dialog.close': 'إغلاق',
+  'toolbar.llmMermaid': 'auto-mermaid',
+  'dialog.llmMermaid.title': 'مساعد AI Pipeline',
+  'dialog.llmMermaid.chat': 'محادثة AI',
+  'dialog.llmMermaid.preview': 'معاينة',
+  'dialog.llmMermaid.placeholder': 'صف المخطط الذي تريد إنشاءه...',
+  'dialog.llmMermaid.insert': 'إدراج',
+  'dialog.llmMermaid.close': 'إغلاق',
+  'dialog.close': 'إغلاق',
 
-    'tutorial.title': 'Drawnix',
-    'tutorial.description': 'سبورة شاملة تتضمن الخرائط الذهنية والمخططات الانسيابية والرسم الحر وغير ذلك',
-    'tutorial.dataDescription': 'تُحفظ جميع البيانات محليًا في متصفحك',
-    'tutorial.appToolbar': 'تصدير، إعدادات اللغة، ...',
-    'tutorial.creationToolbar': 'اختر أداة لبدء الإنشاء',
-    'tutorial.themeDescription': 'التبديل بين السمة الفاتحة والداكنة',
+  'tutorial.title': 'Drawnix',
+  'tutorial.description':
+    'سبورة شاملة تتضمن الخرائط الذهنية والمخططات الانسيابية والرسم الحر وغير ذلك',
+  'tutorial.dataDescription': 'تُحفظ جميع البيانات محليًا في متصفحك',
+  'tutorial.appToolbar': 'تصدير، إعدادات اللغة، ...',
+  'tutorial.creationToolbar': 'اختر أداة لبدء الإنشاء',
+  'tutorial.themeDescription': 'التبديل بين السمة الفاتحة والداكنة',
 };
 
 export default arTranslations;

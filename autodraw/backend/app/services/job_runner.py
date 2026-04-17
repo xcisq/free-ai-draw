@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 import threading
 import uuid
@@ -11,10 +12,18 @@ from pathlib import Path
 from typing import Any
 
 from ..config import settings
-from ..schemas import ArtifactInfo, CreateJobRequest, JobResponse, JobStatus
+from ..schemas import (
+    ArtifactInfo,
+    CreateJobRequest,
+    JobListItem,
+    JobResponse,
+    JobStatus,
+    ResumeJobRequest,
+)
 from .artifact_service import scan_artifacts
 from .bundle_service import build_manifest, create_bundle, write_manifest
 from .pipeline_service import run_pipeline
+from ..pipeline.autofigure2 import PipelineStageError
 
 
 @dataclass
@@ -31,6 +40,12 @@ class JobRecord:
     artifacts: list[ArtifactInfo] = field(default_factory=list)
     pipeline_result: dict[str, Any] | None = None
     bundle_path: Path | None = None
+    current_stage: int = 1
+    last_success_stage: int = 0
+    failed_stage: int | None = None
+    source_job_id: str | None = None
+    resume_from_stage: int | None = None
+    resume_count: int = 0
 
 
 _LOCK = threading.RLock()
@@ -38,7 +53,19 @@ _JOBS: dict[str, JobRecord] = {}
 _EXECUTOR = ThreadPoolExecutor(max_workers=settings.max_concurrent_jobs)
 
 
-def create_job(request: CreateJobRequest) -> JobRecord:
+def _to_json_safe(value: Any) -> Any:
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, dict):
+        return {key: _to_json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_to_json_safe(item) for item in value]
+    if isinstance(value, tuple):
+        return [_to_json_safe(item) for item in value]
+    return value
+
+
+def create_job(request: CreateJobRequest, *, autostart: bool = True) -> JobRecord:
     now = datetime.utcnow()
     job_id = f"{now.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
     job_dir = settings.jobs_dir / job_id
@@ -53,12 +80,52 @@ def create_job(request: CreateJobRequest) -> JobRecord:
         log_path=log_path,
         status="queued",
         created_at=now,
+        current_stage=request.start_stage,
+        last_success_stage=max(0, request.start_stage - 1),
+        source_job_id=request.source_job_id,
+        resume_from_stage=request.resume_from_stage,
     )
     with _LOCK:
         _JOBS[job_id] = record
         _persist_job_record(record)
 
-    _EXECUTOR.submit(_run_job, job_id)
+    if autostart:
+        _EXECUTOR.submit(_run_job, job_id)
+    return record
+
+
+def create_resume_job(job_id: str, request: ResumeJobRequest) -> JobRecord:
+    source_record = get_job(job_id)
+    if source_record is None:
+        raise FileNotFoundError(f"Job not found: {job_id}")
+
+    if source_record.status != "failed":
+        raise ValueError("Only failed jobs can be resumed")
+
+    inferred_stage = _infer_resume_stage_from_artifacts(source_record.job_dir)
+    failed_stage = max(source_record.failed_stage or 1, inferred_stage)
+    resume_from_stage = failed_stage if request.resume_from_stage == "auto" else int(request.resume_from_stage)
+    if resume_from_stage < 1 or resume_from_stage > 5:
+        raise ValueError("resume_from_stage must be between 1 and 5")
+
+    payload = dict(source_record.request_payload)
+    payload["start_stage"] = resume_from_stage
+    payload["source_job_id"] = source_record.job_id
+    payload["resume_from_stage"] = resume_from_stage
+    if request.image_model is not None:
+        payload["image_model"] = request.image_model
+    if request.svg_model is not None:
+        payload["svg_model"] = request.svg_model
+    resume_request = CreateJobRequest.model_validate(payload)
+    record = create_job(resume_request, autostart=False)
+    record.resume_count = source_record.resume_count + 1
+    record.source_job_id = source_record.job_id
+    record.resume_from_stage = resume_from_stage
+    record.current_stage = resume_from_stage
+    record.last_success_stage = max(0, resume_from_stage - 1)
+    _copy_resume_artifacts(source_record.job_dir, record.job_dir, resume_from_stage)
+    _persist_job_record(record)
+    _EXECUTOR.submit(_run_job, record.job_id)
     return record
 
 
@@ -93,7 +160,59 @@ def get_job_response(job_id: str) -> JobResponse | None:
         bundle_url=bundle_url,
         manifest_url=manifest_url,
         request=record.request_payload,
+        current_stage=record.current_stage,
+        last_success_stage=record.last_success_stage,
+        failed_stage=record.failed_stage,
+        source_job_id=record.source_job_id,
+        resume_from_stage=record.resume_from_stage,
+        resume_count=record.resume_count,
     )
+
+
+def list_job_items(*, limit: int = 20, offset: int = 0) -> list[JobListItem]:
+    safe_offset = max(0, offset)
+    safe_limit = max(1, min(limit, 50))
+
+    job_ids: list[str] = []
+    try:
+        for entry in settings.jobs_dir.iterdir():
+            if entry.is_dir():
+                job_ids.append(entry.name)
+    except FileNotFoundError:
+        return []
+
+    records: list[JobRecord] = []
+    for job_id in job_ids:
+        record = get_job(job_id)
+        if record is None:
+            continue
+        records.append(record)
+
+    records.sort(key=lambda item: item.created_at, reverse=True)
+    sliced = records[safe_offset : safe_offset + safe_limit]
+
+    items: list[JobListItem] = []
+    for record in sliced:
+        bundle_url = (
+            f"/api/jobs/{record.job_id}/bundle"
+            if record.bundle_path and record.bundle_path.is_file()
+            else None
+        )
+        items.append(
+            JobListItem(
+                job_id=record.job_id,
+                status=record.status,
+                created_at=record.created_at,
+                started_at=record.started_at,
+                finished_at=record.finished_at,
+                error_message=record.error_message,
+                artifacts=record.artifacts,
+                bundle_url=bundle_url,
+                current_stage=record.current_stage,
+                failed_stage=record.failed_stage,
+            )
+        )
+    return items
 
 
 def _run_job(job_id: str) -> None:
@@ -108,7 +227,10 @@ def _run_job(job_id: str) -> None:
     try:
         request = CreateJobRequest.model_validate(record.request_payload)
         result = run_pipeline(request=request, output_dir=record.job_dir, log_path=record.log_path)
-        record.pipeline_result = result
+        record.pipeline_result = _to_json_safe(result)
+        record.current_stage = 5
+        record.last_success_stage = 5
+        record.failed_stage = None
         record.artifacts = scan_artifacts(job_id=record.job_id, job_dir=record.job_dir)
         manifest = build_manifest(
             job_id=record.job_id,
@@ -133,6 +255,15 @@ def _run_job(job_id: str) -> None:
             log_handle.flush()
         print(f"[job:{record.job_id}] error: {exc}", file=sys.stderr, flush=True)
         record.error_message = str(exc)
+        if isinstance(exc, PipelineStageError):
+            record.failed_stage = exc.stage
+            record.current_stage = exc.stage
+            record.last_success_stage = max(0, exc.stage - 1)
+        else:
+            inferred_stage = _infer_resume_stage_from_artifacts(record.job_dir)
+            record.failed_stage = inferred_stage
+            record.current_stage = inferred_stage
+            record.last_success_stage = max(0, inferred_stage - 1)
         record.status = "failed"
         record.finished_at = datetime.utcnow()
         record.artifacts = scan_artifacts(job_id=record.job_id, job_dir=record.job_dir)
@@ -149,6 +280,7 @@ def _run_job(job_id: str) -> None:
         )
         write_manifest(record.job_dir, manifest)
         record.artifacts = scan_artifacts(job_id=record.job_id, job_dir=record.job_dir)
+        record.bundle_path = create_bundle(record.job_dir)
         _persist_job_record(record)
 
 
@@ -167,8 +299,17 @@ def _persist_job_record(record: JobRecord) -> None:
         "artifacts": [artifact.model_dump() for artifact in record.artifacts],
         "pipeline_result": record.pipeline_result,
         "bundle_path": str(record.bundle_path) if record.bundle_path else None,
+        "current_stage": record.current_stage,
+        "last_success_stage": record.last_success_stage,
+        "failed_stage": record.failed_stage,
+        "source_job_id": record.source_job_id,
+        "resume_from_stage": record.resume_from_stage,
+        "resume_count": record.resume_count,
     }
-    state_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    state_path.write_text(
+        json.dumps(_to_json_safe(payload), ensure_ascii=False, indent=2, default=str) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _load_job_from_disk(job_id: str) -> JobRecord | None:
@@ -191,4 +332,46 @@ def _load_job_from_disk(job_id: str) -> JobRecord | None:
         artifacts=artifacts,
         pipeline_result=payload.get("pipeline_result"),
         bundle_path=Path(payload["bundle_path"]) if payload.get("bundle_path") else None,
+        current_stage=payload.get("current_stage", 1),
+        last_success_stage=payload.get("last_success_stage", 0),
+        failed_stage=payload.get("failed_stage"),
+        source_job_id=payload.get("source_job_id"),
+        resume_from_stage=payload.get("resume_from_stage"),
+        resume_count=payload.get("resume_count", 0),
     )
+
+
+def _copy_resume_artifacts(source_dir: Path, target_dir: Path, start_stage: int) -> None:
+    def copy_file(name: str) -> None:
+        source = source_dir / name
+        target = target_dir / name
+        if source.is_file():
+            shutil.copy2(source, target)
+
+    if start_stage > 1:
+        copy_file("figure.png")
+    if start_stage > 2:
+        copy_file("samed.png")
+        copy_file("boxlib.json")
+    if start_stage > 3:
+        source_icons = source_dir / "icons"
+        target_icons = target_dir / "icons"
+        if source_icons.is_dir():
+            shutil.copytree(source_icons, target_icons, dirs_exist_ok=True)
+    if start_stage > 4:
+        copy_file("template.svg")
+        copy_file("optimized_template.svg")
+
+
+def _infer_resume_stage_from_artifacts(job_dir: Path) -> int:
+    if (job_dir / "final.svg").is_file():
+        return 5
+    if (job_dir / "optimized_template.svg").is_file() or (job_dir / "template.svg").is_file():
+        return 5
+    if (job_dir / "icons").is_dir() and any((job_dir / "icons").iterdir()):
+        return 4
+    if (job_dir / "boxlib.json").is_file() and (job_dir / "samed.png").is_file():
+        return 3
+    if (job_dir / "figure.png").is_file():
+        return 2
+    return 1

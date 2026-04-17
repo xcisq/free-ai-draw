@@ -29,25 +29,9 @@ export type {
 
 // 样式相关类型
 export type {
-  StyleScheme,
   GraphInfo,
   GraphNode,
   GraphEdge,
   GraphGroup,
   ValidationResult,
 } from './style';
-
-export type {
-  BoardStyleSelector,
-  BoardNodeSemanticRole,
-  BoardLineSemanticRole,
-  BoardTextSemanticRole,
-  BoardStrokeStyle,
-  BoardLineShape,
-  BoardArrowMarker,
-  BoardStyleScheme,
-  ElementStyleMap,
-  BoardStyleSchemeOption,
-  BoardStyleSchemesResult,
-  SelectedElementsSummary,
-} from './board-style';

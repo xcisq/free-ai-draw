@@ -3,32 +3,6 @@
  */
 
 /**
- * 样式方案
- */
-export interface StyleScheme {
-  /** 应用到的节点 ID（'*' 表示全部） */
-  nodeId: string;
-  /** 填充颜色（CSS 颜色值） */
-  fill: string;
-  /** 边框颜色 */
-  stroke: string;
-  /** 边框粗细（px） */
-  strokeWidth: number;
-  /** 字体颜色 */
-  color: string;
-  /** 字体大小（px） */
-  fontSize: number;
-  /** 是否启用阴影 */
-  shadow: boolean;
-  /** 阴影模糊度 */
-  shadowBlur: number;
-  /** 字体粗细 */
-  fontWeight?: number;
-  /** 边框样式（solid, dashed, dotted） */
-  strokeDasharray?: string;
-}
-
-/**
  * 图表结构信息
  */
 export interface GraphInfo {

@@ -72,6 +72,11 @@ export interface Translations {
   'general.moreOptions': string;
   'general.duplicate': string;
   'general.delete': string;
+  'general.layerOrder': string;
+  'general.bringForward': string;
+  'general.sendBackward': string;
+  'general.bringToFront': string;
+  'general.sendToBack': string;
 
   // Language
   'language.switcher': string;
@@ -118,12 +123,103 @@ export interface Translations {
   'dialog.svg.summary.arrows': string;
   'dialog.svg.summary.components': string;
   'dialog.svg.summary.backgrounds': string;
+  'dialog.autodraw.basicInfo': string;
+  'dialog.autodraw.resources': string;
+  'dialog.autodraw.chooseFile': string;
+  'dialog.autodraw.advancedSettings': string;
+  'dialog.autodraw.noJob': string;
+  'dialog.autodraw.filterLogs': string;
+  'dialog.autodraw.autoScroll': string;
+  'dialog.autodraw.clearLogs': string;
+  'dialog.autodraw.description': string;
+  'dialog.autodraw.backendUrl': string;
+  'dialog.autodraw.methodText': string;
+  'dialog.autodraw.placeholder': string;
+  'dialog.autodraw.referenceImage': string;
+  'dialog.autodraw.uploadZip': string;
+  'dialog.autodraw.bundleHint': string;
+  'dialog.autodraw.existingJobId': string;
+  'dialog.autodraw.existingJobPlaceholder': string;
+  'dialog.autodraw.loadJob': string;
+  'dialog.autodraw.provider': string;
+  'dialog.autodraw.apiKey': string;
+  'dialog.autodraw.baseUrl': string;
+  'dialog.autodraw.imageModel': string;
+  'dialog.autodraw.svgModel': string;
+  'dialog.autodraw.generate': string;
+  'dialog.autodraw.resume': string;
+  'dialog.autodraw.copyJobId': string;
+  'dialog.autodraw.copied': string;
+  'dialog.autodraw.viewFlow': string;
+  'dialog.autodraw.hideWorkbench': string;
+  'dialog.autodraw.referenceGallery': string;
+  'dialog.autodraw.galleryChooseFolder': string;
+  'dialog.autodraw.galleryRefresh': string;
+  'dialog.autodraw.galleryDisconnect': string;
+  'dialog.autodraw.galleryDirectoryReady': string;
+  'dialog.autodraw.galleryHint': string;
+  'dialog.autodraw.galleryLive': string;
+  'dialog.autodraw.galleryEmpty': string;
+  'dialog.autodraw.galleryLoading': string;
+  'dialog.autodraw.galleryUnsupported': string;
+  'dialog.autodraw.galleryPermissionHint': string;
+  'dialog.autodraw.galleryLoadFailed': string;
+  'dialog.autodraw.galleryMissingSelection': string;
+  'dialog.autodraw.manualReference': string;
+  'dialog.autodraw.manualReferenceHint': string;
+  'dialog.autodraw.selectedStyle': string;
+  'dialog.autodraw.assetRoom': string;
+  'dialog.autodraw.assetHint': string;
+  'dialog.autodraw.assetHintLive': string;
+  'dialog.autodraw.noAssets': string;
+  'dialog.autodraw.openPreview': string;
+  'dialog.autodraw.timeline': string;
+  'dialog.autodraw.rawLogs': string;
+  'dialog.autodraw.history': string;
+  'dialog.autodraw.noHistory': string;
+  'dialog.autodraw.clearHistory': string;
+  'dialog.autodraw.importMonitor': string;
+  'dialog.autodraw.returnWorkbench': string;
+  'dialog.autodraw.importWatchingHint': string;
+  'dialog.autodraw.historyJob': string;
+  'dialog.autodraw.historyLocal': string;
+  'dialog.autodraw.statusLabel': string;
+  'dialog.autodraw.jobId': string;
+  'dialog.autodraw.failedStage': string;
+  'dialog.autodraw.logMode': string;
+  'dialog.autodraw.emptyLogs': string;
+  'dialog.autodraw.summary.texts': string;
+  'dialog.autodraw.summary.arrows': string;
+  'dialog.autodraw.summary.components': string;
+  'dialog.autodraw.workbench': string;
+  'dialog.autodraw.activity': string;
+  'dialog.autodraw.latestImport': string;
+  'dialog.autodraw.readyHint': string;
+  'dialog.autodraw.runningStageHint': string;
+  'dialog.autodraw.referenceHint': string;
+  'dialog.autodraw.stage.generateFigure': string;
+  'dialog.autodraw.stage.parseStructure': string;
+  'dialog.autodraw.stage.extractAssets': string;
+  'dialog.autodraw.stage.rebuildSvg': string;
+  'dialog.autodraw.stage.importCanvas': string;
+  'dialog.autodraw.status.idle': string;
+  'dialog.autodraw.status.queued': string;
+  'dialog.autodraw.status.running': string;
+  'dialog.autodraw.status.submitting': string;
+  'dialog.autodraw.status.importing': string;
+  'dialog.autodraw.status.succeeded': string;
+  'dialog.autodraw.status.failed': string;
+  'dialog.autodraw.error.noMethodText': string;
+  'dialog.autodraw.error.submitFailed': string;
+  'dialog.autodraw.error.jobFailed': string;
+  'dialog.autodraw.error.noBundle': string;
+  'dialog.autodraw.error.logFailed': string;
   'dialog.error.loadMermaid': string;
 
   // Extra tools menu items
   'extraTools.mermaidToDrawnix': string;
   'extraTools.markdownToDrawnix': string;
-  'extraTools.svgToDrawnix': string;
+  'extraTools.autodraw': string;
 
   // Clean confirm dialog
   'cleanConfirm.title': string;
@@ -136,6 +232,7 @@ export interface Translations {
 
   // Tool popup items
   'popupToolbar.fillColor': string;
+  'popupToolbar.fontFamily': string;
   'popupToolbar.fontSize': string;
   'popupToolbar.fontColor': string;
   'popupToolbar.link': string;
@@ -174,33 +271,6 @@ export interface Translations {
   // Mind map elements text
   'mind.centralText': string;
   'mind.abstractNodeText': string;
-
-  // PaperDraw
-  'extraTools.paperdrawToFlowchart': string;
-  'dialog.paperdraw.description': string;
-  'dialog.paperdraw.placeholder': string;
-  'dialog.paperdraw.analyze': string;
-  'dialog.paperdraw.analyzing': string;
-  'dialog.paperdraw.skip': string;
-  'dialog.paperdraw.confirm': string;
-  'dialog.paperdraw.insert': string;
-  'dialog.paperdraw.configTitle': string;
-  'dialog.paperdraw.apiKey': string;
-  'dialog.paperdraw.baseUrl': string;
-  'dialog.paperdraw.model': string;
-  'dialog.paperdraw.error.noApiKey': string;
-  'dialog.paperdraw.error.analyzeFailed': string;
-  'dialog.paperdraw.error.invalidOptimizeSelection': string;
-  'dialog.paperdraw.error.structureConfirmationRequired': string;
-  'dialog.paperdraw.fallback.pipelineLayout': string;
-  'dialog.paperdraw.toggleSemantic': string;
-  'dialog.paperdraw.qaTitle': string;
-  'dialog.paperdraw.qaStructureGuard': string;
-  'dialog.paperdraw.optimizeLayout': string;
-  'dialog.paperdraw.optimizeSelection': string;
-  'dialog.paperdraw.optimizeGlobal': string;
-  'dialog.paperdraw.engine.pipeline': string;
-  'dialog.paperdraw.engine.legacy': string;
 
   // LLM Mermaid
   'toolbar.llmMermaid': string;
