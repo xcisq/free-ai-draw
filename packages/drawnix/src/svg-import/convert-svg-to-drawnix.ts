@@ -1989,7 +1989,7 @@ const collectVectorLineItems = (
     }
 
     const nextItems = subpaths
-      .map((subpath, index) => {
+      .map<SvgImportVectorLineItem | null>((subpath, index) => {
         const transformedPoints = transformPoints(subpath.points, transform);
         if (transformedPoints.length < 2) {
           return null;
@@ -2010,7 +2010,7 @@ const collectVectorLineItems = (
           ),
         } satisfies SvgImportVectorLineItem;
       })
-      .filter((item): item is SvgImportVectorLineItem => Boolean(item));
+      .filter((item): item is SvgImportVectorLineItem => item !== null);
 
     if (nextItems.length) {
       vectorLines.push(...nextItems);

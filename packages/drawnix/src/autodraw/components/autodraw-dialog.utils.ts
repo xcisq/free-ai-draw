@@ -404,12 +404,10 @@ export const getEffectiveWorkbenchStep = (payload: {
   );
   const logStep = getWorkbenchStepFromLogs(payload.logs);
   const assetStep = getWorkbenchStepFromAssets(payload.assets);
-  return [baseStep, logStep, assetStep].reduce((maxStep, step) => {
-    if (typeof step !== 'number') {
-      return maxStep;
-    }
-    return Math.max(maxStep, step);
-  }, 0);
+  const effectiveSteps = [baseStep, logStep, assetStep].filter(
+    (step): step is number => typeof step === 'number'
+  );
+  return effectiveSteps.length ? Math.max(...effectiveSteps) : 0;
 };
 
 export const getAutodrawSpotlightAsset = (
