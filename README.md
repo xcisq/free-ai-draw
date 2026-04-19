@@ -61,7 +61,6 @@
 
 当前版本以本地开发和场景验证为主，不以线上部署为目标。
 
-
 ## 仓储结构
 
 ```
@@ -80,7 +79,6 @@ drawnix/
 └── README.md
 
 ```
-
 
 ## 开发
 
@@ -102,26 +100,6 @@ docker pull pubuzhixing/drawnix:latest
 - [slate](https://github.com/ianstormtaylor/slate) - 富文本编辑器框架
 - [floating-ui](https://github.com/floating-ui/floating-ui) - 弹出层基础库
 
+License
 
-
-## 贡献
-
-欢迎任何形式的贡献：
-
-- 提 Bug
-
-- 贡献代码
-
-## 感谢支持
-
-感谢公司对本项目的持续支持。
-
-<p align="left">
-  <a href="https://pingcode.com?utm_source=drawnix" target="_blank">
-      <img src="https://cdn-aliyun.pingcode.com/static/site/img/pingcode-logo.4267e7b.svg" width="120" alt="PingCode" />
-  </a>
-</p>
-
-## License
-
-[MIT License](https://github.com/plait-board/drawnix/blob/master/LICENSE)  
+[MIT License](https://github.com/plait-board/drawnix/blob/master/LICENSE)
