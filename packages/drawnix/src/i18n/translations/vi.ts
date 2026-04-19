@@ -73,6 +73,18 @@ const viTranslations: Translations = {
   'general.sendBackward': 'Đưa xuống một lớp',
   'general.bringToFront': 'Đưa lên trên cùng',
   'general.sendToBack': 'Đưa xuống dưới cùng',
+  'general.arrange': 'Sắp xếp',
+  'general.alignToCanvas': 'Căn theo canvas',
+  'general.alignToSelection': 'Căn theo vùng chọn',
+  'general.alignLeft': 'Căn trái',
+  'general.alignCenter': 'Căn giữa ngang',
+  'general.alignRight': 'Căn phải',
+  'general.alignTop': 'Căn trên',
+  'general.alignMiddle': 'Căn giữa dọc',
+  'general.alignBottom': 'Căn dưới',
+  'general.distribute': 'Phân bố đều',
+  'general.distributeHorizontally': 'Phân bố ngang',
+  'general.distributeVertically': 'Phân bố dọc',
 
   // Language
   'language.switcher': 'Ngôn ngữ',

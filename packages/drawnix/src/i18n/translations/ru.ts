@@ -73,6 +73,18 @@ const ruTranslations: Translations = {
   'general.sendBackward': 'Опустить на один уровень',
   'general.bringToFront': 'На передний план',
   'general.sendToBack': 'На задний план',
+  'general.arrange': 'Выравнивание',
+  'general.alignToCanvas': 'По холсту',
+  'general.alignToSelection': 'По выделению',
+  'general.alignLeft': 'По левому краю',
+  'general.alignCenter': 'По центру',
+  'general.alignRight': 'По правому краю',
+  'general.alignTop': 'По верхнему краю',
+  'general.alignMiddle': 'По середине',
+  'general.alignBottom': 'По нижнему краю',
+  'general.distribute': 'Распределить',
+  'general.distributeHorizontally': 'Распределить по горизонтали',
+  'general.distributeVertically': 'Распределить по вертикали',
 
   // Language
   'language.switcher': 'Language',

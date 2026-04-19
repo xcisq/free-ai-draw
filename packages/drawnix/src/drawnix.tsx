@@ -46,6 +46,7 @@ import {
   setProjectFontFamilyOptions,
   setProjectFontRoleFamilies,
 } from './constants/font';
+import { withSelectionHit } from './plugins/with-selection-hit';
 
 export type DrawnixProps = {
   value: PlaitElement[];
@@ -118,6 +119,7 @@ export const Drawnix: React.FC<DrawnixProps> = ({
     withFreehand,
     buildPencilPlugin(updateAppState),
     buildTextLinkPlugin(updateAppState),
+    withSelectionHit,
   ];
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -181,7 +183,9 @@ export const Drawnix: React.FC<DrawnixProps> = ({
             <TTDDialog container={containerRef.current}></TTDDialog>
             <CleanConfirm container={containerRef.current}></CleanConfirm>
           </Wrapper>
-          <canvas className={`${LASER_POINTER_CLASS_NAME} mouse-course-hidden`}></canvas>
+          <canvas
+            className={`${LASER_POINTER_CLASS_NAME} mouse-course-hidden`}
+          ></canvas>
         </div>
       </DrawnixContext.Provider>
     </I18nProvider>

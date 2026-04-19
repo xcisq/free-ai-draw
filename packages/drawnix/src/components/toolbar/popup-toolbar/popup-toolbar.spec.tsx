@@ -47,12 +47,18 @@ jest.mock('@plait/core', () => ({
   PlaitBoard: {
     getBoardContainer: () => mockDocumentBody,
     hasBeenTextEditing: () => false,
+    isReadonly: () => false,
   },
   RectangleClient: {
-    getPoints: () => [[0, 0], [100, 60]],
+    getPoints: () => [
+      [0, 0],
+      [100, 60],
+    ],
   },
-  toHostPointFromViewBoxPoint: (_board: unknown, point: [number, number]) => point,
-  toScreenPointFromHostPoint: (_board: unknown, point: [number, number]) => point,
+  toHostPointFromViewBoxPoint: (_board: unknown, point: [number, number]) =>
+    point,
+  toScreenPointFromHostPoint: (_board: unknown, point: [number, number]) =>
+    point,
 }));
 
 jest.mock('@plait/draw', () => ({
@@ -90,7 +96,9 @@ jest.mock('../../../i18n', () => ({
 
 jest.mock('../../stack', () => {
   const ReactModule = jest.requireActual<typeof import('react')>('react');
-  const Row = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
+  const Row = ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  );
   return {
     __esModule: true,
     default: {
@@ -102,19 +110,22 @@ jest.mock('../../stack', () => {
 jest.mock('../../island', () => {
   const ReactModule = jest.requireActual<typeof import('react')>('react');
   return {
-    Island: ReactModule.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-      ({ children, ...props }, ref) => (
-        <div ref={ref} {...props}>
-          {children}
-        </div>
-      )
-    ),
+    Island: ReactModule.forwardRef<
+      HTMLDivElement,
+      React.HTMLAttributes<HTMLDivElement>
+    >(({ children, ...props }, ref) => (
+      <div ref={ref} {...props}>
+        {children}
+      </div>
+    )),
   };
 });
 
 jest.mock('../../popover/popover', () => ({
   Popover: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  PopoverTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  PopoverTrigger: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
   PopoverContent: ({
     children,
     className,
@@ -128,24 +139,44 @@ jest.mock('./font-color-button', () => ({
   PopupFontColorButton: () => <div>font-color</div>,
 }));
 
+jest.mock('./font-family-control', () => ({
+  PopupFontFamilyControl: () => <div>font-family</div>,
+}));
+
 jest.mock('./font-size-control', () => ({
   PopupFontSizeControl: () => <div>font-size</div>,
 }));
 
 jest.mock('./stroke-button', () => ({
-  PopupStrokeButton: ({ children }: { children?: React.ReactNode }) => <div>{children || 'stroke'}</div>,
+  PopupStrokeButton: ({ children }: { children?: React.ReactNode }) => (
+    <div>{children || 'stroke'}</div>
+  ),
 }));
 
 jest.mock('./fill-button', () => ({
-  PopupFillButton: ({ children }: { children?: React.ReactNode }) => <div>{children || 'fill'}</div>,
+  PopupFillButton: ({ children }: { children?: React.ReactNode }) => (
+    <div>{children || 'fill'}</div>
+  ),
 }));
 
 jest.mock('./link-button', () => ({
   PopupLinkButton: () => <div>link</div>,
 }));
 
+jest.mock('./arrange-button', () => ({
+  ArrangeButton: () => <div>arrange</div>,
+}));
+
 jest.mock('./arrow-mark-button', () => ({
   ArrowMarkButton: () => <div>arrow</div>,
+}));
+
+jest.mock('./more-options-button', () => ({
+  MoreOptionsButton: () => (
+    <button type="button" aria-label="general.moreOptions">
+      more-options
+    </button>
+  ),
 }));
 
 jest.mock('../../../plugins/freehand/type', () => ({
@@ -162,10 +193,14 @@ describe('PopupToolbar', () => {
   it('更多操作按钮应只渲染一次，重复渲染后也不应增殖', () => {
     const { rerender } = render(<PopupToolbar />);
 
-    expect(screen.getAllByRole('button', { name: 'general.moreOptions' })).toHaveLength(1);
+    expect(
+      screen.getAllByRole('button', { name: 'general.moreOptions' })
+    ).toHaveLength(1);
 
     rerender(<PopupToolbar />);
 
-    expect(screen.getAllByRole('button', { name: 'general.moreOptions' })).toHaveLength(1);
+    expect(
+      screen.getAllByRole('button', { name: 'general.moreOptions' })
+    ).toHaveLength(1);
   });
 });

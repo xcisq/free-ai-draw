@@ -77,6 +77,18 @@ export interface Translations {
   'general.sendBackward': string;
   'general.bringToFront': string;
   'general.sendToBack': string;
+  'general.arrange': string;
+  'general.alignToCanvas': string;
+  'general.alignToSelection': string;
+  'general.alignLeft': string;
+  'general.alignCenter': string;
+  'general.alignRight': string;
+  'general.alignTop': string;
+  'general.alignMiddle': string;
+  'general.alignBottom': string;
+  'general.distribute': string;
+  'general.distributeHorizontally': string;
+  'general.distributeVertically': string;
 
   // Language
   'language.switcher': string;

@@ -72,6 +72,18 @@ const arTranslations: Translations = {
   'general.sendBackward': 'إرسال للخلف خطوة',
   'general.bringToFront': 'إحضار إلى الأمام',
   'general.sendToBack': 'إرسال إلى الخلف',
+  'general.arrange': 'ترتيب',
+  'general.alignToCanvas': 'محاذاة إلى اللوحة',
+  'general.alignToSelection': 'محاذاة إلى التحديد',
+  'general.alignLeft': 'محاذاة لليسار',
+  'general.alignCenter': 'توسيط أفقي',
+  'general.alignRight': 'محاذاة لليمين',
+  'general.alignTop': 'محاذاة للأعلى',
+  'general.alignMiddle': 'توسيط عمودي',
+  'general.alignBottom': 'محاذاة للأسفل',
+  'general.distribute': 'توزيع متساو',
+  'general.distributeHorizontally': 'توزيع أفقي',
+  'general.distributeVertically': 'توزيع عمودي',
 
   // Language
   'language.switcher': 'اللغة',

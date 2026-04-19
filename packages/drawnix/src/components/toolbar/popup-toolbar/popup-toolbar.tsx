@@ -47,6 +47,7 @@ import { PopupLinkButton } from './link-button';
 import { ArrowMarkButton } from './arrow-mark-button';
 import { MoreOptionsButton } from './more-options-button';
 import { isTextFragmentMetadata } from '../../../scene-import/text-fragment';
+import { ArrangeButton } from './arrange-button';
 
 export const PopupToolbar = () => {
   const board = useBoard();
@@ -60,7 +61,8 @@ export const PopupToolbar = () => {
   const open =
     selectedElements.length > 0 &&
     !isSelectionMoving(board) &&
-    (!selectedElements.some(PlaitDrawElement.isImage) || hasSelectedTextFragmentImage);
+    (!selectedElements.some(PlaitDrawElement.isImage) ||
+      hasSelectedTextFragmentImage);
   const { viewport, selection, children } = board;
   const { refs, floatingStyles } = useFloating({
     placement: 'right-start',
@@ -194,7 +196,7 @@ export const PopupToolbar = () => {
           ref={refs.setFloating}
           style={floatingStyles}
         >
-          <Stack.Row gap={1}>
+          <Stack.Row gap={1} className="popup-toolbar__row">
             {state.hasFontFamily && (
               <PopupFontFamilyControl
                 board={board}
@@ -259,6 +261,7 @@ export const PopupToolbar = () => {
                 title={t('popupToolbar.link')}
               ></PopupLinkButton>
             )}
+            <ArrangeButton board={board} />
             {state.isLine && (
               <>
                 <ArrowMarkButton

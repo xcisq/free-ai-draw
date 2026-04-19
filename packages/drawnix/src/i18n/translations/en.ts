@@ -73,6 +73,18 @@ const enTranslations: Translations = {
   'general.sendBackward': 'Send Backward',
   'general.bringToFront': 'Bring to Front',
   'general.sendToBack': 'Send to Back',
+  'general.arrange': 'Arrange',
+  'general.alignToCanvas': 'Align to Canvas',
+  'general.alignToSelection': 'Align to Selection',
+  'general.alignLeft': 'Align Left',
+  'general.alignCenter': 'Align Center',
+  'general.alignRight': 'Align Right',
+  'general.alignTop': 'Align Top',
+  'general.alignMiddle': 'Align Middle',
+  'general.alignBottom': 'Align Bottom',
+  'general.distribute': 'Distribute',
+  'general.distributeHorizontally': 'Distribute Horizontally',
+  'general.distributeVertically': 'Distribute Vertically',
 
   // Language
   'language.switcher': 'Language',

@@ -610,6 +610,105 @@ export const MoreOptionsIcon = createIcon(
   </svg>
 );
 
+export const ArrangeIcon = createIcon(
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <path
+      d="M2.5 2.5H13.5M2.5 13.5H13.5M4 5.25H12M5 8H11M4 10.75H12"
+      stroke="currentColor"
+      strokeWidth="1.25"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+export const AlignLeftIcon = createIcon(
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <path
+      d="M3 2.25V13.75M3.75 4H10.75M3.75 7.5H8.75M3.75 11H12.25"
+      stroke="currentColor"
+      strokeWidth="1.25"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+export const AlignCenterIcon = createIcon(
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <path
+      d="M8 2.25V13.75M4.5 4H11.5M5.5 7.5H10.5M3.75 11H12.25"
+      stroke="currentColor"
+      strokeWidth="1.25"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+export const AlignRightIcon = createIcon(
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <path
+      d="M13 2.25V13.75M5.25 4H12.25M7.25 7.5H12.25M3.75 11H12.25"
+      stroke="currentColor"
+      strokeWidth="1.25"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+export const AlignTopIcon = createIcon(
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <path
+      d="M2.25 3H13.75M4 3.75V10.75M7.5 3.75V8.75M11 3.75V12.25"
+      stroke="currentColor"
+      strokeWidth="1.25"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+export const AlignMiddleIcon = createIcon(
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <path
+      d="M2.25 8H13.75M4 4.5V11.5M7.5 5.5V10.5M11 3.75V12.25"
+      stroke="currentColor"
+      strokeWidth="1.25"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+export const AlignBottomIcon = createIcon(
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <path
+      d="M2.25 13H13.75M4 5.25V12.25M7.5 7.25V12.25M11 3.75V12.25"
+      stroke="currentColor"
+      strokeWidth="1.25"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+export const DistributeHorizontalIcon = createIcon(
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <path
+      d="M2.5 3V13M13.5 3V13M4.75 5V11M8 4V12M11.25 5V11M5.8 8H6.95M9.05 8H10.2"
+      stroke="currentColor"
+      strokeWidth="1.25"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+export const DistributeVerticalIcon = createIcon(
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <path
+      d="M3 2.5H13M3 13.5H13M5 4.75H11M4 8H12M5 11.25H11M8 5.8V6.95M8 9.05V10.2"
+      stroke="currentColor"
+      strokeWidth="1.25"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
 export const ArrowIcon = createIcon(
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
     <g stroke="none">
@@ -722,17 +821,44 @@ export const AIMermaidIcon = createIcon(
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <g stroke="none" fill="currentColor">
       {/* Robot/AI icon */}
-      <rect x="2" y="3" width="12" height="10" rx="1" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <rect
+        x="2"
+        y="3"
+        width="12"
+        height="10"
+        rx="1"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
       <circle cx="5" cy="6" r="0.5" fill="currentColor" />
       <circle cx="11" cy="6" r="0.5" fill="currentColor" />
-      <path d="M5 10H11" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+      <path
+        d="M5 10H11"
+        stroke="currentColor"
+        strokeWidth="1"
+        strokeLinecap="round"
+      />
       {/* Antenna */}
-      <path d="M5 3V1.5M11 3V1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path
+        d="M5 3V1.5M11 3V1.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
       <circle cx="5" cy="1" r="0.5" fill="currentColor" />
       <circle cx="11" cy="1" r="0.5" fill="currentColor" />
       {/* Sparkles (AI magic) */}
-      <path d="M14 2L13.5 2.5L14 3L14.5 2.5L14 2Z" fill="currentColor" opacity="0.6" />
-      <path d="M1 12L0.5 12.5L1 13L1.5 12.5L1 12Z" fill="currentColor" opacity="0.6" />
+      <path
+        d="M14 2L13.5 2.5L14 3L14.5 2.5L14 2Z"
+        fill="currentColor"
+        opacity="0.6"
+      />
+      <path
+        d="M1 12L0.5 12.5L1 13L1.5 12.5L1 12Z"
+        fill="currentColor"
+        opacity="0.6"
+      />
     </g>
   </svg>
 );

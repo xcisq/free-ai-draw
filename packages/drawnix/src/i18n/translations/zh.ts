@@ -73,6 +73,18 @@ const zhTranslations: Translations = {
   'general.sendBackward': '下移一层',
   'general.bringToFront': '置顶',
   'general.sendToBack': '置底',
+  'general.arrange': '排列',
+  'general.alignToCanvas': '对齐到画布',
+  'general.alignToSelection': '对齐到选区',
+  'general.alignLeft': '左对齐',
+  'general.alignCenter': '水平居中',
+  'general.alignRight': '右对齐',
+  'general.alignTop': '顶部对齐',
+  'general.alignMiddle': '垂直居中',
+  'general.alignBottom': '底部对齐',
+  'general.distribute': '等间距分布',
+  'general.distributeHorizontally': '水平分布',
+  'general.distributeVertically': '垂直分布',
 
   // Language
   'language.switcher': 'Language',
