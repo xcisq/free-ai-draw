@@ -278,6 +278,8 @@ const zhTranslations: Translations = {
   'line.target': '终点',
   'line.arrow': '箭头',
   'line.none': '无',
+  'line.enableAnimation': '开启动画',
+  'line.disableAnimation': '关闭动画',
 
   // Stroke style
   'stroke.solid': '实线',

@@ -139,7 +139,8 @@ type AutodrawPersistedDraft = {
   referenceSource?: ReferenceSource;
 };
 
-const DEFAULT_BACKEND_URL = 'http://127.0.0.1:8001';
+const DEFAULT_BACKEND_URL =
+  import.meta.env.VITE_AUTODRAW_BACKEND_URL?.trim() || 'http://127.0.0.1:8001';
 const AUTODRAW_HISTORY_STORAGE_KEY = 'drawnix:autodraw-history:v1';
 const AUTODRAW_DRAFT_STORAGE_KEY = 'drawnix:autodraw-draft:v2';
 const AUTODRAW_REALTIME_POLL_INTERVAL = 1200;

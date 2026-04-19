@@ -288,6 +288,8 @@ const ruTranslations: Translations = {
   'line.target': 'Конец',
   'line.arrow': 'Стрелка',
   'line.none': 'Нет',
+  'line.enableAnimation': 'Включить анимацию',
+  'line.disableAnimation': 'Выключить анимацию',
 
   // Stroke style
   'stroke.solid': 'Сплошной',

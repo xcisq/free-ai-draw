@@ -267,6 +267,8 @@ export interface Translations {
   'line.target': string;
   'line.arrow': string;
   'line.none': string;
+  'line.enableAnimation': string;
+  'line.disableAnimation': string;
 
   // Stroke style
   'stroke.solid': string;

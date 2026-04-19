@@ -284,6 +284,8 @@ const enTranslations: Translations = {
   'line.target': 'End',
   'line.arrow': 'Arrow',
   'line.none': 'None',
+  'line.enableAnimation': 'Enable animation',
+  'line.disableAnimation': 'Disable animation',
 
   // Stroke style
   'stroke.solid': 'Solid',

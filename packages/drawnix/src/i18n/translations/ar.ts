@@ -284,6 +284,8 @@ const arTranslations: Translations = {
   'line.target': 'نهاية',
   'line.arrow': 'سهم',
   'line.none': 'لا شيء',
+  'line.enableAnimation': 'تشغيل الحركة',
+  'line.disableAnimation': 'إيقاف الحركة',
 
   // Stroke style
   'stroke.solid': 'صلب',

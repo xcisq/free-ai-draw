@@ -47,6 +47,8 @@ import {
   setProjectFontRoleFamilies,
 } from './constants/font';
 import { withSelectionHit } from './plugins/with-selection-hit';
+import { withArrowAnimation } from './plugins/with-arrow-animation';
+import { withDefaultDrawStyle } from './plugins/with-default-draw-style';
 
 export type DrawnixProps = {
   value: PlaitElement[];
@@ -111,6 +113,8 @@ export const Drawnix: React.FC<DrawnixProps> = ({
 
   const plugins: PlaitPlugin[] = [
     withDraw,
+    withDefaultDrawStyle,
+    withArrowAnimation,
     withGroup,
     withMind,
     withMindExtend,

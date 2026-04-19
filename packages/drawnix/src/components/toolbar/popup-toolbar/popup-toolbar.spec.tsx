@@ -10,7 +10,7 @@ const mockBoard = {
   pointerMove: jest.fn(),
   pointerUp: jest.fn(),
 } as any;
-const mockSelectedElements = [
+const mockSelectedElements: any[] = [
   {
     id: 'shape-1',
     type: 'geometry',
@@ -62,6 +62,7 @@ jest.mock('@plait/core', () => ({
 }));
 
 jest.mock('@plait/draw', () => ({
+  ArrowLineComponent: class {},
   getStrokeColorByElement: () => '#333333',
   getStrokeStyleByElement: () => 'solid',
   isClosedCustomGeometry: () => false,
@@ -70,7 +71,7 @@ jest.mock('@plait/draw', () => ({
   PlaitDrawElement: {
     isImage: () => false,
     isDrawElement: () => true,
-    isArrowLine: () => false,
+    isArrowLine: (value: any) => value?.type === 'arrow-line',
     isVectorLine: () => false,
     isText: (value: any) => value?.shape === 'text',
     isShapeElement: (value: any) => value?.type === 'geometry',
@@ -171,6 +172,10 @@ jest.mock('./arrow-mark-button', () => ({
   ArrowMarkButton: () => <div>arrow</div>,
 }));
 
+jest.mock('./arrow-animation-button', () => ({
+  ArrowAnimationButton: () => <div>arrow-animation</div>,
+}));
+
 jest.mock('./more-options-button', () => ({
   MoreOptionsButton: () => (
     <button type="button" aria-label="general.moreOptions">
@@ -188,6 +193,17 @@ jest.mock('../../../plugins/freehand/type', () => ({
 describe('PopupToolbar', () => {
   beforeEach(() => {
     mockSetPositionReference.mockReset();
+    mockSelectedElements.splice(
+      0,
+      mockSelectedElements.length,
+      {
+        id: 'shape-1',
+        type: 'geometry',
+        shape: 'rectangle',
+        fill: '#ffffff',
+        strokeColor: '#333333',
+      }
+    );
   });
 
   it('更多操作按钮应只渲染一次，重复渲染后也不应增殖', () => {
@@ -202,5 +218,23 @@ describe('PopupToolbar', () => {
     expect(
       screen.getAllByRole('button', { name: 'general.moreOptions' })
     ).toHaveLength(1);
+  });
+
+  it('选中箭头时应显示动画按钮', () => {
+    mockSelectedElements.splice(
+      0,
+      mockSelectedElements.length,
+      {
+        id: 'arrow-1',
+        type: 'arrow-line',
+        source: { marker: 'none' },
+        target: { marker: 'arrow' },
+        strokeColor: '#333333',
+      }
+    );
+
+    render(<PopupToolbar />);
+
+    expect(screen.getByText('arrow-animation')).toBeTruthy();
   });
 });

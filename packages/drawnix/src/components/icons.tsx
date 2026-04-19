@@ -725,6 +725,48 @@ export const LineIcon = createIcon(
   </svg>
 );
 
+export const ArrowAnimationIcon = createIcon(
+  <svg
+    className="popup-arrow-animation-icon"
+    viewBox="0 0 16 16"
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+  >
+    <path
+      className="popup-arrow-animation-icon__trail"
+      d="M2 8H10.5"
+      stroke="currentColor"
+      strokeWidth="1.35"
+      strokeLinecap="round"
+      strokeDasharray="2.4 1.8"
+    />
+    <path
+      className="popup-arrow-animation-icon__head"
+      d="M9 5.5L13 8L9 10.5"
+      stroke="currentColor"
+      strokeWidth="1.35"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      className="popup-arrow-animation-icon__wave popup-arrow-animation-icon__wave--top"
+      d="M3.25 4.5C4.35 3.55 5.7 3 7.1 3"
+      stroke="currentColor"
+      strokeWidth="1.1"
+      strokeLinecap="round"
+      opacity=".75"
+    />
+    <path
+      className="popup-arrow-animation-icon__wave popup-arrow-animation-icon__wave--bottom"
+      d="M3.25 11.5C4.35 12.45 5.7 13 7.1 13"
+      stroke="currentColor"
+      strokeWidth="1.1"
+      strokeLinecap="round"
+      opacity=".75"
+    />
+  </svg>
+);
+
 export const StraightLineIcon = createIcon(
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
     <g stroke="none">

@@ -148,6 +148,32 @@
             pointer-events: none;
         }
     }
+
+    .drawnix-arrow-line__animation-overlay {
+        pointer-events: none;
+    }
+
+    .drawnix-arrow-line--animated {
+        .drawnix-arrow-line__base-path {
+            stroke: transparent !important;
+            opacity: 0;
+        }
+
+        .drawnix-arrow-line__base-head {
+            opacity: 0;
+        }
+    }
+
+    .drawnix-arrow-line__animation-overlay-path {
+        stroke-dasharray: 9 7;
+        stroke-dashoffset: 0;
+        stroke-linecap: round;
+        animation: drawnix-arrow-flow 540ms linear infinite;
+    }
+
+    .drawnix-arrow-line__animation-overlay-head {
+        opacity: 0.92;
+    }
 }
 
 .plait-board-container {
@@ -158,5 +184,18 @@
     }
     .slate-editable-container {
         cursor: inherit !important;
+    }
+}
+
+@keyframes drawnix-arrow-flow {
+    to {
+        stroke-dashoffset: -16;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .drawnix .drawnix-arrow-line__animation-overlay-path,
+    .drawnix .drawnix-arrow-line__animation-overlay-head {
+        animation: none;
     }
 }

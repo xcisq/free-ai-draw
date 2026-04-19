@@ -286,6 +286,8 @@ const viTranslations: Translations = {
   'line.target': 'Kết thúc',
   'line.arrow': 'Mũi tên',
   'line.none': 'Không',
+  'line.enableAnimation': 'Bật hieu ung chuyen dong',
+  'line.disableAnimation': 'Tat hieu ung chuyen dong',
 
   // Stroke style
   'stroke.solid': 'Nét liền',

@@ -48,6 +48,11 @@ import { ArrowMarkButton } from './arrow-mark-button';
 import { MoreOptionsButton } from './more-options-button';
 import { isTextFragmentMetadata } from '../../../scene-import/text-fragment';
 import { ArrangeButton } from './arrange-button';
+import {
+  DrawnixAnimatedArrowLine,
+  isArrowAnimationEnabled,
+} from '../../../plugins/with-arrow-animation';
+import { ArrowAnimationButton } from './arrow-animation-button';
 
 export const PopupToolbar = () => {
   const board = useBoard();
@@ -84,6 +89,7 @@ export const PopupToolbar = () => {
     isLine?: boolean;
     source?: ArrowLineHandle;
     target?: ArrowLineHandle;
+    animation?: DrawnixAnimatedArrowLine['drawnixArrowAnimation'];
   } = {
     fill: 'red',
   };
@@ -107,6 +113,13 @@ export const PopupToolbar = () => {
     const isLine = selectedElements.every((value) =>
       PlaitDrawElement.isArrowLine(value)
     );
+    const animation =
+      isLine &&
+      selectedElements.every((value) =>
+        isArrowAnimationEnabled(value as DrawnixAnimatedArrowLine)
+      )
+        ? 'flow'
+        : undefined;
     state = {
       ...getElementState(board),
       hasFill,
@@ -116,6 +129,7 @@ export const PopupToolbar = () => {
       hasStrokeStyle,
       hasText,
       isLine,
+      animation,
     };
   }
 
@@ -264,6 +278,10 @@ export const PopupToolbar = () => {
             <ArrangeButton board={board} />
             {state.isLine && (
               <>
+                <ArrowAnimationButton
+                  board={board}
+                  animation={state.animation}
+                />
                 <ArrowMarkButton
                   board={board}
                   end={'source'}
