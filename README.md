@@ -23,7 +23,7 @@
 <div align="center">
   <figure>
     <a target="_blank" rel="noopener">
-      <img src="[https://github.com/plait-board/drawnix/blob/develop/apps/web/public/product_showcase/case-2.png](https://github.com/xcisq/free-ai-draw/blob/main/%E7%A4%BA%E4%BE%8B.png)" alt="Product showcase" width="80%" />
+      <img src="https://github.com/xcisq/free-ai-draw/blob/main/%E7%A4%BA%E4%BE%8B.png" alt="Product showcase" width="80%" />
     </a>
     <figcaption>
       <p align="center">
