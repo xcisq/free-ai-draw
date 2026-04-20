@@ -8,6 +8,7 @@ import './mermaid-code-view.scss';
 
 export interface MermaidCodeViewProps {
   code: string;
+  baselineCode?: string;
   onChange?: (code: string) => void;
   readOnly?: boolean;
   disabled?: boolean;
@@ -15,6 +16,7 @@ export interface MermaidCodeViewProps {
 
 export const MermaidCodeView = ({
   code,
+  baselineCode,
   onChange,
   readOnly = false,
   disabled = false,
@@ -57,9 +59,10 @@ export const MermaidCodeView = ({
   }, [value]);
 
   const handleReset = useCallback(() => {
-    setValue(code);
-    onChange?.(code);
-  }, [code, onChange]);
+    const nextValue = baselineCode ?? code;
+    setValue(nextValue);
+    onChange?.(nextValue);
+  }, [baselineCode, code, onChange]);
 
   return (
     <div className="mermaid-code-view">
@@ -70,7 +73,8 @@ export const MermaidCodeView = ({
             <button
               className="code-view-action"
               onClick={handleReset}
-              disabled={disabled || value === code}
+              disabled={disabled || value === (baselineCode ?? code)}
+              aria-label="重置为原始代码"
               title="重置为原始代码"
             >
               <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
@@ -89,6 +93,7 @@ export const MermaidCodeView = ({
             className="code-view-action"
             onClick={handleCopy}
             disabled={disabled}
+            aria-label={isCopied ? '已复制 Mermaid 代码' : '复制 Mermaid 代码'}
             title={isCopied ? '已复制!' : '复制代码'}
           >
             {isCopied ? (

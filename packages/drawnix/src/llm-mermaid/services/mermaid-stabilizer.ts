@@ -1,4 +1,5 @@
 import type { PlaitElement } from '@plait/core';
+import type { MermaidConfig } from '@plait-board/mermaid-to-drawnix/dist';
 import type { ValidationResult } from '../types';
 import { llmChatService } from './llm-chat-service';
 import { mermaidConverter } from './mermaid-converter';
@@ -20,6 +21,7 @@ export interface MermaidStabilizeOptions {
   originalRequest?: string;
   signal?: AbortSignal;
   requireElements?: boolean;
+  mermaidConfig?: MermaidConfig;
 }
 
 export interface MermaidStabilizeResult {
@@ -102,7 +104,8 @@ export class MermaidStabilizerService {
     const localAttempt = await this.tryCandidates(
       localCandidates,
       options.requireElements !== false,
-      options.signal
+      options.signal,
+      options.mermaidConfig
     );
     if (localAttempt.result) {
       throwIfAborted(options.signal);
@@ -146,7 +149,8 @@ export class MermaidStabilizerService {
     const repairedAttempt = await this.tryCandidates(
       repairedCandidates,
       options.requireElements !== false,
-      options.signal
+      options.signal,
+      options.mermaidConfig
     );
 
     if (repairedAttempt.result) {
@@ -172,7 +176,8 @@ export class MermaidStabilizerService {
   private async tryCandidates(
     candidates: string[],
     requireElements: boolean,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    mermaidConfig?: MermaidConfig
   ): Promise<CandidateAttemptSummary> {
     let conversionError: string | null = null;
 
@@ -195,7 +200,7 @@ export class MermaidStabilizerService {
       }
 
       try {
-        const elements = await mermaidConverter.convertToElements(candidate);
+        const elements = await mermaidConverter.convertToElements(candidate, mermaidConfig);
         throwIfAborted(signal);
         return {
           result: {

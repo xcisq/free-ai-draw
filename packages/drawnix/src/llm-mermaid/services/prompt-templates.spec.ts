@@ -23,6 +23,7 @@ describe('PromptTemplates', () => {
       expect(prompt.length).toBeGreaterThan(0);
       expect(prompt).toContain('Mermaid');
       expect(prompt).toContain('原始文本');
+      expect(prompt).toContain('one-shot');
       expect(prompt).toContain('第一行必须是 flowchart LR 或 flowchart TB');
       expect(prompt).toContain('不要输出 markdown 代码块标记');
     });
@@ -51,6 +52,7 @@ describe('PromptTemplates', () => {
       expect(prompt).toContain('局部存在并行');
       expect(prompt).toContain('两路并行后汇聚');
       expect(prompt).toContain('评估阶段');
+      expect(prompt).toContain('节点文案尽量压缩');
       expect(prompt).toContain('第一行必须直接输出 flowchart LR');
       expect(prompt).toContain('不要输出 markdown 代码块');
     });
@@ -137,6 +139,7 @@ describe('PromptTemplates', () => {
       expect(prompt).toContain('用户原始文本');
       expect(prompt).toContain('<<<USER_TEXT');
       expect(prompt).toContain('请基于上面的用户原始文本生成对应图表');
+      expect(prompt).toContain('这是一次 one-shot 请求');
       expect(prompt).toContain('不要输出任何额外解释');
       expect(prompt).toContain('第一行必须直接是 flowchart TB');
     });

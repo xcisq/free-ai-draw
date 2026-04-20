@@ -5,6 +5,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { PlaitElement } from '@plait/core';
+import type { MermaidConfig } from '@plait-board/mermaid-to-drawnix/dist';
 import type { Message } from '../types';
 import { llmChatService } from '../services/llm-chat-service';
 import {
@@ -19,6 +20,7 @@ interface UpdateCodeOptions {
   signal?: AbortSignal;
   suppressErrors?: boolean;
   preserveElementsOnFailure?: boolean;
+  mermaidConfig?: MermaidConfig;
 }
 
 export interface UseMermaidPreviewResult {
@@ -119,6 +121,7 @@ export function useMermaidPreview(): UseMermaidPreviewResult {
         const stabilized = await mermaidStabilizerService.stabilizeCode(code, {
           allowLLMRepair: options.allowLLMRepair,
           signal: options.signal,
+          mermaidConfig: options.mermaidConfig,
         });
 
         if (!isCurrentRequest()) {

@@ -54,6 +54,7 @@ describe('useMermaidPreview', () => {
 
     expect(mermaidStabilizerService.stabilizeCode).toHaveBeenCalledWith('A --> B', {
       allowLLMRepair: undefined,
+      mermaidConfig: undefined,
       signal: undefined,
     });
     expect(result.current.elements).toHaveLength(1);

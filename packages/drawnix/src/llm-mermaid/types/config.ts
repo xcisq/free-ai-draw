@@ -48,6 +48,86 @@ export interface GenerationContext {
   clarificationStatus?: ClarificationStatus;
 }
 
+export interface OneShotMermaidDraft {
+  /** 用户原始文本 */
+  sourceText: string;
+  /** 归一化后的原始文本 */
+  normalizedSourceText: string;
+  /** 生成上下文 */
+  context: GenerationContext;
+  /** 提交前摘要 */
+  summaryLines: string[];
+}
+
+export type PromptAssistActionType =
+  | 'append-source'
+  | 'set-structure-pattern'
+  | 'set-layout-direction'
+  | 'set-emphasis-targets';
+
+export interface PromptAssistSuggestion {
+  /** 建议唯一标识 */
+  id: string;
+  /** 按钮文案 */
+  label: string;
+  /** 建议说明 */
+  detail: string;
+  /** 建议动作类型 */
+  action: PromptAssistActionType;
+  /** 建议动作值 */
+  value: string | string[];
+}
+
+export interface PromptAssistState {
+  /** 是否可以直接提交 */
+  isReady: boolean;
+  /** 当前摘要标题 */
+  summaryTitle: string;
+  /** 当前摘要明细 */
+  summaryLines: string[];
+  /** 风险提示 */
+  warnings: string[];
+  /** 可点击的辅助建议 */
+  suggestions: PromptAssistSuggestion[];
+  /** 预计节点规模 */
+  estimatedNodeCount: number;
+}
+
+export interface MermaidRenderPreset {
+  /** 连线曲线 */
+  curve: 'linear' | 'basis';
+  /** 预览字号 */
+  fontSize: string;
+}
+
+export type ComposerPhase =
+  | 'idle'
+  | 'generating'
+  | 'stabilizing'
+  | 'ready'
+  | 'error';
+
+export interface ComposerState {
+  /** 原始文本 */
+  sourceText: string;
+  /** 生成上下文 */
+  context: GenerationContext;
+  /** 本地辅助分析结果 */
+  assist: PromptAssistState;
+  /** 当前草稿 */
+  draft: OneShotMermaidDraft;
+  /** Mermaid 渲染预设 */
+  renderPreset: MermaidRenderPreset;
+  /** 当前阶段 */
+  phase: ComposerPhase;
+  /** 当前 Mermaid 代码 */
+  mermaidCode: string;
+  /** 最近一次稳定生成的代码 */
+  submittedCode: string;
+  /** 是否展开代码编辑区 */
+  isCodeEditorOpen: boolean;
+}
+
 /**
  * 布局方向
  */
