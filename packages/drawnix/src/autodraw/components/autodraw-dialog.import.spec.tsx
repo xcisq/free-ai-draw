@@ -388,7 +388,7 @@ describe('AutodrawDialog import semantics', () => {
     expect(
       screen.getAllByRole('button', { name: 'dialog.autodraw.viewFlow' }).length
     ).toBeGreaterThan(0);
-    expect(screen.getByText('figure.png')).toBeTruthy();
+    expect(screen.getAllByText('figure.png').length).toBeGreaterThan(0);
   });
 
   it('imports a local zip directly without requesting backend job data', async () => {

@@ -1,5 +1,12 @@
 import classNames from 'classnames';
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ChangeEvent,
+  KeyboardEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import '../styles/autodraw-dialog.scss';
 import { useBoard } from '@plait-board/react-board';
 import {
@@ -143,8 +150,20 @@ type AutodrawPersistedDraft = {
   referenceSource?: ReferenceSource;
 };
 
-const DEFAULT_BACKEND_URL =
-  import.meta.env.VITE_AUTODRAW_BACKEND_URL?.trim() || 'http://127.0.0.1:8001';
+const readDefaultBackendUrl = () => {
+  if (
+    typeof process !== 'undefined' &&
+    typeof process.env?.VITE_AUTODRAW_BACKEND_URL === 'string'
+  ) {
+    const envValue = process.env.VITE_AUTODRAW_BACKEND_URL.trim();
+    if (envValue) {
+      return envValue;
+    }
+  }
+  return 'http://127.0.0.1:8001';
+};
+
+const DEFAULT_BACKEND_URL = readDefaultBackendUrl();
 const AUTODRAW_HISTORY_STORAGE_KEY = 'drawnix:autodraw-history:v1';
 const AUTODRAW_DRAFT_STORAGE_KEY = 'drawnix:autodraw-draft:v2';
 const AUTODRAW_REALTIME_POLL_INTERVAL = 1200;
@@ -788,7 +807,9 @@ const AutodrawDialog = () => {
             if (nextEntries.some((entry) => entry.jobId === jobId)) {
               continue;
             }
-            const artifacts = Array.isArray(item.artifacts) ? item.artifacts : [];
+            const artifacts = Array.isArray(item.artifacts)
+              ? item.artifacts
+              : [];
             const previewAsset = getAutodrawSpotlightAsset(
               toAutodrawAssetItems(artifacts, base)
             );
@@ -2178,6 +2199,226 @@ const AutodrawDialog = () => {
     }
   };
 
+  const methodCharacterCount = useMemo(
+    () => Array.from(methodText).length,
+    [methodText]
+  );
+
+  const stagePreviewAssets = useMemo(() => {
+    const previewMap = new Map<number, AutodrawAssetItem>();
+    assetItems
+      .filter((asset) => asset.previewable && asset.category === 'visual')
+      .forEach((asset) => {
+        const stageIndex = Math.min(
+          asset.stageIndex,
+          workbenchStages.length - 1
+        );
+        if (!previewMap.has(stageIndex)) {
+          previewMap.set(stageIndex, asset);
+        }
+      });
+    return previewMap;
+  }, [assetItems, workbenchStages.length]);
+
+  const activityEntries = useMemo(
+    () =>
+      timelineItems.map((line, index) => ({
+        line,
+        tone: /error|failed|exception|traceback/i.test(line)
+          ? 'error'
+          : /running|queue|submit|import|sam|生成|解析|提取|重建|导入/i.test(
+              line
+            )
+          ? 'run'
+          : 'ok',
+        stamp:
+          line.match(/\b\d{2}:\d{2}:\d{2}\b/)?.[0] ||
+          (index === 0 && isJobBusy ? 'now' : '—'),
+      })),
+    [isJobBusy, timelineItems]
+  );
+
+  const backendLabel = useMemo(() => {
+    const normalized = normalizeBaseUrl(backendUrl).trim();
+    if (!normalized) {
+      return 'backend';
+    }
+    try {
+      return new URL(normalized).host;
+    } catch {
+      return normalized.replace(/^https?:\/\//, '');
+    }
+  }, [backendUrl]);
+
+  const historyPreviewEntries = useMemo(
+    () => historyEntries.slice(0, 12),
+    [historyEntries]
+  );
+
+  const handleMethodTextKeyDown = (
+    event: KeyboardEvent<HTMLTextAreaElement>
+  ) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+      event.preventDefault();
+      void handleSubmit();
+    }
+  };
+
+  const renderStageThumb = (index: number) => {
+    const asset = stagePreviewAssets.get(index);
+
+    if (index === 0) {
+      return (
+        <div className="autodraw-stage-thumb autodraw-stage-thumb--text">
+          <p>{methodText.trim() || t('dialog.autodraw.placeholder')}</p>
+        </div>
+      );
+    }
+
+    if (index === 4) {
+      return (
+        <div className="autodraw-stage-thumb autodraw-stage-thumb--board">
+          <div className="autodraw-stage-thumb__board-grid" />
+          <div className="autodraw-stage-thumb__board-marks">
+            {Array.from({ length: 3 }, (_, markIndex) => (
+              <span key={`board-mark-${markIndex}`} />
+            ))}
+          </div>
+          <div className="autodraw-stage-thumb__board-note">{`${
+            assemblyProgress.completedBatches || 0
+          } / ${assemblyProgress.totalBatches || batchPreviewCount}`}</div>
+        </div>
+      );
+    }
+
+    if (asset?.previewable) {
+      return (
+        <div className="autodraw-stage-thumb autodraw-stage-thumb--image">
+          <img
+            src={asset.url}
+            alt={asset.name}
+            loading="lazy"
+            className="autodraw-stage-thumb__image"
+          />
+        </div>
+      );
+    }
+
+    if (index === 1) {
+      return (
+        <div className="autodraw-stage-thumb autodraw-stage-thumb--bitmap" />
+      );
+    }
+
+    if (index === 2) {
+      return (
+        <div className="autodraw-stage-thumb autodraw-stage-thumb--mask">
+          <svg viewBox="0 0 120 90" aria-hidden="true">
+            <defs>
+              <pattern
+                id="autodraw-stage-mask"
+                width="4"
+                height="4"
+                patternUnits="userSpaceOnUse"
+                patternTransform="rotate(45)"
+              >
+                <line
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="4"
+                  stroke="currentColor"
+                  strokeWidth="0.5"
+                />
+              </pattern>
+            </defs>
+            <path
+              d="M15 20 Q 30 8, 48 16 T 72 28 L 66 42 Q 50 50, 32 40 Z"
+              fill="url(#autodraw-stage-mask)"
+              stroke="currentColor"
+              strokeDasharray="2 2"
+            />
+            <path
+              d="M60 48 Q 78 42, 92 52 T 105 72 L 88 78 Q 70 72, 58 62 Z"
+              fill="rgba(244, 114, 182, 0.24)"
+              stroke="currentColor"
+              strokeDasharray="2 2"
+            />
+            <circle
+              cx="30"
+              cy="68"
+              r="10"
+              fill="rgba(59, 130, 246, 0.22)"
+              stroke="currentColor"
+              strokeDasharray="2 2"
+            />
+          </svg>
+        </div>
+      );
+    }
+
+    return (
+      <div className="autodraw-stage-thumb autodraw-stage-thumb--vector">
+        <svg viewBox="0 0 120 90" aria-hidden="true">
+          <g
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1"
+            strokeLinecap="round"
+          >
+            <path d="M20 25 L40 20 L55 35" strokeDasharray="2 3" />
+            <path d="M60 50 Q 75 40, 90 55" strokeDasharray="2 3" />
+            <circle cx="35" cy="65" r="8" strokeDasharray="2 3" />
+          </g>
+        </svg>
+      </div>
+    );
+  };
+
+  const getStageMeta = (index: number) => {
+    const asset = stagePreviewAssets.get(index);
+    if (asset) {
+      return asset.name;
+    }
+    if (index === 0) {
+      return 'method text';
+    }
+    if (index === 1) {
+      return 'figure bitmap';
+    }
+    if (index === 2) {
+      return `${assetShelfItems.length} assets`;
+    }
+    if (index === 3) {
+      return 'final.svg';
+    }
+    if (assemblyProgress.totalBatches > 0) {
+      return `${assemblyProgress.completedBatches}/${assemblyProgress.totalBatches} batches`;
+    }
+    return 'canvas assembly';
+  };
+
+  const getStageChipLabel = (index: number) => {
+    const isFailed = status === 'failed' && index === activeWorkbenchStep;
+    const isComplete = index < activeWorkbenchStep || status === 'succeeded';
+    const isActive =
+      !isFailed &&
+      !isComplete &&
+      index === activeWorkbenchStep &&
+      status !== 'idle';
+
+    if (isFailed) {
+      return t('dialog.autodraw.status.failed');
+    }
+    if (isComplete) {
+      return t('dialog.autodraw.status.succeeded');
+    }
+    if (isActive) {
+      return statusLabel;
+    }
+    return t('dialog.autodraw.status.idle');
+  };
+
   return (
     <div
       ref={rootRef}
@@ -2246,46 +2487,151 @@ const AutodrawDialog = () => {
           </div>
         </section>
       ) : (
-        <div className="autodraw-dialog__container">
-          <aside className="autodraw-dialog__sidebar">
-            <div className="autodraw-dialog__intro">
-              <span className="autodraw-dialog__eyebrow">Autodraw</span>
-              <h2 className="autodraw-dialog__hero-title">
-                {t('dialog.autodraw.workbench')}
-              </h2>
-              <p className="autodraw-dialog__hero-copy">
-                {t('dialog.autodraw.description')}
-              </p>
+        <div className="autodraw-workbench">
+          <div className="autodraw-paper" />
+
+          <header className="autodraw-topbar">
+            <div className="autodraw-topbar__left">
+              <button
+                type="button"
+                className="autodraw-back-btn"
+                onClick={handleClose}
+              >
+                <svg viewBox="0 0 14 14" aria-hidden="true">
+                  <path
+                    d="M9 3 L5 7 L9 11"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                返回画板
+              </button>
+              <div className="autodraw-crumb">
+                <span>工具</span>
+                <span className="autodraw-crumb__sep">/</span>
+                <span className="autodraw-crumb__current">
+                  AutoDraw · 实验室工作台
+                </span>
+              </div>
             </div>
 
-            <section className="autodraw-dialog__section autodraw-dialog__section--composer">
-              <div className="autodraw-dialog__section-head">
-                <h3 className="autodraw-dialog__section-title">
+            <div className="autodraw-topbar__right">
+              <span
+                className={classNames(
+                  'autodraw-chip',
+                  `autodraw-chip--${getStatusBadgeClass(status).replace(
+                    'autodraw-badge--',
+                    ''
+                  )}`
+                )}
+              >
+                <span className="autodraw-chip__pulse" />
+                {statusLabel}
+              </span>
+              <span className="autodraw-anno">已连接 · {backendLabel}</span>
+              <button
+                type="button"
+                className="autodraw-icon-btn"
+                onClick={() => setShowAdvanced((value) => !value)}
+                aria-label={t('dialog.autodraw.advancedSettings')}
+              >
+                <svg viewBox="0 0 14 14" aria-hidden="true">
+                  <circle
+                    cx="7"
+                    cy="7"
+                    r="2"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                  />
+                  <path
+                    d="M7 2 L7 3 M7 11 L7 12 M2 7 L3 7 M11 7 L12 7 M3.5 3.5 L4.2 4.2 M9.8 9.8 L10.5 10.5 M3.5 10.5 L4.2 9.8 M9.8 4.2 L10.5 3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className="autodraw-icon-btn"
+                onClick={handleDockWorkbench}
+                aria-label={t('dialog.autodraw.hideWorkbench')}
+              >
+                <svg viewBox="0 0 14 14" aria-hidden="true">
+                  <rect
+                    x="2.25"
+                    y="3"
+                    width="9.5"
+                    height="8"
+                    rx="1.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                  />
+                  <path
+                    d="M4.5 5.5 H9.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
+          </header>
+
+          <div className="autodraw-workspace-grid">
+            <aside className="autodraw-col autodraw-col--left">
+              <div className="autodraw-page-kicker">AUTODRAW · 01</div>
+              <h1 className="autodraw-page-title">
+                实验室<span>工作台</span>
+              </h1>
+              <p className="autodraw-page-desc">
+                {t('dialog.autodraw.description')}
+              </p>
+
+              <div className="autodraw-sec-head">
+                <div className="autodraw-sec-title">
                   {t('dialog.autodraw.basicInfo')}
-                </h3>
-                <span className="autodraw-dialog__pill">{`${
-                  methodText.trim().length
-                } chars`}</span>
+                  <span>· input</span>
+                </div>
+                <span className="autodraw-anno autodraw-anno--small">{`${methodCharacterCount} chars`}</span>
               </div>
+
               <label className="autodraw-dialog__field">
-                <span className="autodraw-dialog__label">
-                  {t('dialog.autodraw.methodText')}
+                <span className="autodraw-field-label">
+                  <span className="autodraw-dialog__label">
+                    {t('dialog.autodraw.methodText')}
+                  </span>
+                  <span className="autodraw-anno autodraw-anno--small">
+                    Ctrl+Enter 提交
+                  </span>
                 </span>
                 <textarea
                   rows={7}
                   value={methodText}
                   onChange={(event) => setMethodText(event.target.value)}
+                  onKeyDown={handleMethodTextKeyDown}
                   placeholder={t('dialog.autodraw.placeholder')}
-                  className="autodraw-input"
+                  className="autodraw-input autodraw-input--method"
                 />
               </label>
-              <div className="autodraw-dialog__actions">
+
+              <div className="autodraw-btn-row">
                 <button
                   type="button"
                   onClick={handleSubmit}
                   disabled={isJobBusy}
                   className="autodraw-button autodraw-button--primary"
                 >
+                  <svg viewBox="0 0 10 10" aria-hidden="true">
+                    <path d="M2 1 L9 5 L2 9 Z" fill="currentColor" />
+                  </svg>
                   {t('dialog.autodraw.generate')}
                 </button>
                 {jobId && (
@@ -2301,180 +2647,157 @@ const AutodrawDialog = () => {
                 <button
                   type="button"
                   onClick={handleDockWorkbench}
-                  className="autodraw-button autodraw-button--secondary"
+                  className="autodraw-button autodraw-button--ghost"
                 >
                   {t('dialog.autodraw.hideWorkbench')}
                 </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleClose}
+                className="autodraw-link-btn"
+              >
+                {t('dialog.close')}
+              </button>
+
+              <div
+                className="autodraw-divider"
+                data-label={t('dialog.autodraw.referenceGallery')}
+              />
+
+              <div className="autodraw-sec-head">
+                <div className="autodraw-sec-title">
+                  {t('dialog.autodraw.resources')}
+                  <span>· style refs</span>
+                </div>
+                <span className="autodraw-anno autodraw-anno--small">
+                  {referenceSource === 'upload'
+                    ? t('dialog.autodraw.manualReference')
+                    : t('dialog.autodraw.referenceGallery')}
+                </span>
+              </div>
+
+              <div className="autodraw-mini-label">
+                {t('dialog.autodraw.referenceGallery')}
+              </div>
+
+              <div className="autodraw-folder-tab">
+                <span className="autodraw-folder-tab__dot" />
+                {galleryDirectoryName ||
+                  selectedGalleryItem?.name ||
+                  referenceImage?.name ||
+                  'gallery'}
+              </div>
+
+              <div className="autodraw-gallery-actions">
                 <button
                   type="button"
-                  onClick={handleClose}
-                  className="autodraw-button autodraw-button--ghost"
+                  className="autodraw-mini-btn"
+                  onClick={() => void handleChooseReferenceGallery()}
                 >
-                  {t('dialog.close')}
+                  {t('dialog.autodraw.galleryChooseFolder')}
                 </button>
-              </div>
-            </section>
-
-            <section className="autodraw-dialog__section">
-              <div className="autodraw-dialog__section-head">
-                <h3 className="autodraw-dialog__section-title">
-                  {t('dialog.autodraw.resources')}
-                </h3>
-                {referenceSource === 'gallery' && selectedGalleryItem ? (
-                  <span className="autodraw-dialog__pill">
-                    {selectedGalleryItem.name}
-                  </span>
-                ) : referenceImage ? (
-                  <span className="autodraw-dialog__pill">
-                    {referenceImage.type}
-                  </span>
-                ) : null}
-              </div>
-              <div className="autodraw-dialog__resource-card">
-                <div className="autodraw-dialog__gallery-head">
-                  <div>
-                    <div className="autodraw-dialog__label">
-                      {t('dialog.autodraw.referenceGallery')}
-                    </div>
-                    <p className="autodraw-dialog__hint">
-                      {galleryDirectoryName
-                        ? `${t(
-                            'dialog.autodraw.galleryDirectoryReady'
-                          )}: ${galleryDirectoryName}`
-                        : t('dialog.autodraw.galleryHint')}
-                    </p>
-                  </div>
-                  <div className="autodraw-dialog__gallery-actions">
+                {galleryDirectoryName && (
+                  <>
                     <button
                       type="button"
-                      className="autodraw-button autodraw-button--secondary autodraw-button--compact"
-                      onClick={() => void handleChooseReferenceGallery()}
+                      className="autodraw-mini-btn"
+                      onClick={() => void handleRefreshReferenceGallery()}
                     >
-                      {t('dialog.autodraw.galleryChooseFolder')}
+                      {t('dialog.autodraw.galleryRefresh')}
                     </button>
-                    {galleryDirectoryName && (
-                      <>
-                        <button
-                          type="button"
-                          className="autodraw-button autodraw-button--ghost autodraw-button--compact"
-                          onClick={() => void handleRefreshReferenceGallery()}
-                        >
-                          {t('dialog.autodraw.galleryRefresh')}
-                        </button>
-                        <button
-                          type="button"
-                          className="autodraw-button autodraw-button--ghost autodraw-button--compact"
-                          onClick={() => void handleClearReferenceGallery()}
-                        >
-                          {t('dialog.autodraw.galleryDisconnect')}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {referencePreviewUrl && (
-                  <div className="autodraw-dialog__reference-preview">
-                    <img
-                      src={referencePreviewUrl}
-                      alt=""
-                      className="autodraw-dialog__reference-image"
-                    />
-                    <div className="autodraw-dialog__reference-meta">
-                      <strong>
-                        {referenceSource === 'gallery' && selectedGalleryItem
-                          ? selectedGalleryItem.name
-                          : referenceImage?.name ||
-                            t('dialog.autodraw.selectedStyle')}
-                      </strong>
-                      <span>
-                        {referenceSource === 'gallery'
-                          ? t('dialog.autodraw.galleryLive')
-                          : t('dialog.autodraw.manualReference')}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {galleryState === 'loading' ? (
-                  <div className="autodraw-dialog__gallery-empty">
-                    {t('dialog.autodraw.galleryLoading')}
-                  </div>
-                ) : galleryState === 'unsupported' ? (
-                  <div className="autodraw-dialog__gallery-empty">
-                    {t('dialog.autodraw.galleryUnsupported')}
-                  </div>
-                ) : galleryState === 'needs-permission' ? (
-                  <div className="autodraw-dialog__gallery-empty">
-                    {galleryMessage ||
-                      t('dialog.autodraw.galleryPermissionHint')}
-                  </div>
-                ) : galleryItems.length > 0 ? (
-                  <div className="autodraw-dialog__gallery-grid">
-                    {galleryItems.map((item, index) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => handleReferenceGalleryPick(item)}
-                        className={classNames('autodraw-gallery-card', {
-                          'autodraw-gallery-card--active':
-                            selectedGalleryItemId === item.id &&
-                            referenceSource === 'gallery',
-                        })}
-                        style={{ animationDelay: `${index * 70}ms` }}
-                      >
-                        <div className="autodraw-gallery-card__image-wrap">
-                          <img
-                            src={item.previewUrl}
-                            alt={item.name}
-                            loading="lazy"
-                            className="autodraw-gallery-card__image"
-                          />
-                        </div>
-                        <span className="autodraw-gallery-card__label">
-                          {item.name}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="autodraw-dialog__gallery-empty">
-                    {galleryMessage || t('dialog.autodraw.galleryEmpty')}
-                  </div>
-                )}
-
-                <div className="autodraw-dialog__manual-upload">
-                  <div>
-                    <div className="autodraw-dialog__label">
-                      {t('dialog.autodraw.manualReference')}
-                    </div>
-                    <p className="autodraw-dialog__hint">
-                      {t('dialog.autodraw.manualReferenceHint')}
-                    </p>
-                  </div>
-                  <div className="autodraw-file-input">
-                    <input
-                      type="file"
-                      id="ref-image"
-                      accept="image/png,image/jpeg,image/webp"
-                      onChange={handleReferenceImageChange}
-                      className="autodraw-file-input__hidden"
-                    />
-                    <label
-                      htmlFor="ref-image"
-                      className="autodraw-file-input__label"
+                    <button
+                      type="button"
+                      className="autodraw-mini-btn"
+                      onClick={() => void handleClearReferenceGallery()}
                     >
-                      {referenceSource === 'upload' && referenceImage
-                        ? referenceImage.name
-                        : t('dialog.autodraw.chooseFile')}
-                    </label>
-                  </div>
-                </div>
-                <p className="autodraw-dialog__hint">
-                  {t('dialog.autodraw.referenceHint')}
-                </p>
+                      {t('dialog.autodraw.galleryDisconnect')}
+                    </button>
+                  </>
+                )}
               </div>
-              <div className="autodraw-dialog__resource-card">
+
+              {galleryState === 'loading' ? (
+                <div className="autodraw-gallery-empty">
+                  {t('dialog.autodraw.galleryLoading')}
+                </div>
+              ) : galleryState === 'unsupported' ? (
+                <div className="autodraw-gallery-empty">
+                  {t('dialog.autodraw.galleryUnsupported')}
+                </div>
+              ) : galleryState === 'needs-permission' ? (
+                <div className="autodraw-gallery-empty">
+                  {galleryMessage || t('dialog.autodraw.galleryPermissionHint')}
+                </div>
+              ) : galleryItems.length > 0 ? (
+                <div className="autodraw-gallery-grid">
+                  {galleryItems.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleReferenceGalleryPick(item)}
+                      className={classNames('autodraw-gallery-card', {
+                        'autodraw-gallery-card--active':
+                          selectedGalleryItemId === item.id &&
+                          referenceSource === 'gallery',
+                      })}
+                    >
+                      <div className="autodraw-gallery-card__image-wrap">
+                        <img
+                          src={item.previewUrl}
+                          alt={item.name}
+                          loading="lazy"
+                          className="autodraw-gallery-card__image"
+                        />
+                      </div>
+                      <span className="autodraw-gallery-card__label">
+                        {item.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="autodraw-gallery-empty">
+                  {galleryMessage || t('dialog.autodraw.galleryEmpty')}
+                </div>
+              )}
+
+              <div className="autodraw-inline-card">
+                <div>
+                  <div className="autodraw-dialog__label">
+                    {t('dialog.autodraw.manualReference')}
+                  </div>
+                  <p className="autodraw-dialog__hint">
+                    {t('dialog.autodraw.manualReferenceHint')}
+                  </p>
+                </div>
+                <div className="autodraw-file-input">
+                  <input
+                    type="file"
+                    id="ref-image"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={handleReferenceImageChange}
+                    className="autodraw-file-input__hidden"
+                  />
+                  <label
+                    htmlFor="ref-image"
+                    className="autodraw-file-input__label"
+                  >
+                    {referenceSource === 'upload' && referenceImage
+                      ? referenceImage.name
+                      : t('dialog.autodraw.chooseFile')}
+                  </label>
+                </div>
+              </div>
+
+              <p className="autodraw-dialog__hint">
+                {t('dialog.autodraw.referenceHint')}
+              </p>
+
+              <div className="autodraw-divider" data-label="导入 / 接续" />
+
+              <div className="autodraw-inline-card autodraw-inline-card--stack">
                 <div className="autodraw-file-input">
                   <input
                     type="file"
@@ -2494,6 +2817,7 @@ const AutodrawDialog = () => {
                   {t('dialog.autodraw.bundleHint')}
                 </p>
               </div>
+
               <label className="autodraw-dialog__field">
                 <span className="autodraw-dialog__label">
                   {t('dialog.autodraw.existingJobId')}
@@ -2515,6 +2839,7 @@ const AutodrawDialog = () => {
                   </button>
                 </div>
               </label>
+
               {jobId && (
                 <div className="autodraw-dialog__job-actions">
                   <span className="autodraw-dialog__pill">{jobId}</span>
@@ -2537,88 +2862,84 @@ const AutodrawDialog = () => {
                   </button>
                 </div>
               )}
-            </section>
 
-            <section className="autodraw-dialog__section autodraw-dialog__section--advanced">
-              <button
-                type="button"
-                className="autodraw-dialog__toggle"
-                onClick={() => setShowAdvanced((value) => !value)}
-                aria-expanded={showAdvanced}
-              >
-                <span>{t('dialog.autodraw.advancedSettings')}</span>
-                <span className="autodraw-dialog__toggle-icon">
-                  {showAdvanced ? '−' : '+'}
-                </span>
-              </button>
               {showAdvanced && (
-                <div className="autodraw-dialog__advanced-grid">
-                  <label className="autodraw-dialog__field">
-                    <span className="autodraw-dialog__label">
-                      {t('dialog.autodraw.backendUrl')}
-                    </span>
-                    <input
-                      value={backendUrl}
-                      onChange={(event) => setBackendUrl(event.target.value)}
-                      className="autodraw-input"
-                    />
-                  </label>
-                  <label className="autodraw-dialog__field">
-                    <span className="autodraw-dialog__label">
-                      {t('dialog.autodraw.provider')}
-                    </span>
-                    <input
-                      value={provider}
-                      onChange={(event) => setProvider(event.target.value)}
-                      className="autodraw-input"
-                    />
-                  </label>
-                  <label className="autodraw-dialog__field">
-                    <span className="autodraw-dialog__label">
-                      {t('dialog.autodraw.apiKey')}
-                    </span>
-                    <input
-                      type="password"
-                      value={apiKey}
-                      onChange={(event) => setApiKey(event.target.value)}
-                      className="autodraw-input"
-                    />
-                  </label>
-                  <label className="autodraw-dialog__field">
-                    <span className="autodraw-dialog__label">
-                      {t('dialog.autodraw.baseUrl')}
-                    </span>
-                    <input
-                      value={baseUrl}
-                      onChange={(event) => setBaseUrl(event.target.value)}
-                      className="autodraw-input"
-                    />
-                  </label>
-                  <label className="autodraw-dialog__field">
-                    <span className="autodraw-dialog__label">
-                      {t('dialog.autodraw.imageModel')}
-                    </span>
-                    <input
-                      value={imageModel}
-                      onChange={(event) => setImageModel(event.target.value)}
-                      className="autodraw-input"
-                    />
-                  </label>
-                  <label className="autodraw-dialog__field">
-                    <span className="autodraw-dialog__label">
-                      {t('dialog.autodraw.svgModel')}
-                    </span>
-                    <input
-                      value={svgModel}
-                      onChange={(event) => setSvgModel(event.target.value)}
-                      className="autodraw-input"
-                    />
-                  </label>
-                  <div className="autodraw-dialog__scale-card">
-                    <div className="autodraw-dialog__scale-header">
+                <>
+                  <div
+                    className="autodraw-divider"
+                    data-label={t('dialog.autodraw.advancedSettings')}
+                  />
+
+                  <div className="autodraw-advanced-grid">
+                    <label className="autodraw-dialog__field">
                       <span className="autodraw-dialog__label">
-                        {t('dialog.autodraw.latestImport')}
+                        {t('dialog.autodraw.backendUrl')}
                       </span>
+                      <input
+                        value={backendUrl}
+                        onChange={(event) => setBackendUrl(event.target.value)}
+                        className="autodraw-input"
+                      />
+                    </label>
+                    <label className="autodraw-dialog__field">
+                      <span className="autodraw-dialog__label">
+                        {t('dialog.autodraw.provider')}
+                      </span>
+                      <input
+                        value={provider}
+                        onChange={(event) => setProvider(event.target.value)}
+                        className="autodraw-input"
+                      />
+                    </label>
+                    <label className="autodraw-dialog__field">
+                      <span className="autodraw-dialog__label">
+                        {t('dialog.autodraw.apiKey')}
+                      </span>
+                      <input
+                        type="password"
+                        value={apiKey}
+                        onChange={(event) => setApiKey(event.target.value)}
+                        className="autodraw-input"
+                      />
+                    </label>
+                    <label className="autodraw-dialog__field">
+                      <span className="autodraw-dialog__label">
+                        {t('dialog.autodraw.baseUrl')}
+                      </span>
+                      <input
+                        value={baseUrl}
+                        onChange={(event) => setBaseUrl(event.target.value)}
+                        className="autodraw-input"
+                      />
+                    </label>
+                    <label className="autodraw-dialog__field">
+                      <span className="autodraw-dialog__label">
+                        {t('dialog.autodraw.imageModel')}
+                      </span>
+                      <input
+                        value={imageModel}
+                        onChange={(event) => setImageModel(event.target.value)}
+                        className="autodraw-input"
+                      />
+                    </label>
+                    <label className="autodraw-dialog__field">
+                      <span className="autodraw-dialog__label">
+                        {t('dialog.autodraw.svgModel')}
+                      </span>
+                      <input
+                        value={svgModel}
+                        onChange={(event) => setSvgModel(event.target.value)}
+                        className="autodraw-input"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="autodraw-scale-card">
+                    <div className="autodraw-sec-head autodraw-sec-head--tight">
+                      <div className="autodraw-sec-title">
+                        {t('dialog.autodraw.latestImport')}
+                        <span>· text scale</span>
+                      </div>
                       <span className="autodraw-dialog__pill">{`x${lastImportedTextScale.toFixed(
                         2
                       )}`}</span>
@@ -2668,176 +2989,177 @@ const AutodrawDialog = () => {
                       </button>
                     </div>
                   </div>
+                </>
+              )}
+            </aside>
+
+            <main className="autodraw-col autodraw-col--center">
+              <div className="autodraw-task-head">
+                <div className="autodraw-task-id">
+                  <span
+                    className={classNames(
+                      'autodraw-chip',
+                      `autodraw-chip--${getStatusBadgeClass(status).replace(
+                        'autodraw-badge--',
+                        ''
+                      )}`
+                    )}
+                  >
+                    <span className="autodraw-chip__pulse" />
+                    {statusLabel}
+                  </span>
+                  <span className="autodraw-task-id__title">
+                    {t('dialog.autodraw.workbench')}
+                  </span>
+                  <code>
+                    {jobId ? `ID: ${jobId}` : t('dialog.autodraw.noJob')}
+                  </code>
+                </div>
+                <div className="autodraw-counts">
+                  {summaryItems.map((item) => (
+                    <div key={item.label} className="autodraw-count-card">
+                      <div className="autodraw-count-card__value">
+                        {item.value}
+                      </div>
+                      <div className="autodraw-count-card__label">
+                        {item.label}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <section className="autodraw-progress-wrap">
+                <div className="autodraw-progress-head">
+                  <span className="autodraw-progress-head__label">
+                    生成预估进度
+                    <span className="autodraw-anno autodraw-anno--small">
+                      · {currentStageLabel}
+                    </span>
+                  </span>
+                  <span className="autodraw-progress-head__value">{`${Math.round(
+                    progressRatio * 100
+                  )}%`}</span>
+                </div>
+                <div className="autodraw-progress-bar autodraw-progress-bar--workspace">
+                  <span
+                    className={classNames('autodraw-progress-bar__fill', {
+                      'autodraw-progress-bar__fill--running': isJobBusy,
+                    })}
+                    style={{ width: `${Math.max(progressRatio, 0.04) * 100}%` }}
+                  />
+                </div>
+              </section>
+
+              {!!errorMessage && (
+                <div className="autodraw-dialog__error-banner">
+                  <span className="autodraw-dialog__error-dot" />
+                  <span>{errorMessage}</span>
                 </div>
               )}
-            </section>
-          </aside>
 
-          <main className="autodraw-dialog__main">
-            <header className="autodraw-dialog__header">
-              <div className="autodraw-dialog__header-left">
-                <span
-                  className={`autodraw-badge ${getStatusBadgeClass(status)}`}
-                >
-                  {statusLabel}
+              <section className="autodraw-pipeline-card">
+                <span className="autodraw-help-chip">
+                  // 每一步都可以回看 / 重跑
                 </span>
-                <div className="autodraw-dialog__header-copy">
-                  <h3 className="autodraw-dialog__main-title">
-                    {t('dialog.autodraw.workbench')}
-                  </h3>
-                  <div className="autodraw-dialog__meta-row">
-                    <span>
-                      {jobId ? `ID: ${jobId}` : t('dialog.autodraw.noJob')}
-                    </span>
-                    {(currentStage !== null ||
-                      logs.length > 0 ||
-                      artifacts.length > 0) && (
-                      <span>{`Step ${activeWorkbenchStep + 1}`}</span>
-                    )}
-                    {failedStage !== null && (
-                      <span>{`${t(
-                        'dialog.autodraw.failedStage'
-                      )}: ${failedStage}`}</span>
-                    )}
-                    {logMode !== 'idle' && (
-                      <span>{`${t(
-                        'dialog.autodraw.logMode'
-                      )}: ${logMode}`}</span>
-                    )}
+
+                <div className="autodraw-sec-head">
+                  <div className="autodraw-sec-title">
+                    Pipeline<span>· 文本 → 矢量</span>
                   </div>
+                  <span className="autodraw-anno autodraw-anno--small">
+                    当前 · {currentStageLabel}
+                  </span>
                 </div>
-              </div>
-              <div className="autodraw-dialog__header-right">
-                {summaryItems.map((item) => (
-                  <div
-                    key={item.label}
-                    className="autodraw-dialog__summary-card"
-                  >
-                    <span className="autodraw-dialog__summary-value">
-                      {item.value}
-                    </span>
-                    <span className="autodraw-dialog__summary-label">
-                      {item.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </header>
 
-            <section className="autodraw-progress-shell">
-              <div className="autodraw-progress-shell__meta">
-                <span>{currentStageLabel}</span>
-                <span>{`${Math.round(progressRatio * 100)}%`}</span>
-              </div>
-              <div className="autodraw-progress-bar">
-                <span
-                  className={classNames('autodraw-progress-bar__fill', {
-                    'autodraw-progress-bar__fill--running': isJobBusy,
+                <div className="autodraw-pipeline-stages">
+                  {workbenchStages.map((stage, index) => {
+                    const isFailed =
+                      status === 'failed' && index === activeWorkbenchStep;
+                    const isComplete =
+                      index < activeWorkbenchStep || status === 'succeeded';
+                    const isActive =
+                      !isFailed &&
+                      !isComplete &&
+                      index === activeWorkbenchStep &&
+                      status !== 'idle';
+                    return (
+                      <div
+                        key={stage.key}
+                        className={classNames('autodraw-pipeline-stage', {
+                          'autodraw-pipeline-stage--done': isComplete,
+                          'autodraw-pipeline-stage--active': isActive,
+                          'autodraw-pipeline-stage--pending':
+                            !isComplete && !isActive && !isFailed,
+                          'autodraw-pipeline-stage--failed': isFailed,
+                        })}
+                      >
+                        <div className="autodraw-pipeline-stage__no">
+                          {stage.stepNumber}
+                        </div>
+                        <div className="autodraw-pipeline-stage__thumb-box">
+                          {renderStageThumb(index)}
+                        </div>
+                        <div className="autodraw-pipeline-stage__label">
+                          {stage.label}
+                        </div>
+                        <div className="autodraw-pipeline-stage__meta">
+                          {getStageMeta(index)}
+                        </div>
+                        <div className="autodraw-pipeline-stage__chip">
+                          {getStageChipLabel(index)}
+                        </div>
+                      </div>
+                    );
                   })}
-                  style={{ width: `${Math.max(progressRatio, 0.04) * 100}%` }}
-                />
-              </div>
-            </section>
+                </div>
 
-            {!!errorMessage && (
-              <div className="autodraw-dialog__error-banner">
-                <span className="autodraw-dialog__error-dot" />
-                <span>{errorMessage}</span>
-              </div>
-            )}
-
-            <section className="autodraw-dialog__stage-rail">
-              {workbenchStages.map((stage, index) => {
-                const isFailed =
-                  status === 'failed' && index === activeWorkbenchStep;
-                const isComplete =
-                  index < activeWorkbenchStep || status === 'succeeded';
-                const isActive =
-                  !isFailed && !isComplete && index === activeWorkbenchStep;
-                return (
-                  <div
-                    key={stage.key}
-                    className={classNames('autodraw-stage-card', {
-                      'autodraw-stage-card--complete': isComplete,
-                      'autodraw-stage-card--active': isActive,
-                      'autodraw-stage-card--failed': isFailed,
-                    })}
-                    style={{ animationDelay: `${index * 85}ms` }}
+                <svg
+                  className="autodraw-stage-arrows"
+                  viewBox="0 0 1000 60"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  <g
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.1"
+                    strokeLinecap="round"
                   >
-                    <span className="autodraw-stage-card__step">
-                      {stage.stepNumber}
-                    </span>
-                    <span className="autodraw-stage-card__label">
-                      {stage.label}
-                    </span>
-                    {isActive && isJobBusy && (
-                      <span className="autodraw-stage-card__spinner" />
-                    )}
-                  </div>
-                );
-              })}
-            </section>
+                    <path d="M180 30 C 195 22, 210 38, 220 30 M215 26 L222 30 L215 34" />
+                    <path d="M380 30 C 395 22, 410 38, 420 30 M415 26 L422 30 L415 34" />
+                    <path
+                      d="M580 30 C 595 22, 610 38, 620 30 M615 26 L622 30 L615 34"
+                      strokeDasharray="3 3"
+                    />
+                    <path
+                      d="M780 30 C 795 22, 810 38, 820 30 M815 26 L822 30 L815 34"
+                      strokeDasharray="3 3"
+                    />
+                  </g>
+                </svg>
+              </section>
 
-            <div className="autodraw-dialog__workspace">
-              <div className="autodraw-dialog__workspace-main">
-                <section className="autodraw-dialog__panel autodraw-dialog__panel--live">
-                  <div className="autodraw-dialog__panel-head">
-                    <div>
-                      <h3 className="autodraw-dialog__panel-title">
-                        {t('dialog.autodraw.latestImport')}
-                      </h3>
-                      <p className="autodraw-dialog__panel-copy">
-                        {currentStageLabel}
-                      </p>
+              <div className="autodraw-output-grid">
+                <section className="autodraw-panel">
+                  <div className="autodraw-panel-head">
+                    <div className="autodraw-panel-head__title">
+                      落板预览<span>· canvas preview</span>
                     </div>
-                    <div className="autodraw-dialog__panel-chip">
-                      {assemblyProgress.totalBatches > 0
-                        ? `${assemblyProgress.completedBatches}/${assemblyProgress.totalBatches}`
-                        : `${assetShelfItems.length}`}
+                    <div className="autodraw-panel-head__meta">
+                      {currentStageLabel}
                     </div>
                   </div>
 
-                  <div className="autodraw-preview-board">
-                    <div className="autodraw-preview-board__mesh" />
-                    <div className="autodraw-preview-board__tiles">
-                      {workbenchStages.map((stage, index) => {
-                        const tileDone =
-                          index < activeWorkbenchStep || status === 'succeeded';
-                        const tileActive =
-                          index === activeWorkbenchStep &&
-                          status !== 'idle' &&
-                          status !== 'failed';
-                        const tileFailed =
-                          status === 'failed' && index === activeWorkbenchStep;
-                        return (
-                          <div
-                            key={stage.key}
-                            className={classNames('autodraw-preview-tile', {
-                              'autodraw-preview-tile--done': tileDone,
-                              'autodraw-preview-tile--active': tileActive,
-                              'autodraw-preview-tile--failed': tileFailed,
-                            })}
-                            style={{ animationDelay: `${index * 90}ms` }}
-                          >
-                            <span className="autodraw-preview-tile__step">
-                              {stage.stepNumber}
-                            </span>
-                            <span className="autodraw-preview-tile__label">
-                              {stage.label}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                  <div className="autodraw-output-canvas">
+                    <div className="autodraw-output-canvas__mesh" />
 
-                    {spotlightAsset && spotlightAsset.previewable && (
+                    {spotlightAsset && spotlightAsset.previewable ? (
                       <button
                         type="button"
-                        className="autodraw-preview-board__spotlight"
+                        className="autodraw-output-canvas__focus"
                         onClick={() =>
-                          setAssetPreview({
-                            asset: spotlightAsset,
-                          })
+                          setAssetPreview({ asset: spotlightAsset })
                         }
                         aria-label={`${t('dialog.autodraw.openPreview')}: ${
                           spotlightAsset.name
@@ -2847,118 +3169,72 @@ const AutodrawDialog = () => {
                           src={spotlightAsset.url}
                           alt={spotlightAsset.name}
                           loading="lazy"
-                          className="autodraw-preview-board__reference-image"
+                          className="autodraw-output-canvas__image"
                         />
-                        <span className="autodraw-preview-board__spotlight-meta">
-                          <span className="autodraw-dialog__pill">
-                            {
-                              workbenchStages[
-                                Math.min(
-                                  spotlightAsset.stageIndex,
-                                  workbenchStages.length - 1
-                                )
-                              ]?.stepNumber
-                            }
-                          </span>
-                          <strong>{spotlightAsset.name}</strong>
-                        </span>
                       </button>
-                    )}
-
-                    {!spotlightAsset &&
-                      (isJobBusy ||
-                        hasImportedPreview ||
-                        logs.length > 0 ||
-                        assetShelfItems.length > 0) && (
-                        <div className="autodraw-preview-board__status">
-                          <span className="autodraw-dialog__pill">
-                            {
-                              workbenchStages[
-                                Math.min(
-                                  activeWorkbenchStep,
-                                  workbenchStages.length - 1
-                                )
-                              ]?.stepNumber
-                            }
-                          </span>
-                          <strong>{currentStageLabel}</strong>
-                          <span>
-                            {isJobBusy
-                              ? t('dialog.autodraw.runningStageHint')
-                              : t('dialog.autodraw.readyHint')}
-                          </span>
-                        </div>
-                      )}
-
-                    {(hasImportedPreview || isJobBusy) && (
-                      <div className="autodraw-preview-board__result">
-                        <div className="autodraw-preview-board__metrics">
-                          {summaryItems.map((item) => (
-                            <div
-                              key={item.label}
-                              className="autodraw-preview-board__metric"
-                            >
-                              <span className="autodraw-preview-board__metric-value">
-                                {item.value}
-                              </span>
-                              <span className="autodraw-preview-board__metric-label">
-                                {item.label}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="autodraw-preview-board__assembly">
-                          {Array.from(
-                            { length: batchPreviewCount },
-                            (_, index) => {
-                              const complete =
-                                assemblyProgress.totalBatches > 0
-                                  ? index < assemblyProgress.completedBatches
-                                  : index < batchPreviewCount;
-                              return (
-                                <span
-                                  key={`brick-${index}`}
-                                  className={classNames(
-                                    'autodraw-preview-board__brick',
-                                    {
-                                      'autodraw-preview-board__brick--complete':
-                                        complete,
-                                    }
-                                  )}
-                                />
-                              );
-                            }
-                          )}
+                    ) : (
+                      <div className="autodraw-output-canvas__placeholder">
+                        <div className="autodraw-output-canvas__placeholder-note">
+                          {isJobBusy
+                            ? t('dialog.autodraw.runningStageHint')
+                            : t('dialog.autodraw.readyHint')}
                         </div>
                       </div>
                     )}
 
-                    {!hasImportedPreview && !spotlightAsset && !isJobBusy && (
-                      <div className="autodraw-preview-board__empty">
-                        <span>{t('dialog.autodraw.readyHint')}</span>
+                    {(hasImportedPreview || isJobBusy) && (
+                      <div className="autodraw-output-canvas__assembly">
+                        {Array.from(
+                          { length: batchPreviewCount },
+                          (_, index) => {
+                            const complete =
+                              assemblyProgress.totalBatches > 0
+                                ? index < assemblyProgress.completedBatches
+                                : index < batchPreviewCount;
+                            return (
+                              <span
+                                key={`assembly-${index}`}
+                                className={classNames(
+                                  'autodraw-output-canvas__brick',
+                                  {
+                                    'autodraw-output-canvas__brick--complete':
+                                      complete,
+                                  }
+                                )}
+                              />
+                            );
+                          }
+                        )}
                       </div>
                     )}
                   </div>
+
+                  <div className="autodraw-panel-foot">
+                    <span className="autodraw-anno autodraw-anno--small">
+                      自动导入画板 · 完成后跳转
+                    </span>
+                    <span className="autodraw-anno autodraw-anno--small">
+                      {assemblyProgress.insertedCount > 0
+                        ? `placing fragments · ${assemblyProgress.insertedCount}`
+                        : t('dialog.autodraw.latestImport')}
+                    </span>
+                  </div>
                 </section>
 
-                <section className="autodraw-dialog__panel autodraw-dialog__panel--assets">
-                  <div className="autodraw-dialog__panel-head">
-                    <div>
-                      <h3 className="autodraw-dialog__panel-title">
-                        {t('dialog.autodraw.assetRoom')}
-                      </h3>
-                      <p className="autodraw-dialog__panel-copy">
-                        {t('dialog.autodraw.assetHintLive')}
-                      </p>
+                <section className="autodraw-panel">
+                  <div className="autodraw-panel-head">
+                    <div className="autodraw-panel-head__title">
+                      {t('dialog.autodraw.assetRoom')}
+                      <span>· asset room</span>
                     </div>
-                    <div className="autodraw-dialog__panel-chip">
-                      {assetShelfItems.length}
+                    <div className="autodraw-panel-head__meta">
+                      {`${assetShelfItems.length} items`}
                     </div>
                   </div>
 
                   {assetShelfItems.length > 0 ? (
                     <div className="autodraw-asset-room">
-                      {assetShelfItems.map((item, index) =>
+                      {assetShelfItems.map((item) =>
                         item.asset ? (
                           <button
                             key={item.id}
@@ -2973,7 +3249,6 @@ const AutodrawDialog = () => {
                             aria-label={`${t('dialog.autodraw.openPreview')}: ${
                               item.asset.name
                             }`}
-                            style={{ animationDelay: `${index * 55}ms` }}
                           >
                             <div className="autodraw-asset-card__thumb">
                               <img
@@ -2997,17 +3272,12 @@ const AutodrawDialog = () => {
                             key={item.id}
                             className={classNames(
                               'autodraw-asset-card',
-                              'autodraw-asset-card--placeholder',
-                              {
-                                'autodraw-asset-card--icon':
-                                  item.kind === 'icon',
-                              }
+                              'autodraw-asset-card--placeholder'
                             )}
-                            style={{ animationDelay: `${index * 55}ms` }}
                           >
                             <div className="autodraw-asset-card__thumb">
                               <span className="autodraw-asset-card__placeholder">
-                                {item.title}
+                                待生成
                               </span>
                             </div>
                             <div className="autodraw-asset-card__meta">
@@ -3023,145 +3293,137 @@ const AutodrawDialog = () => {
                       )}
                     </div>
                   ) : (
-                    <div className="autodraw-dialog__activity-empty">
-                      {t('dialog.autodraw.noAssets')}
+                    <div className="autodraw-asset-empty">
+                      <span>{t('dialog.autodraw.noAssets')}</span>
+                      <span className="autodraw-anno autodraw-anno--small">
+                        {t('dialog.autodraw.assetHintLive')}
+                      </span>
                     </div>
                   )}
                 </section>
               </div>
+            </main>
 
-              <div className="autodraw-dialog__workspace-side">
-                <section className="autodraw-dialog__panel autodraw-dialog__panel--drawer">
-                  <div className="autodraw-dialog__panel-head">
-                    <div>
-                      <h3 className="autodraw-dialog__panel-title">
-                        {t('dialog.autodraw.activity')}
-                      </h3>
-                      <p className="autodraw-dialog__panel-copy">
-                        {timelineItems.length > 0
-                          ? timelineItems[0]
-                          : t('dialog.autodraw.emptyLogs')}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setLogs([])}
-                      className="autodraw-button autodraw-button--ghost autodraw-button--compact"
-                    >
-                      {t('dialog.autodraw.clearLogs')}
-                    </button>
+            <aside className="autodraw-col autodraw-col--right">
+              <section className="autodraw-side-card">
+                <div className="autodraw-sec-head autodraw-sec-head--tight">
+                  <div className="autodraw-sec-title">
+                    {t('dialog.autodraw.activity')}
+                    <span>· activity</span>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setLogs([])}
+                    className="autodraw-link-btn autodraw-link-btn--inline"
+                  >
+                    {t('dialog.autodraw.clearLogs')}
+                  </button>
+                </div>
 
-                  <div className="autodraw-drawer__tabs">
-                    <button
-                      type="button"
-                      className={classNames('autodraw-tab-button', {
-                        'autodraw-tab-button--active':
-                          activityTab === 'timeline',
-                      })}
-                      onClick={() => setActivityTab('timeline')}
-                    >
-                      {t('dialog.autodraw.timeline')}
-                    </button>
-                    <button
-                      type="button"
-                      className={classNames('autodraw-tab-button', {
-                        'autodraw-tab-button--active': activityTab === 'logs',
-                      })}
-                      onClick={() => setActivityTab('logs')}
-                    >
-                      {t('dialog.autodraw.rawLogs')}
-                    </button>
-                  </div>
+                <div className="autodraw-log-tabs">
+                  <button
+                    type="button"
+                    className={classNames('autodraw-log-tab', {
+                      'autodraw-log-tab--active': activityTab === 'timeline',
+                    })}
+                    onClick={() => setActivityTab('timeline')}
+                  >
+                    {t('dialog.autodraw.timeline')}
+                  </button>
+                  <button
+                    type="button"
+                    className={classNames('autodraw-log-tab', {
+                      'autodraw-log-tab--active': activityTab === 'logs',
+                    })}
+                    onClick={() => setActivityTab('logs')}
+                  >
+                    {t('dialog.autodraw.rawLogs')}
+                  </button>
+                </div>
 
-                  <div className="autodraw-drawer__body">
-                    {activityTab === 'timeline' ? (
-                      <div className="autodraw-dialog__activity-feed autodraw-dialog__activity-feed--scroll">
-                        {timelineItems.length > 0 ? (
-                          timelineItems.map((line, index) => (
-                            <div
-                              key={`${line}-${index}`}
-                              className="autodraw-dialog__activity-item"
-                            >
-                              <span className="autodraw-dialog__activity-bullet" />
-                              <span className="autodraw-dialog__activity-text">
-                                {line}
-                              </span>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="autodraw-dialog__activity-empty">
-                            {t('dialog.autodraw.emptyLogs')}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="autodraw-dialog__logs-container">
-                        <div className="autodraw-logs-header">
-                          <div className="autodraw-logs-filters">
-                            <input
-                              type="text"
-                              value={logFilter}
-                              onChange={(event) =>
-                                setLogFilter(event.target.value)
-                              }
-                              placeholder={t('dialog.autodraw.filterLogs')}
-                              className="autodraw-input autodraw-input--sm"
-                            />
-                            <label className="autodraw-checkbox-label">
-                              <input
-                                type="checkbox"
-                                checked={autoScroll}
-                                onChange={(event) =>
-                                  setAutoScroll(event.target.checked)
-                                }
-                              />
-                              <span>{t('dialog.autodraw.autoScroll')}</span>
-                            </label>
-                          </div>
-                          <div className="autodraw-dialog__log-count">{`${filteredLogs.length} lines`}</div>
-                        </div>
-                        <pre
-                          ref={logPanelRef}
-                          className="autodraw-dialog__logs"
+                {activityTab === 'timeline' ? (
+                  <div className="autodraw-log-feed">
+                    {activityEntries.length > 0 ? (
+                      activityEntries.map((entry, index) => (
+                        <div
+                          key={`${entry.line}-${index}`}
+                          className={classNames(
+                            'autodraw-log-line',
+                            `autodraw-log-line--${entry.tone}`
+                          )}
                         >
-                          {filteredLogs.length > 0
-                            ? filteredLogs.join('\n')
-                            : t('dialog.autodraw.emptyLogs')}
-                        </pre>
+                          <span className="autodraw-log-line__time">
+                            {entry.stamp}
+                          </span>
+                          <span className="autodraw-log-line__marker" />
+                          <span className="autodraw-log-line__text">
+                            {entry.line}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="autodraw-gallery-empty">
+                        {t('dialog.autodraw.emptyLogs')}
                       </div>
                     )}
                   </div>
-                </section>
-
-                <section className="autodraw-dialog__panel autodraw-dialog__panel--history">
-                  <div className="autodraw-dialog__panel-head">
-                    <div>
-                      <h3 className="autodraw-dialog__panel-title">
-                        {t('dialog.autodraw.history')}
-                      </h3>
-                      <p className="autodraw-dialog__panel-copy">
-                        {historyEntries.length > 0
-                          ? historyEntries[0].title
-                          : t('dialog.autodraw.noHistory')}
-                      </p>
+                ) : (
+                  <div className="autodraw-dialog__logs-container">
+                    <div className="autodraw-logs-header">
+                      <div className="autodraw-logs-filters">
+                        <input
+                          type="text"
+                          value={logFilter}
+                          onChange={(event) => setLogFilter(event.target.value)}
+                          placeholder={t('dialog.autodraw.filterLogs')}
+                          className="autodraw-input autodraw-input--sm"
+                        />
+                        <label className="autodraw-checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={autoScroll}
+                            onChange={(event) =>
+                              setAutoScroll(event.target.checked)
+                            }
+                          />
+                          <span>{t('dialog.autodraw.autoScroll')}</span>
+                        </label>
+                      </div>
+                      <div className="autodraw-dialog__log-count">{`${filteredLogs.length} lines`}</div>
                     </div>
-                    <button
-                      type="button"
-                      className="autodraw-button autodraw-button--ghost autodraw-button--compact"
-                      onClick={handleClearHistory}
-                    >
-                      {t('dialog.autodraw.clearHistory')}
-                    </button>
+                    <pre ref={logPanelRef} className="autodraw-dialog__logs">
+                      {filteredLogs.length > 0
+                        ? filteredLogs.join('\n')
+                        : t('dialog.autodraw.emptyLogs')}
+                    </pre>
                   </div>
+                )}
+              </section>
 
-                  {historyEntries.length > 0 ? (
-                    <div className="autodraw-history-list">
-                      {historyEntries.map((entry) => (
-                        <article
-                          key={entry.id}
-                          className="autodraw-history-card"
-                        >
+              <section className="autodraw-side-card">
+                <div className="autodraw-sec-head autodraw-sec-head--tight">
+                  <div className="autodraw-sec-title">
+                    {t('dialog.autodraw.history')}
+                    <span>· runs</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="autodraw-link-btn autodraw-link-btn--inline"
+                    onClick={handleClearHistory}
+                  >
+                    {t('dialog.autodraw.clearHistory')}
+                  </button>
+                </div>
+
+                <span className="autodraw-anno autodraw-anno--small autodraw-history-note">
+                  {`最近 ${historyPreviewEntries.length} 条`}
+                </span>
+
+                {historyPreviewEntries.length > 0 ? (
+                  <div className="autodraw-history-list">
+                    {historyPreviewEntries.map((entry) => (
+                      <article key={entry.id} className="autodraw-history-card">
+                        <div className="autodraw-history-card__row">
                           <div className="autodraw-history-card__preview">
                             {entry.previewUrl ? (
                               <img
@@ -3178,9 +3440,17 @@ const AutodrawDialog = () => {
                               </span>
                             )}
                           </div>
+
                           <div className="autodraw-history-card__meta">
-                            <div className="autodraw-history-card__topline">
-                              <strong>{entry.title}</strong>
+                            <div className="autodraw-history-card__id">
+                              {entry.title}
+                            </div>
+                            <div className="autodraw-history-card__subtitle">
+                              {entry.createdAt
+                                ? new Date(entry.createdAt).toLocaleString()
+                                : ''}
+                            </div>
+                            <div className="autodraw-history-card__status-row">
                               <span
                                 className={`autodraw-badge ${getStatusBadgeClass(
                                   entry.status === 'local'
@@ -3191,30 +3461,21 @@ const AutodrawDialog = () => {
                                 {getHistoryStatusLabel(entry.status)}
                               </span>
                             </div>
-                            <span className="autodraw-history-card__subtitle">
-                              {entry.createdAt
-                                ? new Date(entry.createdAt).toLocaleString()
-                                : ''}
-                            </span>
-                            {entry.summary && (
-                              <span className="autodraw-history-card__subtitle">
-                                {`${entry.summary.textCount} / ${entry.summary.arrowCount} / ${entry.summary.componentCount}`}
-                              </span>
-                            )}
                           </div>
+
                           <div className="autodraw-history-card__actions">
                             {entry.jobId && (
                               <>
                                 <button
                                   type="button"
-                                  className="autodraw-button autodraw-button--secondary autodraw-button--compact"
+                                  className="autodraw-mini-btn"
                                   onClick={() => void handleHistoryLoad(entry)}
                                 >
                                   {t('dialog.autodraw.viewFlow')}
                                 </button>
                                 <button
                                   type="button"
-                                  className="autodraw-button autodraw-button--ghost autodraw-button--compact"
+                                  className="autodraw-mini-btn"
                                   onClick={() => void handleHistoryCopy(entry)}
                                 >
                                   {t('dialog.autodraw.copyJobId')}
@@ -3222,18 +3483,18 @@ const AutodrawDialog = () => {
                               </>
                             )}
                           </div>
-                        </article>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="autodraw-dialog__activity-empty">
-                      {t('dialog.autodraw.noHistory')}
-                    </div>
-                  )}
-                </section>
-              </div>
-            </div>
-          </main>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="autodraw-gallery-empty">
+                    {t('dialog.autodraw.noHistory')}
+                  </div>
+                )}
+              </section>
+            </aside>
+          </div>
         </div>
       )}
 

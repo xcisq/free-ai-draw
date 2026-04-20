@@ -2,7 +2,10 @@ import { useBoard } from '@plait-board/react-board';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DialogType, useDrawnix } from '../../hooks/use-drawnix';
 import { Translations, useI18n } from '../../i18n';
-import { findImageElementById, getSingleSelectedImageElement } from '../../utils/image-element';
+import {
+  findImageElementById,
+  getSingleSelectedImageElement,
+} from '../../utils/image-element';
 import { normalizeBackendUrl, readErrorMessage } from '../utils';
 import './image-edit-dialog.scss';
 
@@ -22,14 +25,21 @@ type ImageEditStatus =
   | 'succeeded'
   | 'failed';
 
-const DEFAULT_BACKEND_URL =
-  import.meta.env.VITE_AUTODRAW_BACKEND_URL?.trim() || 'http://127.0.0.1:8001';
-const PROVIDER_OPTIONS = [
-  'qingyun',
-  'bianxie',
-  'openrouter',
-  'local',
-] as const;
+const readDefaultBackendUrl = () => {
+  if (
+    typeof process !== 'undefined' &&
+    typeof process.env?.VITE_AUTODRAW_BACKEND_URL === 'string'
+  ) {
+    const envValue = process.env.VITE_AUTODRAW_BACKEND_URL.trim();
+    if (envValue) {
+      return envValue;
+    }
+  }
+  return 'http://127.0.0.1:8001';
+};
+
+const DEFAULT_BACKEND_URL = readDefaultBackendUrl();
+const PROVIDER_OPTIONS = ['qingyun', 'bianxie', 'openrouter', 'local'] as const;
 const STATUS_LABEL_KEYS: Record<ImageEditStatus, keyof Translations> = {
   idle: 'dialog.imageEdit.status.idle',
   submitting: 'dialog.imageEdit.status.submitting',
@@ -57,9 +67,8 @@ export const ImageEditDialog = () => {
   const { t } = useI18n();
   const [prompt, setPrompt] = useState('');
   const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND_URL);
-  const [provider, setProvider] = useState<(typeof PROVIDER_OPTIONS)[number]>(
-    'qingyun'
-  );
+  const [provider, setProvider] =
+    useState<(typeof PROVIDER_OPTIONS)[number]>('qingyun');
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [imageModel, setImageModel] = useState(
@@ -295,7 +304,9 @@ export const ImageEditDialog = () => {
                 className="image-edit-dialog__input"
                 value={provider}
                 onChange={(event) =>
-                  setProvider(event.target.value as (typeof PROVIDER_OPTIONS)[number])
+                  setProvider(
+                    event.target.value as (typeof PROVIDER_OPTIONS)[number]
+                  )
                 }
               >
                 {PROVIDER_OPTIONS.map((option) => (
