@@ -34,6 +34,7 @@ class Settings:
     backend_dir: Path
     runtime_dir: Path
     jobs_dir: Path
+    edits_dir: Path
     uploads_dir: Path
     host: str
     port: int
@@ -51,8 +52,10 @@ def get_settings() -> Settings:
     backend_dir = repo_root / "backend"
     runtime_dir = backend_dir / "runtime"
     jobs_dir = runtime_dir / "jobs"
+    edits_dir = runtime_dir / "edit"
     uploads_dir = runtime_dir / "uploads"
     jobs_dir.mkdir(parents=True, exist_ok=True)
+    edits_dir.mkdir(parents=True, exist_ok=True)
     uploads_dir.mkdir(parents=True, exist_ok=True)
 
     host = os.environ.get("AUTOFIGURE_BACKEND_HOST", "0.0.0.0")
@@ -63,6 +66,7 @@ def get_settings() -> Settings:
         backend_dir=backend_dir,
         runtime_dir=runtime_dir,
         jobs_dir=jobs_dir,
+        edits_dir=edits_dir,
         uploads_dir=uploads_dir,
         host=host,
         port=port,

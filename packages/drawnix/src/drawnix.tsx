@@ -49,6 +49,8 @@ import {
 import { withSelectionHit } from './plugins/with-selection-hit';
 import { withArrowAnimation } from './plugins/with-arrow-animation';
 import { withDefaultDrawStyle } from './plugins/with-default-draw-style';
+import { syncImageGenerationTasks } from './image-edit/image-generation-store';
+import { ImageGenerationRunner } from './image-edit/components/image-generation-runner';
 
 export type DrawnixProps = {
   value: PlaitElement[];
@@ -95,6 +97,8 @@ export const Drawnix: React.FC<DrawnixProps> = ({
       isPencilMode: false,
       openDialogType: null,
       openCleanConfirm: false,
+      imageEditTargetId: null,
+      imageGenerationTasks: {},
     };
   });
 
@@ -142,6 +146,10 @@ export const Drawnix: React.FC<DrawnixProps> = ({
     };
   }, [fontRoleFamilies]);
 
+  useEffect(() => {
+    syncImageGenerationTasks(appState.imageGenerationTasks);
+  }, [appState.imageGenerationTasks]);
+
   return (
     <I18nProvider>
       <DrawnixContext.Provider value={{ appState, setAppState }}>
@@ -186,6 +194,7 @@ export const Drawnix: React.FC<DrawnixProps> = ({
             <ClosePencilToolbar></ClosePencilToolbar>
             <TTDDialog container={containerRef.current}></TTDDialog>
             <CleanConfirm container={containerRef.current}></CleanConfirm>
+            <ImageGenerationRunner board={board}></ImageGenerationRunner>
           </Wrapper>
           <canvas
             className={`${LASER_POINTER_CLASS_NAME} mouse-course-hidden`}

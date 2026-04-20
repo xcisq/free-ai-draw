@@ -4,6 +4,7 @@ import MermaidToDrawnix from './mermaid-to-drawnix';
 import { DialogType, useDrawnix } from '../../hooks/use-drawnix';
 import MarkdownToDrawnix from './markdown-to-drawnix';
 import AutodrawDialog from '../../autodraw/components/autodraw-dialog';
+import ImageEditDialog from '../../image-edit/components/image-edit-dialog';
 
 const LLMMermaidDialog = lazy(
   () => import('../../llm-mermaid/components/llm-mermaid-dialog')
@@ -71,6 +72,23 @@ export const TTDDialog = ({ container }: { container: HTMLElement | null }) => {
           <Suspense fallback={<div style={{ padding: 16 }}>Loading...</div>}>
             <LLMMermaidDialog container={container} />
           </Suspense>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={appState.openDialogType === DialogType.imageEdit}
+        onOpenChange={(open) => {
+          setAppState({
+            ...appState,
+            imageEditTargetId: open ? appState.imageEditTargetId : null,
+            openDialogType: open ? DialogType.imageEdit : null,
+          });
+        }}
+      >
+        <DialogContent
+          className="Dialog ttd-dialog image-edit-dialog-modal"
+          container={container}
+        >
+          <ImageEditDialog />
         </DialogContent>
       </Dialog>
     </>

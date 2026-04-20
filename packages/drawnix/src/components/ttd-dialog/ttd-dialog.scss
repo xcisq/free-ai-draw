@@ -102,6 +102,25 @@ $verticalBreakpoint: 861px;
         border-radius: 28px;
       }
     }
+
+    &.image-edit-dialog-modal {
+      width: min(92vw, 1120px);
+      max-width: min(92vw, 1120px);
+      height: auto;
+      max-height: min(90vh, 840px);
+      padding: 0;
+      border-radius: 24px;
+      background: transparent;
+      box-shadow: 0 26px 62px rgba(15, 23, 42, 0.16),
+        0 10px 24px rgba(15, 23, 42, 0.08);
+
+      @media screen and (max-width: $verticalBreakpoint) {
+        width: calc(100vw - 1rem);
+        max-width: calc(100vw - 1rem);
+        max-height: calc(100vh - 1rem);
+        border-radius: 18px;
+      }
+    }
   }
 
   .Dialog-overlay.autodraw-dialog-overlay--peek {

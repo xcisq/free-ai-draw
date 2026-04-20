@@ -68,6 +68,9 @@ interface JobResponse {
   current_stage?: number;
   source_job_id?: string | null;
   created_at?: string;
+  request?: {
+    job_type?: 'autodraw' | 'image-edit';
+  };
 }
 
 interface JobLogChunkResponse {
@@ -80,6 +83,7 @@ interface JobLogChunkResponse {
 
 interface JobListItemResponse {
   job_id: string;
+  job_type?: 'autodraw' | 'image-edit';
   status: 'queued' | 'running' | 'succeeded' | 'failed';
   created_at: string;
   started_at?: string | null;
@@ -247,6 +251,8 @@ const getElementRectangle = (elements: PlaitElement[]) => {
 
 const roundScaleValue = (value: number) => Math.round(value * 1000) / 1000;
 const roundTextScaleFactor = (value: number) => Math.round(value * 100) / 100;
+const filterAutodrawHistoryEntries = (entries: AutodrawHistoryEntry[]) =>
+  entries.filter((entry) => entry.jobType !== 'image-edit');
 
 const wait = (duration: number) =>
   new Promise<void>((resolve) => {
@@ -733,7 +739,7 @@ const AutodrawDialog = () => {
       }
       const parsed = JSON.parse(payload) as AutodrawHistoryEntry[];
       if (Array.isArray(parsed)) {
-        setHistoryEntries(parsed);
+        setHistoryEntries(filterAutodrawHistoryEntries(parsed));
       }
     } catch {
       // ignore invalid history payload
@@ -760,10 +766,23 @@ const AutodrawDialog = () => {
         }
 
         setHistoryEntries((current) => {
-          let nextEntries = current;
+          const imageEditJobIds = new Set(
+            items
+              .filter((item) => item?.job_type === 'image-edit')
+              .map((item) => item.job_id)
+              .filter((jobId): jobId is string => Boolean(jobId))
+          );
+          let nextEntries = filterAutodrawHistoryEntries(
+            current.filter(
+              (entry) => !entry.jobId || !imageEditJobIds.has(entry.jobId)
+            )
+          );
           for (const item of items) {
             const jobId = item?.job_id;
             if (!jobId || typeof jobId !== 'string') {
+              continue;
+            }
+            if (item.job_type === 'image-edit') {
               continue;
             }
             if (nextEntries.some((entry) => entry.jobId === jobId)) {
@@ -780,6 +799,7 @@ const AutodrawDialog = () => {
             nextEntries = upsertAutodrawHistory(nextEntries, {
               id: `job:${jobId}`,
               type: 'job',
+              jobType: 'autodraw',
               title: jobId,
               subtitle: 'Runtime job',
               status: item.status as AutodrawStatus,
@@ -1102,12 +1122,15 @@ const AutodrawDialog = () => {
   };
 
   const rememberHistory = (entry: AutodrawHistoryEntry) => {
-    setHistoryEntries((current) => upsertAutodrawHistory(current, entry));
+    setHistoryEntries((current) =>
+      filterAutodrawHistoryEntries(upsertAutodrawHistory(current, entry))
+    );
   };
 
   const rememberJobHistory = (payload: {
     historyId?: string;
     jobId: string;
+    jobType?: 'autodraw' | 'image-edit';
     status: AutodrawStatus;
     createdAt?: string;
     summary?: SvgImportSummary;
@@ -1130,6 +1153,7 @@ const AutodrawDialog = () => {
     rememberHistory({
       id: historyId,
       type: 'job',
+      jobType: payload.jobType || 'autodraw',
       title: payload.jobId,
       subtitle: 'Generated job',
       status: payload.status,
@@ -1804,6 +1828,7 @@ const AutodrawDialog = () => {
       rememberJobHistory({
         historyId: activeHistoryEntryIdRef.current,
         jobId: data.job_id,
+        jobType: data.request?.job_type || 'autodraw',
         status: data.status as AutodrawStatus,
         createdAt: data.created_at,
         nextArtifacts: data.artifacts ?? [],

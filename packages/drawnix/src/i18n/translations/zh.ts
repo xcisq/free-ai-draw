@@ -260,6 +260,8 @@ const zhTranslations: Translations = {
   'popupToolbar.link': '链接',
   'popupToolbar.stroke': '边框',
   'popupToolbar.opacity': '不透明度',
+  'popupToolbar.aiEditImage': 'AI 编辑',
+  'popupToolbar.replaceImage': '更换图片',
 
   // Icon library
   'iconLibrary.upload': '上传图标',
@@ -323,6 +325,36 @@ const zhTranslations: Translations = {
   'dialog.llmMermaid.placeholder': '描述你想生成的流程图...',
   'dialog.llmMermaid.insert': '插入',
   'dialog.llmMermaid.close': '关闭',
+
+  'dialog.imageEdit.title': '编辑当前图片',
+  'dialog.imageEdit.description':
+    '基于当前选中的图片提交 AI 改图任务，成功后会直接替换画布里的原图。',
+  'dialog.imageEdit.prompt': '编辑提示词',
+  'dialog.imageEdit.promptPlaceholder': '例如：把背景改成浅色科技感风格，并增强主体边缘细节',
+  'dialog.imageEdit.sourceImage': '当前图片',
+  'dialog.imageEdit.backendUrl': '后端地址',
+  'dialog.imageEdit.provider': 'Provider',
+  'dialog.imageEdit.apiKey': 'API Key',
+  'dialog.imageEdit.baseUrl': 'Base URL',
+  'dialog.imageEdit.imageModel': '图片模型',
+  'dialog.imageEdit.removeBackground': '替换前自动去背景',
+  'dialog.imageEdit.removeBackgroundHint':
+    '适合白底或杂色底图。开启后会在生图完成后再做一次抠图处理。',
+  'dialog.imageEdit.generate': '开始编辑',
+  'dialog.imageEdit.close': '关闭',
+  'dialog.imageEdit.targetMissing': '没有找到可编辑的图片，请重新选中目标图片后再试。',
+  'dialog.imageEdit.overlayLabel': '正在编辑',
+  'dialog.imageEdit.status.idle': '待开始',
+  'dialog.imageEdit.status.submitting': '提交中',
+  'dialog.imageEdit.status.running': '编辑中',
+  'dialog.imageEdit.status.succeeded': '已完成',
+  'dialog.imageEdit.status.failed': '失败',
+  'dialog.imageEdit.error.noPrompt': '请先输入图片编辑提示词',
+  'dialog.imageEdit.error.noTarget': '当前没有可编辑的目标图片',
+  'dialog.imageEdit.error.exportFailed': '当前图片无法读取，请先重新导入图片后再试',
+  'dialog.imageEdit.error.submitFailed': '图片编辑任务提交失败',
+  'dialog.imageEdit.error.jobFailed': '图片编辑任务执行失败',
+  'dialog.imageEdit.error.noResult': '任务完成了，但没有返回可替换的图片结果',
 
   'dialog.close': '关闭',
 

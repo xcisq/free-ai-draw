@@ -723,4 +723,69 @@ describe('AutodrawDialog import semantics', () => {
     expect(screen.getByText('old-job')).toBeTruthy();
     expect(screen.getAllByText('job-20').length).toBeGreaterThan(0);
   });
+
+  it('filters image-edit jobs out of autodraw history', async () => {
+    localStorage.setItem(
+      'drawnix:autodraw-history:v1',
+      JSON.stringify([
+        {
+          id: 'job:image-edit-legacy',
+          type: 'job',
+          title: 'image-edit-legacy',
+          subtitle: 'Generated job',
+          status: 'succeeded',
+          createdAt: '2026-04-20T10:00:00.000Z',
+          jobId: 'image-edit-legacy',
+        },
+        {
+          id: 'job:image-edit-tagged',
+          type: 'job',
+          jobType: 'image-edit',
+          title: 'image-edit-tagged',
+          subtitle: 'Generated job',
+          status: 'succeeded',
+          createdAt: '2026-04-20T09:30:00.000Z',
+          jobId: 'image-edit-tagged',
+        },
+        {
+          id: 'job:autodraw-old',
+          type: 'job',
+          jobType: 'autodraw',
+          title: 'autodraw-old',
+          subtitle: 'Generated job',
+          status: 'succeeded',
+          createdAt: '2026-04-20T09:00:00.000Z',
+          jobId: 'autodraw-old',
+        },
+      ])
+    );
+
+    mockFetch.mockResolvedValueOnce(
+      createJsonResponse([
+        {
+          job_id: 'image-edit-legacy',
+          job_type: 'image-edit',
+          status: 'succeeded',
+          created_at: '2026-04-20T10:00:00.000Z',
+          artifacts: [],
+        },
+        {
+          job_id: 'autodraw-new',
+          job_type: 'autodraw',
+          status: 'succeeded',
+          created_at: '2026-04-20T11:00:00.000Z',
+          artifacts: [],
+        },
+      ])
+    );
+
+    render(<AutodrawDialog />);
+
+    await waitFor(() => {
+      expect(screen.queryByText('image-edit-legacy')).toBeNull();
+      expect(screen.queryByText('image-edit-tagged')).toBeNull();
+      expect(screen.getByText('autodraw-old')).toBeTruthy();
+      expect(screen.getByText('autodraw-new')).toBeTruthy();
+    });
+  });
 });

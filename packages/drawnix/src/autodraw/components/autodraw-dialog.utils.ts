@@ -52,6 +52,7 @@ export interface AutodrawHistorySummary {
 export interface AutodrawHistoryEntry {
   id: string;
   type: 'job' | 'bundle';
+  jobType?: 'autodraw' | 'image-edit';
   title: string;
   subtitle: string;
   status: AutodrawStatus | 'local';

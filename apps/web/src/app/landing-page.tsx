@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 
 type LandingPageProps = {
   onEnterBoard: () => void;
@@ -23,6 +23,14 @@ type PipelineStep = {
   id: string;
   label: string;
   note: string;
+};
+
+type GalleryItem = {
+  id: string;
+  title: string;
+  subtitle: string;
+  note: string;
+  src: string;
 };
 
 type SketchArrowProps = {
@@ -79,6 +87,37 @@ const PIPELINE: PipelineStep[] = [
   { id: 'board', label: '导入画板', note: '可编辑图元' },
 ];
 
+const GALLERY_ITEMS: GalleryItem[] = [
+  {
+    id: '20260419_175141_82c68205',
+    title: '科研柴犬讲注意力',
+    subtitle: 'Transformer Attention Mechanism',
+    note: 'autodraw jobs · 2026-04-19 · final.svg',
+    src: '/autodraw-gallery/transformer-attention-dog.svg',
+  },
+  {
+    id: '20260417_145016_5fe1a303',
+    title: 'Agent 时代的软件工程转向',
+    subtitle: 'From Writing Code to Designing Systems',
+    note: 'autodraw jobs · 2026-04-17 · final.svg',
+    src: '/autodraw-gallery/agent-system-shift.svg',
+  },
+  {
+    id: '20260417_020059_4401350f',
+    title: '交互可视化重构框架',
+    subtitle: 'Extract · Store · Migrate · Edit',
+    note: 'autodraw jobs · 2026-04-17 · final.svg',
+    src: '/autodraw-gallery/interactive-reconstruction-framework.svg',
+  },
+  {
+    id: '20260416_125215_adb3238b',
+    title: '交互形式化与解耦流程',
+    subtitle: 'Interaction Formalization & Decoupling',
+    note: 'autodraw jobs · 2026-04-16 · final.svg',
+    src: '/autodraw-gallery/interactive-reconstruction-stage-1.svg',
+  },
+];
+
 function scrollToSection(id: string) {
   const target = document.getElementById(id);
   if (!target) {
@@ -129,6 +168,22 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
     '"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Arial,sans-serif';
   const serif = '"Songti SC","STSong","Noto Serif CJK SC","Times New Roman",serif';
   const [hover, setHover] = useState<Feature['id'] | null>(null);
+  const [previewItem, setPreviewItem] = useState<GalleryItem | null>(null);
+
+  useEffect(() => {
+    if (!previewItem) {
+      return undefined;
+    }
+
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPreviewItem(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  }, [previewItem]);
 
   const linkStyle: CSSProperties = { color: ink, textDecoration: 'none', opacity: 0.72 };
   const ghostBtn: CSSProperties = {
@@ -638,49 +693,93 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
             <Anno>03 · Gallery</Anno>
             <h2 style={{ margin: '6px 0 0', fontSize: 28, fontWeight: 600, letterSpacing: '-0.01em' }}>
               课题组最近画的
-              <span style={{ fontFamily: serif, fontStyle: 'italic' }}>一些东西</span>
+              <span style={{ fontFamily: serif, fontStyle: 'italic' }}>一些图</span>
             </h2>
           </div>
-          <Anno>共 248 张 · 本周 +12</Anno>
+          <Anno>来自 autodraw jobs · 4 张 final.svg</Anno>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
-          {['Transformer 注意力', '扩散模型流程', '实验配置树', '消融实验表格'].map((title, index) => (
-            <div
-              key={title}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: 14,
+          }}
+        >
+          {GALLERY_ITEMS.map((item, index) => (
+            <button
+              key={item.id}
+              type="button"
+              aria-label={`放大预览：${item.title}`}
+              aria-haspopup="dialog"
+              onClick={() => setPreviewItem(item)}
               style={{
-                aspectRatio: '4/3',
+                width: '100%',
                 background: paper,
                 border: `1px solid ${hair}`,
                 borderRadius: 12,
                 padding: 14,
                 position: 'relative',
                 overflow: 'hidden',
+                textAlign: 'left',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
               }}
             >
               <div
                 style={{
-                  position: 'absolute',
-                  inset: 10,
+                  aspectRatio: '4 / 3',
                   borderRadius: 8,
-                  background: `repeating-linear-gradient(${45 + index * 30}deg, ${hair} 0, ${hair} 1px, transparent 1px, transparent 10px)`,
-                  opacity: 0.6,
-                }}
-              />
-              <Anno style={{ position: 'relative' }}>sample_{String(index + 1).padStart(2, '0')}.drawnix</Anno>
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: 12,
-                  left: 14,
-                  right: 14,
-                  fontSize: 13,
-                  color: ink,
-                  fontWeight: 500,
+                  border: `1px solid ${hair}`,
+                  background: dark ? '#12141c' : '#f8fafc',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 10,
                 }}
               >
-                {title}
+                <img
+                  src={item.src}
+                  alt={item.title}
+                  loading="lazy"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'block',
+                    objectFit: 'contain',
+                    background: '#ffffff',
+                  }}
+                />
               </div>
-            </div>
+              <Anno style={{ display: 'block', marginTop: 12 }}>
+                sample_{String(index + 1).padStart(2, '0')}.svg
+              </Anno>
+              <div
+                style={{
+                  marginTop: 10,
+                  fontSize: 15,
+                  fontWeight: 500,
+                  color: ink,
+                }}
+              >
+                {item.title}
+              </div>
+              <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.6, color: sub }}>
+                {item.subtitle}
+              </div>
+              <div
+                style={{
+                  marginTop: 10,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                }}
+              >
+                <Anno style={{ opacity: 0.72 }}>{item.note}</Anno>
+                <Anno style={{ color: accent, opacity: 0.9 }}>点击放大预览 ↗</Anno>
+              </div>
+            </button>
           ))}
         </div>
       </div>
@@ -707,6 +806,107 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
         </div>
         <Anno>Draw Beyond, Rise Above.</Anno>
       </div>
+
+      {previewItem ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={previewItem.title}
+          onClick={() => setPreviewItem(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 30,
+            background: dark ? 'rgba(15,17,21,0.82)' : 'rgba(15,23,42,0.48)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: 'min(1280px, 100%)',
+              maxHeight: '100%',
+              background: paper,
+              border: `1px solid ${hair}`,
+              borderRadius: 18,
+              boxShadow: dark
+                ? '0 24px 80px rgba(0,0,0,0.45)'
+                : '0 24px 80px rgba(15,23,42,0.18)',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: 16,
+                padding: '22px 24px 18px',
+                borderBottom: `1px solid ${hair}`,
+              }}
+            >
+              <div>
+                <Anno>Preview · final.svg</Anno>
+                <h3 style={{ margin: '8px 0 0', fontSize: 24, lineHeight: 1.2, color: ink }}>
+                  {previewItem.title}
+                </h3>
+                <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.6, color: sub }}>
+                  {previewItem.subtitle}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <a
+                  href={previewItem.src}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    ...ghostBtn,
+                    height: 38,
+                    lineHeight: '36px',
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  打开原图
+                </a>
+                <button
+                  type="button"
+                  aria-label="关闭预览"
+                  style={{ ...primaryBtn, height: 38, padding: '0 18px' }}
+                  onClick={() => setPreviewItem(null)}
+                >
+                  关闭
+                </button>
+              </div>
+            </div>
+            <div
+              style={{
+                padding: 24,
+                background: dark ? '#12141c' : '#f8fafc',
+                maxHeight: 'calc(100vh - 180px)',
+                overflow: 'auto',
+              }}
+            >
+              <img
+                src={previewItem.src}
+                alt={previewItem.title}
+                style={{
+                  width: '100%',
+                  height: 'auto',
+                  display: 'block',
+                  background: '#ffffff',
+                  borderRadius: 12,
+                  border: `1px solid ${hair}`,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

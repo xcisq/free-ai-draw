@@ -8,6 +8,8 @@ from ..schemas import ArtifactInfo
 KNOWN_ARTIFACT_KINDS = {
     "figure.png": "figure",
     "samed.png": "samed",
+    "source.png": "source_image",
+    "edited.png": "edited_image",
     "boxlib.json": "boxlib",
     "scene.json": "scene_json",
     "template.svg": "template_svg",

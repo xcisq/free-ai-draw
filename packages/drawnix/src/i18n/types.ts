@@ -250,6 +250,8 @@ export interface Translations {
   'popupToolbar.link': string;
   'popupToolbar.stroke': string;
   'popupToolbar.opacity': string;
+  'popupToolbar.aiEditImage': string;
+  'popupToolbar.replaceImage': string;
 
   // Icon library
   'iconLibrary.upload': string;
@@ -294,6 +296,35 @@ export interface Translations {
   'dialog.llmMermaid.placeholder': string;
   'dialog.llmMermaid.insert': string;
   'dialog.llmMermaid.close': string;
+
+  // Image edit
+  'dialog.imageEdit.title': string;
+  'dialog.imageEdit.description': string;
+  'dialog.imageEdit.prompt': string;
+  'dialog.imageEdit.promptPlaceholder': string;
+  'dialog.imageEdit.sourceImage': string;
+  'dialog.imageEdit.backendUrl': string;
+  'dialog.imageEdit.provider': string;
+  'dialog.imageEdit.apiKey': string;
+  'dialog.imageEdit.baseUrl': string;
+  'dialog.imageEdit.imageModel': string;
+  'dialog.imageEdit.removeBackground': string;
+  'dialog.imageEdit.removeBackgroundHint': string;
+  'dialog.imageEdit.generate': string;
+  'dialog.imageEdit.close': string;
+  'dialog.imageEdit.targetMissing': string;
+  'dialog.imageEdit.overlayLabel': string;
+  'dialog.imageEdit.status.idle': string;
+  'dialog.imageEdit.status.submitting': string;
+  'dialog.imageEdit.status.running': string;
+  'dialog.imageEdit.status.succeeded': string;
+  'dialog.imageEdit.status.failed': string;
+  'dialog.imageEdit.error.noPrompt': string;
+  'dialog.imageEdit.error.noTarget': string;
+  'dialog.imageEdit.error.exportFailed': string;
+  'dialog.imageEdit.error.submitFailed': string;
+  'dialog.imageEdit.error.jobFailed': string;
+  'dialog.imageEdit.error.noResult': string;
 
   'dialog.close': string;
 

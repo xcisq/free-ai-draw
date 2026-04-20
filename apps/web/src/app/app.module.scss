@@ -1,7 +1,115 @@
+.appStage {
+  position: relative;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(218, 226, 240, 0.36), transparent 42%),
+    #f3f5f9;
+  overflow: hidden;
+}
+
+.appStageToBoard,
+.appStageToLanding {
+  height: 100vh;
+}
+
+.viewLayer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  min-height: 100%;
+  isolation: isolate;
+  z-index: 0;
+}
+
+.landingLayer {
+  opacity: 0;
+  transform: translate3d(0, 20px, 0) scale(0.985);
+  pointer-events: none;
+}
+
+.boardLayer {
+  opacity: 0;
+  transform: translate3d(0, 44px, 0) scale(0.95);
+  pointer-events: none;
+}
+
+.layerActive {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  pointer-events: auto;
+}
+
+.layerForeground {
+  z-index: 2;
+}
+
+.layerBackground {
+  z-index: 1;
+}
+
+.layerBoardReady {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  pointer-events: none;
+}
+
+.layerExitToBoard {
+  animation: landing-exit-to-board 520ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.layerEnterFromBoard {
+  animation: landing-enter-from-board 520ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.layerExitToLanding {
+  animation: board-exit-to-landing 520ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes landing-exit-to-board {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -18px, 0) scale(0.985);
+  }
+}
+
+@keyframes landing-enter-from-board {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes board-exit-to-landing {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 44px, 0) scale(0.965);
+  }
+}
+
 .appShell {
+  width: 100vw;
   height: 100vh;
   position: relative;
-  background: #f7f8fb;
+  background:
+    radial-gradient(circle at top left, rgba(216, 223, 236, 0.28), transparent 30%),
+    #f7f8fb;
+  overflow: hidden;
+}
+
+.appShell :global(.app-logo-corner) {
+  display: none;
 }
 
 .schemeActionRow {
@@ -48,8 +156,8 @@
 }
 
 .schemeSelect:focus {
-  border-color: #7c3aed;
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.14);
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
 }
 
 .resetButton {
@@ -110,8 +218,19 @@
 }
 
 .boardContainer {
+  width: 100vw;
   height: 100vh;
   min-height: 100vh;
+}
+
+.topLeftTools {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 8px);
+  left: calc(env(safe-area-inset-left) + 12px);
+  z-index: 24;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
 }
 
 .rolePreviewList {
@@ -191,23 +310,103 @@
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
 }
 
-.openButton:hover,
-.closeButton:hover {
-  background: #f9fafb;
-}
-
 .navButton {
-  height: 36px;
-  padding: 0 14px;
-  border: 1px solid #d0d5dd;
+  min-height: 28px;
+  padding: 0 10px 0 9px;
+  border: 1px solid rgba(203, 213, 225, 0.9);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.96);
-  color: #111827;
-  font-size: 13px;
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, 0.12),
+    0 1px 4px rgba(15, 23, 42, 0.06);
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+  pointer-events: auto;
+  touch-action: manipulation;
+  transition-property: transform, box-shadow, background-color;
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.navButtonLabel {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.navButtonArrow {
+  font-size: 13px;
+  line-height: 1;
+  transition-property: transform, opacity;
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
 .navButton:hover {
-  background: #f9fafb;
+  background: #ffffff;
+  box-shadow:
+    0 18px 34px rgba(15, 23, 42, 0.16),
+    0 3px 12px rgba(15, 23, 42, 0.08);
+}
+
+.navButton:focus-visible,
+.openButton:focus-visible,
+.closeButton:focus-visible,
+.schemeSelect:focus-visible,
+.applyButton:focus-visible,
+.resetButton:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.16);
+  outline-offset: 2px;
+}
+
+.navButton:active,
+.openButton:active,
+.closeButton:active,
+.applyButton:active,
+.resetButton:active {
+  transform: scale(0.96);
+}
+
+@media (hover: hover) {
+  .openButton:hover,
+  .closeButton:hover {
+    background: #f9fafb;
+  }
+
+  .navButton:hover .navButtonArrow {
+    transform: translateX(-2px);
+  }
+}
+
+@media (max-width: 720px) {
+  .topLeftTools {
+    left: calc(env(safe-area-inset-left) + 8px);
+  }
+
+  .navButton {
+    min-height: 26px;
+    padding: 0 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layerExitToBoard,
+  .layerEnterFromBoard,
+  .layerExitToLanding {
+    animation: none;
+  }
+
+  .navButton,
+  .navButtonArrow,
+  .openButton,
+  .closeButton,
+  .applyButton,
+  .resetButton {
+    transition-duration: 0ms;
+  }
 }

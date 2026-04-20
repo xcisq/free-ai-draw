@@ -220,6 +220,21 @@ export function BoardShell({ onBackToLanding }: BoardShellProps) {
 
   return (
     <div className={styles.appShell}>
+      {onBackToLanding ? (
+        <div className={styles.topLeftTools}>
+          <button
+            type="button"
+            className={styles.navButton}
+            onClick={onBackToLanding}
+            aria-label="返回首页"
+          >
+            <span className={styles.navButtonArrow} aria-hidden="true">
+              ←
+            </span>
+            <span className={styles.navButtonLabel}>返回首页</span>
+          </button>
+        </div>
+      ) : null}
       <div className={styles.boardContainer}>
         <Drawnix
           value={value.children}
@@ -242,15 +257,6 @@ export function BoardShell({ onBackToLanding }: BoardShellProps) {
         ></Drawnix>
       </div>
       <div className={styles.floatingTools}>
-        {onBackToLanding ? (
-          <button
-            type="button"
-            className={styles.navButton}
-            onClick={onBackToLanding}
-          >
-            返回导航
-          </button>
-        ) : null}
         {fontPanelOpen ? (
           <div className={styles.fontPanel}>
             <div className={styles.fontPanelHeader}>

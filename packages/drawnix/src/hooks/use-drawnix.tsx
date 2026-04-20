@@ -15,6 +15,7 @@ export enum DialogType {
   markdownToDrawnix = 'markdownToDrawnix',
   autodraw = 'autodraw',
   llmMermaid = 'llmMermaid',
+  imageEdit = 'imageEdit',
 }
 
 export type DrawnixPointerType =
@@ -36,6 +37,15 @@ export type LinkState = {
   isHoveringOrigin: boolean;
 };
 
+export type ImageGenerationTask = {
+  targetId: string;
+  jobId: string;
+  backendUrl: string;
+  status: 'queued' | 'running';
+};
+
+export type ImageGenerationTaskMap = Record<string, ImageGenerationTask>;
+
 export type DrawnixState = {
   pointer: DrawnixPointerType;
   isMobile: boolean;
@@ -43,6 +53,8 @@ export type DrawnixState = {
   openDialogType: DialogType | null;
   openCleanConfirm: boolean;
   linkState?: LinkState | null;
+  imageEditTargetId?: string | null;
+  imageGenerationTasks: ImageGenerationTaskMap;
 };
 
 export const DrawnixContext = createContext<{

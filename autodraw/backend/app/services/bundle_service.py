@@ -35,6 +35,7 @@ def build_manifest(
     error_message: str | None,
 ) -> dict[str, Any]:
     artifacts_payload = _to_json_safe([artifact.model_dump() for artifact in artifacts])
+    job_type = request_payload.get("job_type") or "autodraw"
     return {
         "job_id": job_id,
         "status": status,
@@ -43,7 +44,7 @@ def build_manifest(
         "result": _to_json_safe(pipeline_result or {}),
         "scene_url": None,
         "scene_schema_version": None,
-        "preferred_import_kind": "svg",
+        "preferred_import_kind": "image" if job_type == "image-edit" else "svg",
         "timing": {
             "created_at": created_at.isoformat(),
             "started_at": started_at.isoformat() if started_at else None,

@@ -69,10 +69,11 @@ jest.mock('@plait/draw', () => ({
   isClosedDrawElement: () => true,
   isDrawElementsIncludeText: () => false,
   PlaitDrawElement: {
-    isImage: () => false,
+    isImage: (value: any) => value?.type === 'image',
     isDrawElement: () => true,
     isArrowLine: (value: any) => value?.type === 'arrow-line',
     isVectorLine: () => false,
+    isTable: () => false,
     isText: (value: any) => value?.shape === 'text',
     isShapeElement: (value: any) => value?.type === 'geometry',
   },
@@ -176,6 +177,14 @@ jest.mock('./arrow-animation-button', () => ({
   ArrowAnimationButton: () => <div>arrow-animation</div>,
 }));
 
+jest.mock('./ai-image-edit-button', () => ({
+  AIImageEditButton: () => <div>ai-image-edit</div>,
+}));
+
+jest.mock('./replace-image-button', () => ({
+  ReplaceImageButton: () => <div>replace-image</div>,
+}));
+
 jest.mock('./more-options-button', () => ({
   MoreOptionsButton: () => (
     <button type="button" aria-label="general.moreOptions">
@@ -236,5 +245,23 @@ describe('PopupToolbar', () => {
     render(<PopupToolbar />);
 
     expect(screen.getByText('arrow-animation')).toBeTruthy();
+  });
+
+  it('单选普通图片时应显示换图与 AI 编辑按钮', () => {
+    mockSelectedElements.splice(
+      0,
+      mockSelectedElements.length,
+      {
+        id: 'image-1',
+        type: 'image',
+        url: 'image.png',
+      }
+    );
+
+    render(<PopupToolbar />);
+
+    expect(screen.getByText('replace-image')).toBeTruthy();
+    expect(screen.getByText('ai-image-edit')).toBeTruthy();
+    expect(screen.getByText('arrange')).toBeTruthy();
   });
 });

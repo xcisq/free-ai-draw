@@ -268,6 +268,8 @@ const viTranslations: Translations = {
   'popupToolbar.link': 'Chèn liên kết',
   'popupToolbar.stroke': 'Đường viền',
   'popupToolbar.opacity': 'Độ trong suốt',
+  'popupToolbar.aiEditImage': 'AI Edit',
+  'popupToolbar.replaceImage': 'Replace Image',
 
   // Icon library
   'iconLibrary.upload': 'Tải biểu tượng',
@@ -330,6 +332,39 @@ const viTranslations: Translations = {
   'dialog.llmMermaid.placeholder': 'Mô tả sơ đồ bạn muốn tạo...',
   'dialog.llmMermaid.insert': 'Chèn',
   'dialog.llmMermaid.close': 'Đóng',
+  'dialog.imageEdit.title': 'Edit Current Image',
+  'dialog.imageEdit.description':
+    'Submit an AI image-edit job from the currently selected image and replace it in place when it succeeds.',
+  'dialog.imageEdit.prompt': 'Edit Prompt',
+  'dialog.imageEdit.promptPlaceholder':
+    'For example: turn the background into a clean tech illustration and sharpen the subject edges',
+  'dialog.imageEdit.sourceImage': 'Current Image',
+  'dialog.imageEdit.backendUrl': 'Backend URL',
+  'dialog.imageEdit.provider': 'Provider',
+  'dialog.imageEdit.apiKey': 'API Key',
+  'dialog.imageEdit.baseUrl': 'Base URL',
+  'dialog.imageEdit.imageModel': 'Image Model',
+  'dialog.imageEdit.removeBackground': 'Remove background before replacing',
+  'dialog.imageEdit.removeBackgroundHint':
+    'Best for white or noisy backgrounds. When enabled, the generated image is cut out once more before replacement.',
+  'dialog.imageEdit.generate': 'Start Editing',
+  'dialog.imageEdit.close': 'Close',
+  'dialog.imageEdit.targetMissing':
+    'No editable image target was found. Please reselect the image and try again.',
+  'dialog.imageEdit.overlayLabel': 'Editing',
+  'dialog.imageEdit.status.idle': 'Ready',
+  'dialog.imageEdit.status.submitting': 'Submitting',
+  'dialog.imageEdit.status.running': 'Running',
+  'dialog.imageEdit.status.succeeded': 'Succeeded',
+  'dialog.imageEdit.status.failed': 'Failed',
+  'dialog.imageEdit.error.noPrompt': 'Please enter an image edit prompt first',
+  'dialog.imageEdit.error.noTarget': 'There is no editable target image right now',
+  'dialog.imageEdit.error.exportFailed':
+    'The current image could not be read. Please re-import it and try again.',
+  'dialog.imageEdit.error.submitFailed': 'Failed to submit the image edit job',
+  'dialog.imageEdit.error.jobFailed': 'The image edit job failed',
+  'dialog.imageEdit.error.noResult':
+    'The job finished, but no edited image result was returned',
   'dialog.close': 'Đóng',
 
   'tutorial.title': 'DPIT Draw MindMap',

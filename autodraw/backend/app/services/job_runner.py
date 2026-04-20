@@ -22,6 +22,7 @@ from ..schemas import (
 )
 from .artifact_service import scan_artifacts
 from .bundle_service import build_manifest, create_bundle, write_manifest
+from .image_edit_service import run_image_edit
 from .pipeline_service import run_pipeline
 from ..pipeline.autofigure2 import PipelineStageError
 
@@ -65,10 +66,20 @@ def _to_json_safe(value: Any) -> Any:
     return value
 
 
+def _resolve_job_root_dir(job_type: str) -> Path:
+    if job_type == "image-edit":
+        return settings.edits_dir
+    return settings.jobs_dir
+
+
+def _iter_job_root_dirs() -> tuple[Path, ...]:
+    return (settings.jobs_dir, settings.edits_dir)
+
+
 def create_job(request: CreateJobRequest, *, autostart: bool = True) -> JobRecord:
     now = datetime.utcnow()
     job_id = f"{now.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
-    job_dir = settings.jobs_dir / job_id
+    job_dir = _resolve_job_root_dir(request.job_type) / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
     log_path = job_dir / settings.run_log_name
     log_path.write_text("", encoding="utf-8")
@@ -98,6 +109,9 @@ def create_resume_job(job_id: str, request: ResumeJobRequest) -> JobRecord:
     source_record = get_job(job_id)
     if source_record is None:
         raise FileNotFoundError(f"Job not found: {job_id}")
+
+    if source_record.request_payload.get("job_type") != "autodraw":
+        raise ValueError("Only autodraw jobs can be resumed")
 
     if source_record.status != "failed":
         raise ValueError("Only failed jobs can be resumed")
@@ -174,12 +188,13 @@ def list_job_items(*, limit: int = 20, offset: int = 0) -> list[JobListItem]:
     safe_limit = max(1, min(limit, 50))
 
     job_ids: list[str] = []
-    try:
-        for entry in settings.jobs_dir.iterdir():
-            if entry.is_dir():
-                job_ids.append(entry.name)
-    except FileNotFoundError:
-        return []
+    for root_dir in _iter_job_root_dirs():
+        try:
+            for entry in root_dir.iterdir():
+                if entry.is_dir():
+                    job_ids.append(entry.name)
+        except FileNotFoundError:
+            continue
 
     records: list[JobRecord] = []
     for job_id in job_ids:
@@ -201,6 +216,7 @@ def list_job_items(*, limit: int = 20, offset: int = 0) -> list[JobListItem]:
         items.append(
             JobListItem(
                 job_id=record.job_id,
+                job_type=(record.request_payload.get("job_type") or "autodraw"),
                 status=record.status,
                 created_at=record.created_at,
                 started_at=record.started_at,
@@ -226,10 +242,21 @@ def _run_job(job_id: str) -> None:
 
     try:
         request = CreateJobRequest.model_validate(record.request_payload)
-        result = run_pipeline(request=request, output_dir=record.job_dir, log_path=record.log_path)
+        if request.job_type == "image-edit":
+            result = run_image_edit(
+                request=request,
+                output_dir=record.job_dir,
+                log_path=record.log_path,
+            )
+            record.current_stage = 1
+            record.last_success_stage = 1
+        else:
+            result = run_pipeline(
+                request=request, output_dir=record.job_dir, log_path=record.log_path
+            )
+            record.current_stage = 5
+            record.last_success_stage = 5
         record.pipeline_result = _to_json_safe(result)
-        record.current_stage = 5
-        record.last_success_stage = 5
         record.failed_stage = None
         record.artifacts = scan_artifacts(job_id=record.job_id, job_dir=record.job_dir)
         manifest = build_manifest(
@@ -313,8 +340,13 @@ def _persist_job_record(record: JobRecord) -> None:
 
 
 def _load_job_from_disk(job_id: str) -> JobRecord | None:
-    state_path = settings.jobs_dir / job_id / settings.job_state_name
-    if not state_path.is_file():
+    state_path: Path | None = None
+    for root_dir in _iter_job_root_dirs():
+        candidate = root_dir / job_id / settings.job_state_name
+        if candidate.is_file():
+            state_path = candidate
+            break
+    if state_path is None:
         return None
 
     payload = json.loads(state_path.read_text(encoding="utf-8"))

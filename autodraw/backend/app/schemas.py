@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 Provider = Literal["openrouter", "bianxie", "qingyun", "gemini", "local"]
@@ -12,10 +12,12 @@ PlaceholderMode = Literal["none", "box", "label"]
 ImageSize = Literal["1K", "2K", "4K"]
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
 ResumeStage = Literal["auto", 1, 2, 3, 4, 5]
+JobType = Literal["autodraw", "image-edit"]
 
 
 class CreateJobRequest(BaseModel):
-    method_text: str = Field(..., min_length=1)
+    job_type: JobType = "autodraw"
+    method_text: Optional[str] = None
     provider: Provider = "bianxie"
     api_key: Optional[str] = None
     base_url: Optional[str] = None
@@ -37,6 +39,21 @@ class CreateJobRequest(BaseModel):
     start_stage: int = Field(1, ge=1, le=5)
     source_job_id: Optional[str] = None
     resume_from_stage: Optional[int] = Field(None, ge=1, le=5)
+    prompt: Optional[str] = None
+    source_image_path: Optional[str] = None
+    remove_background: bool = False
+
+    @model_validator(mode="after")
+    def validate_payload(self) -> "CreateJobRequest":
+        if self.job_type == "autodraw":
+            if not self.method_text or not self.method_text.strip():
+                raise ValueError("method_text is required for autodraw jobs")
+        else:
+            if not self.prompt or not self.prompt.strip():
+                raise ValueError("prompt is required for image-edit jobs")
+            if not self.source_image_path or not self.source_image_path.strip():
+                raise ValueError("source_image_path is required for image-edit jobs")
+        return self
 
 
 class ArtifactInfo(BaseModel):
@@ -95,6 +112,7 @@ class JobResponse(BaseModel):
 
 class JobListItem(BaseModel):
     job_id: str
+    job_type: JobType = "autodraw"
     status: JobStatus
     created_at: datetime
     started_at: Optional[datetime] = None

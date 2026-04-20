@@ -535,6 +535,37 @@ export const ImageIcon = createIcon(
   </svg>
 );
 
+export const AIImageEditIcon = createIcon(
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <rect
+      x="1.4"
+      y="2"
+      width="10.4"
+      height="10.4"
+      rx="2"
+      stroke="currentColor"
+      strokeWidth="1.2"
+    />
+    <path
+      d="M3.5 10.1L5.65 7.75C5.87 7.51 6.24 7.49 6.48 7.7L7.45 8.55L8.7 7.2C8.95 6.93 9.38 6.93 9.63 7.2L11 8.66"
+      stroke="currentColor"
+      strokeWidth="1.15"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <circle cx="4.6" cy="5.1" r="1.05" fill="currentColor" opacity="0.85" />
+    <path
+      d="M12.95 1.3L13.35 2.25L14.3 2.65L13.35 3.05L12.95 4L12.55 3.05L11.6 2.65L12.55 2.25L12.95 1.3Z"
+      fill="currentColor"
+    />
+    <path
+      d="M13.6 7.85L13.9 8.55L14.6 8.85L13.9 9.15L13.6 9.85L13.3 9.15L12.6 8.85L13.3 8.55L13.6 7.85Z"
+      fill="currentColor"
+      opacity="0.72"
+    />
+  </svg>
+);
+
 export const IconLibraryIcon = createIcon(
   <svg
     viewBox="0 0 20 20"

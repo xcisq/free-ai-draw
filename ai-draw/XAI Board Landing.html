@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>XAI Board · 导航</title>
+<template id="__bundler_thumbnail" data-bg-color="#f7f8fb">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#f7f8fb"/>
+    <g transform="translate(600 400) scale(0.4) translate(-400 -400)" fill="#111827">
+      <g transform="translate(0,800) scale(0.1,-0.1)">
+        <path d="M2460 5913 c0 -5 397 -405 883 -891 l882 -882 57 57 58 58 -741 745 -740 745 438 5 438 5 3 83 3 82 -641 0 c-352 0 -640 -3 -640 -7z"/>
+        <path d="M4142 5853 c-35 -38 -151 -157 -260 -265 l-197 -198 55 -55 c30 -30 59 -55 65 -55 6 0 113 106 239 235 l228 235 211 0 212 0 -200 -202 c-110 -112 -274 -278 -365 -370 l-165 -168 60 -60 60 -61 83 88 c46 48 190 196 320 328 211 214 465 476 561 578 l35 37 -440 0 -440 0 -62 -67z"/>
+        <path d="M4153 3416 c-135 -31 -268 -128 -338 -248 -105 -178 -112 -441 -18 -638 144 -300 540 -393 810 -189 l53 40 0 -31 c0 -47 26 -99 55 -110 41 -15 54 -12 86 19 l29 29 0 542 0 541 -25 24 c-24 25 -65 32 -100 19 -22 -9 -45 -57 -45 -94 0 -16 -2 -30 -4 -30 -2 0 -33 20 -70 45 -37 24 -97 54 -134 66 -86 27 -217 33 -299 15z"/>
+      </g>
+    </g>
+    <text x="600" y="650" fill="#111827" font-family="Helvetica, Arial, sans-serif" font-size="36" text-anchor="middle" font-weight="600">XAI Board</text>
+  </svg>
+</template>
+<style>
+  html, body { margin: 0; padding: 0; background: #f7f8fb; }
+  body { font-family: "PingFang SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Arial,sans-serif; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  * { box-sizing: border-box; }
+  a { color: inherit; }
+  button { font-family: inherit; }
+  .variant-switch { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 100; background: rgba(255,255,255,0.92); border: 1px solid #e4e7ec; border-radius: 999px; padding: 4px; display: flex; align-items: center; gap: 2px; box-shadow: 0 12px 32px rgba(15,23,42,0.12); backdrop-filter: blur(10px); font-size: 13px; }
+  .variant-switch.dark { background: rgba(22,25,35,0.92); border-color: #2a2f3c; color: #e7e9ee; }
+  .variant-switch button { padding: 6px 14px; border: none; background: transparent; border-radius: 999px; cursor: pointer; color: inherit; font-size: 12px; }
+  .variant-switch button.active { background: #111827; color: #ffffff; }
+  .variant-switch.dark button.active { background: #e7e9ee; color: #0f1115; }
+  .tweaks { position: fixed; right: 20px; bottom: 20px; z-index: 100; width: 260px; background: rgba(255,255,255,0.96); border: 1px solid #e4e7ec; border-radius: 14px; padding: 14px; box-shadow: 0 12px 40px rgba(15,23,42,0.14); backdrop-filter: blur(10px); font-size: 13px; display: none; }
+  .tweaks.open { display: block; }
+  .tweaks.dark { background: rgba(22,25,35,0.96); border-color: #2a2f3c; color: #e7e9ee; }
+  .tweaks h4 { margin: 0 0 10px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; opacity: 0.6; }
+  .tweak-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-top: 1px solid #e4e7ec; }
+  .tweaks.dark .tweak-row { border-top-color: #2a2f3c; }
+  .tweak-row:first-of-type { border-top: none; }
+  .tweak-row select { padding: 4px 8px; border-radius: 6px; border: 1px solid #d0d5dd; background: transparent; color: inherit; font-size: 12px; }
+  .tweaks.dark .tweak-row select { border-color: #3a3f4c; }
+  .toggle { position: relative; width: 36px; height: 20px; background: #d0d5dd; border-radius: 999px; cursor: pointer; transition: background .2s; }
+  .toggle.on { background: #111827; }
+  .tweaks.dark .toggle.on { background: #e7e9ee; }
+  .toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 999px; background: #fff; transition: transform .2s; }
+  .toggle.on::after { transform: translateX(16px); }
+  .tweaks.dark .toggle.on::after { background: #0f1115; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="components/shared.jsx"></script>
+<script type="text/babel" src="components/v1_sketchbook.jsx"></script>
+<script type="text/babel" src="components/v2_livecanvas.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "variant": "v1",
+  "dark": false
+}/*EDITMODE-END*/;
+
+function App() {
+  const [variant, setVariant] = React.useState(() => localStorage.getItem('xai_variant') || TWEAK_DEFAULTS.variant);
+  const [dark, setDark] = React.useState(() => { const s = localStorage.getItem('xai_dark'); return s === null ? TWEAK_DEFAULTS.dark : s === '1'; });
+  const [editOn, setEditOn] = React.useState(false);
+
+  React.useEffect(() => { localStorage.setItem('xai_variant', variant); }, [variant]);
+  React.useEffect(() => { localStorage.setItem('xai_dark', dark ? '1' : '0'); }, [dark]);
+
+  React.useEffect(() => {
+    const onMsg = (e) => {
+      const d = e.data; if (!d) return;
+      if (d.type === '__activate_edit_mode') setEditOn(true);
+      if (d.type === '__deactivate_edit_mode') setEditOn(false);
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const persist = (edits) => window.parent.postMessage({ type: '__edit_mode_set_keys', edits }, '*');
+
+  return (
+    <>
+      {variant === 'v1' ? <V1Sketchbook dark={dark} /> : <V2LiveCanvas dark={dark} />}
+      <div className={'variant-switch' + (dark ? ' dark' : '')}>
+        <button className={variant === 'v1' ? 'active' : ''} onClick={() => { setVariant('v1'); persist({ variant: 'v1' }); }}>V1 · Sketchbook</button>
+        <button className={variant === 'v2' ? 'active' : ''} onClick={() => { setVariant('v2'); persist({ variant: 'v2' }); }}>V2 · Live Canvas</button>
+      </div>
+      {editOn && (
+        <div className={'tweaks open' + (dark ? ' dark' : '')}>
+          <h4>Tweaks</h4>
+          <div className="tweak-row"><label>暗色主题</label><div className={'toggle' + (dark ? ' on' : '')} onClick={() => { setDark(!dark); persist({ dark: !dark }); }} /></div>
+          <div className="tweak-row"><label>版本</label>
+            <select value={variant} onChange={(e) => { setVariant(e.target.value); persist({ variant: e.target.value }); }}>
+              <option value="v1">V1 Sketchbook</option>
+              <option value="v2">V2 Live Canvas</option>
+            </select>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

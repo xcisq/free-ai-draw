@@ -53,6 +53,8 @@ import {
   isArrowAnimationEnabled,
 } from '../../../plugins/with-arrow-animation';
 import { ArrowAnimationButton } from './arrow-animation-button';
+import { AIImageEditButton } from './ai-image-edit-button';
+import { ReplaceImageButton } from './replace-image-button';
 
 export const PopupToolbar = () => {
   const board = useBoard();
@@ -63,11 +65,16 @@ export const PopupToolbar = () => {
   const hasSelectedTextFragmentImage = selectedElements.some((element) =>
     isTextFragmentMetadata((element as any)?.sceneImportMetadata)
   );
+  const isSingleSelectedPlainImage =
+    selectedElements.length === 1 &&
+    selectedElements.every((element) => PlaitDrawElement.isImage(element)) &&
+    !hasSelectedTextFragmentImage;
   const open =
     selectedElements.length > 0 &&
     !isSelectionMoving(board) &&
     (!selectedElements.some(PlaitDrawElement.isImage) ||
-      hasSelectedTextFragmentImage);
+      hasSelectedTextFragmentImage ||
+      isSingleSelectedPlainImage);
   const { viewport, selection, children } = board;
   const { refs, floatingStyles } = useFloating({
     placement: 'right-start',
@@ -274,6 +281,15 @@ export const PopupToolbar = () => {
                 board={board}
                 title={t('popupToolbar.link')}
               ></PopupLinkButton>
+            )}
+            {isSingleSelectedPlainImage && (
+              <>
+                <ReplaceImageButton
+                  board={board}
+                  targetId={selectedElements[0].id}
+                />
+                <AIImageEditButton targetId={selectedElements[0].id} />
+              </>
             )}
             <ArrangeButton board={board} />
             {state.isLine && (
