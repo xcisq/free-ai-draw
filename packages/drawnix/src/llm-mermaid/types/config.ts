@@ -28,6 +28,8 @@ export interface EnvLLMConfig extends LLMConfig {
 export interface GenerationContext {
   /** 布局方向 */
   layoutDirection: LayoutDirection;
+  /** 图类型意图 */
+  diagramType?: MermaidDiagramType;
   /** 使用场景 */
   usageScenario: UsageScenario;
   /** 节点数量 */
@@ -44,6 +46,16 @@ export interface GenerationContext {
   layoutIntentText?: string;
   /** 需要强调的阶段或模块 */
   emphasisTargets?: string[];
+  /** Mermaid 样式模式 */
+  styleMode?: MermaidStyleMode;
+  /** 图形风格 */
+  diagramStyle?: DiagramStyle;
+  /** 美观度倾向 */
+  beautyLevel?: BeautyLevel;
+  /** 版式节奏 */
+  layoutRhythm?: LayoutRhythm;
+  /** 视觉重点 */
+  visualFocus?: VisualFocus;
   /** 当前澄清状态 */
   clarificationStatus?: ClarificationStatus;
 }
@@ -94,6 +106,10 @@ export interface PromptAssistState {
 }
 
 export interface MermaidRenderPreset {
+  /** 预估图类型 */
+  diagramType: MermaidDiagramType;
+  /** 预估预览模式 */
+  previewMode: MermaidPreviewMode;
   /** 连线曲线 */
   curve: 'linear' | 'basis';
   /** 预览字号 */
@@ -134,9 +150,66 @@ export interface ComposerState {
 export type LayoutDirection = 'LR' | 'TB';
 
 /**
+ * Mermaid 图类型
+ */
+export type MermaidDiagramType =
+  | 'auto'
+  | 'flowchart'
+  | 'sequenceDiagram'
+  | 'classDiagram'
+  | 'stateDiagram'
+  | 'erDiagram'
+  | 'journey'
+  | 'gantt'
+  | 'pie'
+  | 'gitGraph'
+  | 'requirementDiagram'
+  | 'mindmap'
+  | 'timeline'
+  | 'quadrantChart'
+  | 'xychart'
+  | 'sankey'
+  | 'c4'
+  | 'block'
+  | 'packet'
+  | 'kanban'
+  | 'architecture'
+  | 'other';
+
+/**
+ * Mermaid 样式模式
+ */
+export type MermaidStyleMode = 'auto' | 'minimal' | 'semantic' | 'grouped' | 'showcase';
+
+/**
+ * Mermaid 预览模式
+ */
+export type MermaidPreviewMode = 'native-editable' | 'svg-fallback';
+
+/**
  * 使用场景
  */
 export type UsageScenario = 'paper' | 'presentation' | 'document';
+
+/**
+ * 图形风格
+ */
+export type DiagramStyle = 'publication' | 'architecture' | 'explainer';
+
+/**
+ * 美观度倾向
+ */
+export type BeautyLevel = 'conservative' | 'balanced' | 'enhanced';
+
+/**
+ * 版式节奏
+ */
+export type LayoutRhythm = 'compact' | 'airy' | 'symmetrical';
+
+/**
+ * 视觉重点
+ */
+export type VisualFocus = 'input' | 'core' | 'output' | 'convergence';
 
 /**
  * 结构模式偏好

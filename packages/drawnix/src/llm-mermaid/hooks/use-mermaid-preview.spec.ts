@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, jest, beforeEach } from '@jest/globals';
 
+import { llmChatService } from '../services/llm-chat-service';
 import { mermaidStabilizerService } from '../services/mermaid-stabilizer';
 import { useMermaidPreview } from './use-mermaid-preview';
 
@@ -23,6 +24,10 @@ jest.mock('../services/mermaid-stabilizer', () => ({
 
 describe('useMermaidPreview', () => {
   beforeEach(() => {
+    (llmChatService.generateMermaid as jest.MockedFunction<typeof llmChatService.generateMermaid>).mockReset();
+    (llmChatService.generateMermaid as jest.MockedFunction<typeof llmChatService.generateMermaid>).mockResolvedValue(
+      'flowchart LR\nA --> B'
+    );
     (mermaidStabilizerService.stabilizeCode as jest.MockedFunction<
       typeof mermaidStabilizerService.stabilizeCode
     >).mockReset();
@@ -87,6 +92,51 @@ describe('useMermaidPreview', () => {
 
     expect(nextCode).toBe('flowchart LR\nA[开始] --> B[结束]');
     expect(result.current.mermaidCode).toBe('flowchart LR\nA[开始] --> B[结束]');
+  });
+
+  it('从对话生成 Mermaid 时默认不触发 LLM repair', async () => {
+    (mermaidStabilizerService.stabilizeResponse as jest.MockedFunction<
+      typeof mermaidStabilizerService.stabilizeResponse
+    >).mockResolvedValue({
+      mermaidCode: 'flowchart LR\nA --> B',
+      elements: [{ id: '3' }] as unknown as any[],
+      validation: {
+        isValid: true,
+        errors: [],
+        warnings: [],
+      },
+      source: 'original',
+      appliedFixes: [],
+    });
+
+    const { result } = renderHook(() => useMermaidPreview());
+
+    await act(async () => {
+      await result.current.generateFromChat(
+        [
+          {
+            id: 'u1',
+            role: 'user',
+            content: '生成一个论文流程图',
+            timestamp: Date.now(),
+            type: 'text',
+          },
+        ],
+        {
+          layoutDirection: 'LR',
+          usageScenario: 'paper',
+          nodeCount: 5,
+          theme: 'academic',
+        }
+      );
+    });
+
+    expect(mermaidStabilizerService.stabilizeResponse).toHaveBeenCalledWith(
+      'flowchart LR\nA --> B',
+      expect.objectContaining({
+        allowLLMRepair: false,
+      })
+    );
   });
 
   it('修复失败时应该保留错误信息并清空元素', async () => {

@@ -22,13 +22,26 @@ describe('one-shot-assist', () => {
   it('会把当前上下文整理成提交前摘要', () => {
     const draft = createOneShotDraft('输入图像后进行编码，然后做分类预测。', {
       layoutDirection: 'TB',
+      diagramType: 'flowchart',
       structurePattern: 'branched',
+      styleMode: 'semantic',
+      diagramStyle: 'architecture',
+      beautyLevel: 'enhanced',
+      layoutRhythm: 'symmetrical',
+      visualFocus: 'convergence',
       emphasisTargets: ['分类预测'],
     });
 
-    expect(draft.summaryLines[0]).toContain('从上到下');
+    expect(draft.summaryLines[0]).toContain('流程图 / Flowchart');
+    expect(draft.summaryLines[0]).toContain('原生可编辑');
+    expect(draft.summaryLines[1]).toContain('从上到下');
     expect(draft.summaryLines[1]).toContain('主干带分支');
-    expect(draft.summaryLines[2]).toContain('分类预测');
+    expect(draft.summaryLines[2]).toContain('语义配色');
+    expect(draft.summaryLines[2]).toContain('系统架构');
+    expect(draft.summaryLines[2]).toContain('强化');
+    expect(draft.summaryLines[2]).toContain('对称');
+    expect(draft.summaryLines[3]).toContain('汇聚点');
+    expect(draft.summaryLines[3]).toContain('分类预测');
   });
 
   it('会根据结构复杂度给出稳妥的预览渲染参数', () => {
@@ -46,6 +59,37 @@ describe('one-shot-assist', () => {
       },
       themeVariables: {
         fontSize: '16px',
+      },
+    });
+  });
+
+  it('会把图面配方映射到更合适的预览参数', () => {
+    const preset = deriveRenderPreset('输入后经过两路解释流程，最后汇聚。', {
+      diagramType: 'flowchart',
+      structurePattern: 'branched',
+      density: 'balanced',
+      diagramStyle: 'explainer',
+      beautyLevel: 'enhanced',
+      layoutRhythm: 'airy',
+    });
+
+    expect(preset.curve).toBe('basis');
+    expect(preset.fontSize).toBe('19px');
+  });
+
+  it('非原生编辑图类型会切换到 SVG 高保真预览模式', () => {
+    const preset = deriveRenderPreset('请生成一个 ER 图，展示论文、作者和机构之间的关系。', {
+      diagramType: 'erDiagram',
+      styleMode: 'showcase',
+    });
+
+    expect(preset.diagramType).toBe('erDiagram');
+    expect(preset.previewMode).toBe('svg-fallback');
+    expect(buildPreviewMermaidConfig(preset)).toEqual({
+      startOnLoad: false,
+      flowchart: undefined,
+      themeVariables: {
+        fontSize: preset.fontSize,
       },
     });
   });

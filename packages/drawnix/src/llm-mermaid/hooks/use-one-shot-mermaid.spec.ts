@@ -127,6 +127,10 @@ describe('useOneShotMermaidComposer', () => {
       result.current.updateContext({
         structurePattern: 'branched',
         density: 'balanced',
+        diagramStyle: 'explainer',
+        beautyLevel: 'enhanced',
+        layoutRhythm: 'airy',
+        visualFocus: 'convergence',
       });
     });
 
@@ -139,6 +143,9 @@ describe('useOneShotMermaidComposer', () => {
     });
 
     expect(chatStreamMock).toHaveBeenCalledTimes(1);
+    const requestMessages = chatStreamMock.mock.calls[0]?.[0] || [];
+    expect(requestMessages[1]?.content).toContain('图形风格：讲解流程');
+    expect(requestMessages[1]?.content).toContain('视觉重点：汇聚点');
     expect(stabilizeResponseMock).toHaveBeenCalledWith(
       'flowchart LR\nA --> B',
       expect.objectContaining({

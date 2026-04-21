@@ -61,7 +61,7 @@ export const PreviewPanel = ({
       } = {}
     ) => {
       const nextCode = await updateCode(code, {
-        allowLLMRepair: options.allowLLMRepair ?? true,
+        allowLLMRepair: options.allowLLMRepair ?? false,
         signal: options.signal,
         suppressErrors: options.suppressErrors,
         preserveElementsOnFailure: options.suppressErrors,
@@ -96,7 +96,7 @@ export const PreviewPanel = ({
     const controller = new AbortController();
     syncAbortControllerRef.current = controller;
     void handleGeneratedCodeChange(externalMermaidCode, {
-      allowLLMRepair: !isStreamingCandidate,
+      allowLLMRepair: false,
       suppressErrors: isStreamingCandidate,
       signal: controller.signal,
     });

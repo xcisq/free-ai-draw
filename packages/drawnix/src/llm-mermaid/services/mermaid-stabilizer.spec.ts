@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 import { llmChatService } from './llm-chat-service';
+import { mermaidParseService } from './mermaid-parse-service';
 import { mermaidConverter } from './mermaid-converter';
 import { MermaidStabilizerService } from './mermaid-stabilizer';
 
@@ -16,9 +17,27 @@ jest.mock('./mermaid-converter', () => ({
   },
 }));
 
+jest.mock('./mermaid-parse-service', () => ({
+  mermaidParseService: {
+    validate: jest.fn(async () => ({
+      isValid: true,
+      errors: [],
+      warnings: [],
+      diagramType: 'flowchart-v2',
+    })),
+  },
+}));
+
 describe('MermaidStabilizerService', () => {
   beforeEach(() => {
     (llmChatService.repairMermaid as jest.MockedFunction<typeof llmChatService.repairMermaid>).mockReset();
+    (mermaidParseService.validate as jest.MockedFunction<typeof mermaidParseService.validate>).mockReset();
+    (mermaidParseService.validate as jest.MockedFunction<typeof mermaidParseService.validate>).mockResolvedValue({
+      isValid: true,
+      errors: [],
+      warnings: [],
+      diagramType: 'flowchart-v2',
+    });
     (mermaidConverter.convertToElements as jest.MockedFunction<
       typeof mermaidConverter.convertToElements
     >).mockReset();
@@ -32,6 +51,7 @@ describe('MermaidStabilizerService', () => {
     const service = new MermaidStabilizerService();
     const result = await service.stabilizeCode('A[开始] --> B[结束');
 
+    expect(mermaidParseService.validate).toHaveBeenCalledWith('flowchart LR\nA["开始"] --> B["结束"]');
     expect(result.mermaidCode).toContain('flowchart LR');
     expect(result.mermaidCode).toContain('B["结束"]');
     expect(result.source).toBe('local-fix');
@@ -66,6 +86,24 @@ describe('MermaidStabilizerService', () => {
     );
     expect(result.source).toBe('llm-repair');
     expect(result.mermaidCode).toBe('flowchart LR\nX["修复"] --> Y["完成"]');
+  });
+
+  it('官方 parse 失败且未开启 repair 时应该直接返回校验错误', async () => {
+    (mermaidParseService.validate as jest.MockedFunction<typeof mermaidParseService.validate>).mockResolvedValue({
+      isValid: false,
+      errors: ['Parse error on line 2'],
+      warnings: [],
+    });
+
+    const service = new MermaidStabilizerService();
+
+    await expect(service.stabilizeCode('flowchart LR\nA -->')).rejects.toMatchObject({
+      name: 'MermaidStabilizationError',
+      stage: 'validate',
+    });
+
+    expect(llmChatService.repairMermaid).not.toHaveBeenCalled();
+    expect(mermaidParseService.validate).toHaveBeenCalled();
   });
 
   it('定向修复仍失败时应该抛出明确错误', async () => {

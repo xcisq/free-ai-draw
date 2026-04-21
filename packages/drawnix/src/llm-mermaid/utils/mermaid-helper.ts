@@ -4,6 +4,7 @@
 
 import { extractMermaidCode, validateMermaidCode } from '../services/prompt-templates';
 import type { ValidationResult } from '../types';
+import { detectDiagramTypeFromCode, findDiagramDeclaration } from './diagram-capabilities';
 
 export interface MermaidNormalizationResult {
   code: string;
@@ -33,13 +34,8 @@ export function normalizeMermaidCode(code: string): MermaidNormalizationResult {
   }
 
   // 修复 2: 确保有类型声明
-  if (
-    !/^(flowchart|graph|stateDiagram|classDiagram|sequenceDiagram|erDiagram|gantt|pie|journey)\b/m.test(
-      fixedCode
-    )
-  ) {
-    // 如果没有类型声明，尝试添加默认的 flowchart LR
-    fixedCode = `flowchart LR\n${fixedCode}`;
+  if (!findDiagramDeclaration(fixedCode)) {
+    fixedCode = insertDefaultFlowchartDeclaration(fixedCode);
     appliedFixes.push('补全图类型声明');
   }
 
@@ -94,11 +90,7 @@ export function extractStreamingMermaidCandidate(text: string): string | null {
   }
 
   const lines = text.split('\n');
-  const startIndex = lines.findIndex((line) =>
-    /^(flowchart|graph|stateDiagram|classDiagram|sequenceDiagram|erDiagram|gantt|pie|journey)\b/.test(
-      line.trim()
-    )
-  );
+  const startIndex = findStreamingStartIndex(lines);
 
   if (startIndex === -1) {
     const heuristicStartIndex = lines.findIndex((line) => isLikelyMermaidStartLine(line));
@@ -162,9 +154,11 @@ function isLikelyStreamingMermaidLine(line: string, isFirstTypedLine: boolean) {
   }
 
   if (isFirstTypedLine) {
-    return /^(flowchart|graph|stateDiagram|classDiagram|sequenceDiagram|erDiagram|gantt|pie|journey)\b/.test(
-      trimmed
-    );
+    return /^%%\{.*\}%%$/.test(trimmed) || trimmed === '---' || Boolean(findDiagramDeclaration(trimmed));
+  }
+
+  if (trimmed === '---' || /^%%\{.*\}%%$/.test(trimmed) || findDiagramDeclaration(trimmed)) {
+    return true;
   }
 
   return /^(subgraph|end|classDef|class|style|linkStyle|click|%%)\b/.test(trimmed)
@@ -262,8 +256,7 @@ export function getPrimaryMermaidError(validation: ValidationResult | null | und
  * 获取 Mermaid 图表类型
  */
 export function getMermaidType(code: string): string | null {
-  const match = code.match(/^(flowchart|graph|stateDiagram|classDiagram|sequenceDiagram|erDiagram|gantt|pie|journey)/);
-  return match ? match[1] : null;
+  return detectDiagramTypeFromCode(code);
 }
 
 /**
@@ -324,4 +317,78 @@ export function estimateNodeCount(code: string): number {
  */
 export function isNodeCountExceeded(code: string, limit = 50): boolean {
   return estimateNodeCount(code) > limit;
+}
+
+function insertDefaultFlowchartDeclaration(code: string) {
+  const lines = code.replace(/\r\n?/g, '\n').split('\n');
+  const prefix: string[] = [];
+  const body: string[] = [];
+  let index = 0;
+
+  if (lines[index]?.trim() === '---') {
+    prefix.push(lines[index] || '');
+    index += 1;
+    while (index < lines.length) {
+      prefix.push(lines[index] || '');
+      if (lines[index]?.trim() === '---') {
+        index += 1;
+        break;
+      }
+      index += 1;
+    }
+  }
+
+  while (index < lines.length) {
+    const line = lines[index] || '';
+    if (!line.trim()) {
+      prefix.push(line);
+      index += 1;
+      continue;
+    }
+
+    if (/^%%\{.*\}%%$/.test(line.trim()) || /^%%/.test(line.trim())) {
+      prefix.push(line);
+      index += 1;
+      continue;
+    }
+
+    break;
+  }
+
+  body.push(...lines.slice(index));
+
+  return [...prefix, 'flowchart LR', ...body].join('\n').trim();
+}
+
+function findStreamingStartIndex(lines: string[]) {
+  let insideFrontmatter = false;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const trimmed = lines[index]?.trim() || '';
+    if (!trimmed) {
+      continue;
+    }
+
+    if (!insideFrontmatter && trimmed === '---') {
+      insideFrontmatter = true;
+      continue;
+    }
+
+    if (insideFrontmatter) {
+      if (trimmed === '---') {
+        insideFrontmatter = false;
+      }
+      continue;
+    }
+
+    if (/^%%\{.*\}%%$/.test(trimmed) || /^%%/.test(trimmed)) {
+      continue;
+    }
+
+    if (findDiagramDeclaration(trimmed)) {
+      return index;
+    }
+  }
+
+  return -1;
 }

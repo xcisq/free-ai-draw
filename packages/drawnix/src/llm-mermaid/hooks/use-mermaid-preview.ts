@@ -80,7 +80,7 @@ export function useMermaidPreview(): UseMermaidPreviewResult {
         // 调用 LLM 生成 Mermaid 代码
         const response = await llmChatService.generateMermaid(prompt);
         const stabilized = await mermaidStabilizerService.stabilizeResponse(response, {
-          allowLLMRepair: true,
+          allowLLMRepair: false,
           originalRequest: prompt,
         });
 

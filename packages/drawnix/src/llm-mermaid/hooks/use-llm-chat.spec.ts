@@ -119,7 +119,13 @@ describe('useLLMChat', () => {
 
     expect(llmUserMessage.content).toContain('整体从上到下');
     expect(llmUserMessage.content).toContain('演示文稿');
-    expect(llmUserMessage.content).toContain('第一行必须直接是 flowchart TB');
+    expect(llmUserMessage.content).toContain('输出前请自行检查这份 Mermaid 是否能直接成功预览');
+    expect(stabilizeResponseMock).toHaveBeenCalledWith(
+      'flowchart TB\nA[开始] --> B[结束]',
+      expect.objectContaining({
+        allowLLMRepair: false,
+      })
+    );
     expect(assistantMessage?.metadata?.mermaidCode).toBe(
       'flowchart TB\nA[开始] --> B[结束]'
     );

@@ -374,7 +374,7 @@ async function streamAssistantResponse(options: {
 
   try {
     const stabilizedResult = await mermaidStabilizerService.stabilizeResponse(responseContent, {
-      allowLLMRepair: true,
+      allowLLMRepair: false,
       originalRequest: requestContent,
       signal: controller.signal,
     });

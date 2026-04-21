@@ -63,13 +63,13 @@ describe('PreviewPanel', () => {
       expect(mockUpdateCode).toHaveBeenCalledWith(
         expect.stringContaining('flowchart LR'),
         expect.objectContaining({
-          allowLLMRepair: true,
+          allowLLMRepair: false,
         })
       );
       expect(mockUpdateCode).toHaveBeenCalledWith(
         expect.stringContaining('A --> B'),
         expect.objectContaining({
-          allowLLMRepair: true,
+          allowLLMRepair: false,
         })
       );
     });
@@ -161,7 +161,7 @@ describe('PreviewPanel', () => {
     expect(mockClear).not.toHaveBeenCalled();
   });
 
-  it('最终稳定结果到达时应允许执行 LLM 修复与稳定化', async () => {
+  it('最终稳定结果到达时默认不触发 LLM 修复', async () => {
     render(
       <PreviewPanel
         mermaidCode="flowchart LR\nA --> B"
@@ -173,7 +173,7 @@ describe('PreviewPanel', () => {
       expect(mockUpdateCode).toHaveBeenCalledWith(
         expect.stringContaining('flowchart LR'),
         expect.objectContaining({
-          allowLLMRepair: true,
+          allowLLMRepair: false,
           suppressErrors: false,
           signal: expect.anything(),
         })

@@ -8,10 +8,8 @@ import {
   getMermaidRepairPrompt,
   validateMermaidCode,
 } from './prompt-templates';
-import {
-  createMermaidRepairCandidates,
-  normalizeMermaidCode,
-} from '../utils/mermaid-helper';
+import { normalizeMermaidCode } from '../utils/mermaid-helper';
+import { mermaidParseService } from './mermaid-parse-service';
 
 export type MermaidStabilizationSource = 'original' | 'local-fix' | 'llm-repair';
 export type MermaidFailureStage = 'extract' | 'validate' | 'convert' | 'repair';
@@ -53,6 +51,7 @@ interface CandidateAttemptResult {
 
 interface CandidateAttemptSummary {
   result: CandidateAttemptResult | null;
+  validation: ValidationResult;
   conversionError: string | null;
 }
 
@@ -90,9 +89,9 @@ export class MermaidStabilizerService {
     }
 
     const normalized = normalizeMermaidCode(rawCode);
-    const localCandidates = createMermaidRepairCandidates(normalized.code);
+    const localCandidate = normalized.code.trim();
 
-    if (localCandidates.length === 0) {
+    if (!localCandidate) {
       throw new MermaidStabilizationError(
         'AI 返回结果中没有可提取的 Mermaid 正文',
         'extract',
@@ -101,8 +100,8 @@ export class MermaidStabilizerService {
       );
     }
 
-    const localAttempt = await this.tryCandidates(
-      localCandidates,
+    const localAttempt = await this.tryCandidate(
+      localCandidate,
       options.requireElements !== false,
       options.signal,
       options.mermaidConfig
@@ -119,16 +118,15 @@ export class MermaidStabilizerService {
       };
     }
 
-    const localValidation = validateMermaidCode(normalized.code);
-    const localErrors = collectFailureDetails(localValidation, localAttempt.conversionError);
+    const localErrors = collectFailureDetails(localAttempt.validation, localAttempt.conversionError);
 
     if (!options.allowLLMRepair) {
       throw new MermaidStabilizationError(
         buildFailureMessage(localErrors, false),
-        resolveFailureStage(localValidation, localAttempt.conversionError),
+        resolveFailureStage(localAttempt.validation, localAttempt.conversionError),
         localErrors,
-        selectBestEffortCode(localCandidates, normalized.code),
-        localValidation
+        selectBestEffortCode([localCandidate], normalized.code),
+        localAttempt.validation
       );
     }
 
@@ -145,9 +143,9 @@ export class MermaidStabilizerService {
     throwIfAborted(options.signal);
 
     const repairedNormalization = normalizeMermaidCode(repairedResponse);
-    const repairedCandidates = createMermaidRepairCandidates(repairedNormalization.code);
-    const repairedAttempt = await this.tryCandidates(
-      repairedCandidates,
+    const repairedCandidate = repairedNormalization.code.trim();
+    const repairedAttempt = await this.tryCandidate(
+      repairedCandidate,
       options.requireElements !== false,
       options.signal,
       options.mermaidConfig
@@ -162,64 +160,93 @@ export class MermaidStabilizerService {
       };
     }
 
-    const repairedValidation = validateMermaidCode(repairedNormalization.code);
-    const repairedErrors = collectFailureDetails(repairedValidation, repairedAttempt.conversionError);
+    const repairedErrors = collectFailureDetails(
+      repairedAttempt.validation,
+      repairedAttempt.conversionError
+    );
     throw new MermaidStabilizationError(
       buildFailureMessage(repairedErrors, true),
-      resolveFailureStage(repairedValidation, repairedAttempt.conversionError, true),
+      resolveFailureStage(repairedAttempt.validation, repairedAttempt.conversionError, true),
       repairedErrors,
-      selectBestEffortCode(repairedCandidates, repairedNormalization.code, normalized.code),
-      repairedValidation
+      selectBestEffortCode([repairedCandidate], repairedNormalization.code, normalized.code),
+      repairedAttempt.validation
     );
   }
 
-  private async tryCandidates(
-    candidates: string[],
+  private async tryCandidate(
+    candidate: string,
     requireElements: boolean,
     signal?: AbortSignal,
     mermaidConfig?: MermaidConfig
   ): Promise<CandidateAttemptSummary> {
+    const validation = await this.validateCandidate(candidate);
+    if (!validation.isValid) {
+      return {
+        result: null,
+        validation,
+        conversionError: null,
+      };
+    }
+
+    if (!requireElements) {
+      return {
+        result: {
+          mermaidCode: candidate,
+          validation,
+          elements: [],
+        },
+        validation,
+        conversionError: null,
+      };
+    }
+
     let conversionError: string | null = null;
-
-    for (const candidate of candidates) {
+    try {
       throwIfAborted(signal);
-      const validation = validateMermaidCode(candidate);
-      if (!validation.isValid) {
-        continue;
-      }
-
-      if (!requireElements) {
-        return {
-          result: {
-            mermaidCode: candidate,
-            validation,
-            elements: [],
-          },
-          conversionError: null,
-        };
-      }
-
-      try {
-        const elements = await mermaidConverter.convertToElements(candidate, mermaidConfig);
-        throwIfAborted(signal);
-        return {
-          result: {
-            mermaidCode: candidate,
-            validation,
-            elements,
-          },
-          conversionError: null,
-        };
-      } catch (error) {
-        conversionError = error instanceof Error ? error.message : 'Mermaid 转换失败';
-      }
+      const elements = await mermaidConverter.convertToElements(candidate, mermaidConfig);
+      throwIfAborted(signal);
+      return {
+        result: {
+          mermaidCode: candidate,
+          validation,
+          elements,
+        },
+        validation,
+        conversionError: null,
+      };
+    } catch (error) {
+      conversionError = error instanceof Error ? error.message : 'Mermaid 转换失败';
     }
 
     return {
       result: null,
+      validation,
       conversionError,
     };
   }
+
+  private async validateCandidate(candidate: string): Promise<ValidationResult> {
+    const heuristicValidation = validateMermaidCode(candidate);
+    const parseValidation = await mermaidParseService.validate(candidate);
+    return mergeValidation(heuristicValidation, parseValidation);
+  }
+}
+
+function mergeValidation(
+  heuristicValidation: ValidationResult,
+  parseValidation: ValidationResult
+): ValidationResult {
+  return {
+    isValid: parseValidation.isValid,
+    errors: parseValidation.isValid
+      ? []
+      : Array.from(new Set([...heuristicValidation.errors, ...parseValidation.errors])).filter(
+          Boolean
+        ),
+    warnings: Array.from(new Set([...heuristicValidation.warnings, ...parseValidation.warnings])).filter(
+      Boolean
+    ),
+  };
 }
 
 function collectFailureDetails(validation: ValidationResult, conversionError: string | null): string[] {

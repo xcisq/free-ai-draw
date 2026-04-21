@@ -10,9 +10,17 @@ import type {
   StructurePattern,
   UsageScenario,
 } from '../types';
+import {
+  buildDiagramTypePromptText,
+  findDiagramDeclaration,
+  getDiagramTypeLabel,
+  getStyleModeLabel,
+  resolveDiagramTypeFromIntent,
+} from '../utils/diagram-capabilities';
 
 const DEFAULT_GENERATION_CONTEXT: GenerationContext = {
   layoutDirection: 'LR',
+  diagramType: 'auto',
   usageScenario: 'paper',
   nodeCount: 5,
   theme: 'academic',
@@ -21,6 +29,11 @@ const DEFAULT_GENERATION_CONTEXT: GenerationContext = {
   structurePattern: 'mixed',
   layoutIntentText: '',
   emphasisTargets: [],
+  styleMode: 'auto',
+  diagramStyle: 'publication',
+  beautyLevel: 'balanced',
+  layoutRhythm: 'airy',
+  visualFocus: 'core',
   clarificationStatus: 'none',
 };
 
@@ -28,26 +41,27 @@ const DEFAULT_GENERATION_CONTEXT: GenerationContext = {
  * 获取初始系统提示词
  */
 export function getInitialPrompt(): string {
-  return `你是一个专业的 Mermaid 论文图生成助手。你只会收到一次 one-shot 请求，你的任务是理解用户提供的原始文本和轻量结构约束，并直接输出一版可以稳定预览的 Mermaid 流程图。
+  return `你是一个专业的 Mermaid 图表生成助手。你只会收到一次 one-shot 请求，你的任务是理解用户提供的原始文本、图类型意图和样式要求，并直接输出一版可以稳定预览的 Mermaid 代码。
 
 遵循以下原则：
 1. 用户输入的正文、段落、方法描述或需求文本，是图的主要语义来源
-2. 先从用户文本中抽取输入、处理阶段、输出、依赖关系和层级，再组织成图
-3. 如果用户文本已经包含顺序、模块名或关系，请优先忠实反映，不要脱离文本另起一套流程
+2. 先判断最合适的 Mermaid 图类型，再从用户文本中抽取结构、关系、层级和语义重点
+3. 如果用户已经明确写出图类型，例如 flowchart、classDiagram、sequenceDiagram、erDiagram、mindmap、timeline 等，请优先遵从
 4. 用户提到的“从左到右/从上到下”表示整体主视觉趋势，不代表所有节点都必须严格排成单轴直线
-5. 如果文本说明局部存在并行、分支、上下辅轨、汇聚或反馈，优先保留这些局部结构
-6. 节点文案要克制，优先压缩到 4 到 10 个字，不要把整句原文直接塞进节点
-7. 对论文图，优先保证主干清晰、局部层次分明、汇聚明确、反馈尽量走外圈
-8. 优先使用简单、稳定的 Mermaid flowchart 语法，避免冷门特性
-9. 默认只使用基础节点和基础连线：矩形 ([...])、圆角矩形 ([(...)])、-->
-10. 只有当模块边界非常明确时才使用 subgraph，非必要不要输出 classDef、class、style、linkStyle、click
-11. 不要为了“好看”额外引入复杂语法，优先保证生成结果能被稳定预览和转换
-12. 输出的第一行必须直接是 Mermaid 图类型声明，例如 flowchart LR 或 flowchart TB
-13. 严禁输出“下面是 Mermaid 代码”“说明”“总结”“\`\`\`mermaid”等非 Mermaid 正文内容
+5. 如果文本说明局部存在并行、分支、汇聚、反馈、阶段或群组，优先保留这些局部结构
+6. 节点文案要克制，优先压缩到 4 到 12 个字，不要把整句原文直接塞进节点
+7. 对论文图与信息图，优先保证主干清晰、局部层次分明、视觉锚点明确
+8. 允许输出 Mermaid 官方样式能力，例如 classDef、class、style、linkStyle、subgraph、direction、注释与必要的初始化指令
+9. 当用户要求“更美观 / 语义配色 / 分组信息图 / 学术风格”时，可以适度使用语义色板、分组标题、核心节点高亮和多行标签
+10. 样式增强必须服务信息表达，不要只为了装饰堆砌复杂语法
+11. 你的输出必须能被 Mermaid 官方解析器直接解析成功；如果某种更复杂的写法不确定是否稳定，请主动降级为更简单但合法的写法
+12. 输出的第一行或第一个有效 Mermaid 声明，必须是图类型声明；如果前面有 %%{init: ...}%% 或 frontmatter，可以放在类型声明之前
+13. 输出前请自行检查：图类型声明存在、连线没有截断、括号成对、subgraph 有闭合、图类型语法不要混用
+14. 严禁输出“下面是 Mermaid 代码”“说明”“总结”“\`\`\`mermaid”等非 Mermaid 正文内容
 
 输出格式：
 - 仅输出完整 Mermaid 代码
-- 第一行必须是 flowchart LR 或 flowchart TB
+- 可以包含 Mermaid 指令、frontmatter、注释和图类型声明
 - 不要输出 markdown 代码块标记
 - 不要输出解释、前缀、后缀或注意事项`;
 }
@@ -74,13 +88,19 @@ export function getIntentPlanningSystemPrompt(): string {
   "mode": "generate" | "clarify",
   "normalizedContext": {
     "layoutDirection": "LR" | "TB",
+    "diagramType": "auto" | "flowchart" | "sequenceDiagram" | "classDiagram" | "stateDiagram" | "erDiagram" | "journey" | "gantt" | "pie" | "gitGraph" | "requirementDiagram" | "mindmap" | "timeline" | "quadrantChart" | "xychart" | "sankey" | "c4" | "block" | "packet" | "kanban" | "architecture" | "other",
     "usageScenario": "paper" | "presentation" | "document",
     "theme": "academic" | "professional" | "lively" | "minimal",
     "layoutArea": "compact" | "medium" | "spacious",
     "density": "dense" | "balanced" | "sparse",
     "structurePattern": "linear" | "branched" | "convergent" | "multi-lane" | "feedback" | "mixed",
     "layoutIntentText": "string",
-    "emphasisTargets": ["string"]
+    "emphasisTargets": ["string"],
+    "styleMode": "auto" | "minimal" | "semantic" | "grouped" | "showcase",
+    "diagramStyle": "publication" | "architecture" | "explainer",
+    "beautyLevel": "conservative" | "balanced" | "enhanced",
+    "layoutRhythm": "compact" | "airy" | "symmetrical",
+    "visualFocus": "input" | "core" | "output" | "convergence"
   },
   "clarificationQuestion": "string",
   "quickReplies": ["string"],
@@ -94,6 +114,7 @@ export function getIntentPlanningSystemPrompt(): string {
 export function getMermaidGenerationPrompt(context: GenerationContext): string {
   const {
     layoutDirection,
+    diagramType,
     usageScenario,
     nodeCount,
     theme,
@@ -102,37 +123,62 @@ export function getMermaidGenerationPrompt(context: GenerationContext): string {
     structurePattern,
     layoutIntentText,
     emphasisTargets,
+    styleMode,
+    diagramStyle,
+    beautyLevel,
+    layoutRhythm,
+    visualFocus,
   } = context;
 
-  return `请基于用户提供的原始文本生成一个 Mermaid flowchart，用于${getScenarioText(usageScenario)}。
+  return `请基于用户提供的原始文本生成一个 Mermaid 图表，用于${getScenarioText(usageScenario)}。
 
 注意：
-- 下面的结构化配置只用于约束整体阅读方向、结构骨架和图面复杂度
+- 下面的结构化配置只用于约束图类型、整体阅读方向、结构骨架和图面复杂度
 - 图中的节点、模块和连接关系，应优先来自用户输入文本本身
-- “主阅读方向”表示整体视觉连贯性，不要求所有节点都严格排成一条水平线或竖线
+- “主阅读方向”表示整体视觉连贯性，对 flowchart、stateDiagram、mindmap 之类布局图更重要
 - 如果文本说明局部存在并行、分支、上下分层、汇聚或反馈，请优先保留这些细节
 - 对论文图，优先保证主干清晰、辅助结构克制、汇聚位置明确、反馈关系尽量外置
+- “图形风格 / 美观度 / 版式节奏 / 视觉重点”是构图提示，不是要你输出解释文本
+- “样式模式”表示是否应输出极简、语义配色、分组信息图或更强的展示感
 - 这次是 one-shot 生成，不要把希望中的未来补充信息写成节点
+- 如果完整的美化版本不够确定能稳定预览，优先生成更克制但合法的版本，不要冒险输出会报错的 Mermaid
 
 要求：
+- 图类型：${getDiagramTypeLabel(diagramType)}
+- 图类型指令：${buildDiagramTypePromptText(diagramType)}
 - 主阅读方向：${getLayoutDirectionText(layoutDirection)}
 - 节点数量：约 ${nodeCount} 个
 - 样式风格：${getThemeText(theme)}
 - 整体布局：${layoutArea ? getLayoutAreaText(layoutArea) : '适中'}
 - 密集程度：${density ? getDensityText(density) : '平衡'}
 - 结构模式：${getStructurePatternText(structurePattern)}
+- 样式模式：${getStyleModeLabel(styleMode)}
+- 图形风格：${getDiagramStyleText(diagramStyle)}
+- 美观度：${getBeautyLevelText(beautyLevel)}
+- 版式节奏：${getLayoutRhythmText(layoutRhythm)}
+- 视觉重点：${getVisualFocusText(visualFocus)}
 - 构图补充：${layoutIntentText?.trim() || '未额外指定，请按文本语义做最小必要推断'}
 - 重点强调：${formatEmphasisTargets(emphasisTargets)}
 
+构图配方：
+- 样式模式要求：${getStyleModeRecipe(styleMode)}
+- 图形风格要求：${getDiagramStyleRecipe(diagramStyle)}
+- 美观度要求：${getBeautyLevelRecipe(beautyLevel)}
+- 版式节奏要求：${getLayoutRhythmRecipe(layoutRhythm)}
+- 视觉重点要求：${getVisualFocusRecipe(visualFocus, emphasisTargets)}
+
 输出要求：
-1. 默认使用基础 flowchart 语法，优先用 -->、[...]、[(...)] 组织结构
-2. 只有当模块边界很明确时才使用 subgraph，非必要不要输出 classDef、class、style、linkStyle、click
-3. 节点文案尽量压缩，不要直接复制超长论文句子作为节点名
-4. 节点和连线以结构正确、可稳定预览为第一优先级，不要为了美观引入复杂 Mermaid 特性
-4. 主干节点优先维持清晰的阅读顺序，局部允许存在辅轨、并行块或收束结构
-5. 如果用户要求“整体从左到右，但局部有上下辅轨/并行支路/汇聚”，请把这种局部结构真实画出来，而不是压扁成简单横向链路
-6. 第一行必须直接输出 flowchart ${layoutDirection}，不要在前面写任何解释
-7. 不要输出 markdown 代码块，不要输出“下面是 Mermaid 代码”之类提示语
+1. 必须优先生成与用户原文和图类型意图匹配的 Mermaid 官方图类型，不要默认偷换成 flowchart
+2. 对 flowchart 类图表，允许使用 classDef、class、style、linkStyle、subgraph、direction 做适度美化
+3. 对 sequenceDiagram、classDiagram、erDiagram、journey、gantt、pie、mindmap、timeline、quadrantChart、xychart、sankey、C4 等类型，优先使用该类型的官方语法，不要硬套 flowchart 语法
+4. 节点文案尽量压缩，不要直接复制超长论文句子作为节点名；允许必要的 <br/> 或多行文本
+5. 节点和连线以结构正确、可稳定预览为第一优先级，美观度主要通过分组、语义配色、层次和锚点来体现
+6. 如果用户要求“整体从左到右，但局部有上下辅轨/并行支路/汇聚”，请把这种局部结构真实画出来，而不是压扁成简单横向链路
+7. 当用户明确要求“更美观”时，优先输出可以提升阅读体验的版本，例如语义色板、核心节点高亮、分组标题、局部分层
+8. 如果使用 Mermaid 指令或 frontmatter，请确保后面仍然有明确的图类型声明
+9. 输出前请自行完成一次最小自检：声明、括号、subgraph、连线完整性，以及是否混入了其他图类型语法
+10. 如果自检后发现某些美化语法可能导致预览失败，宁可减少样式、减少节点或减少分组，也不要输出不可预览代码
+11. 不要输出 markdown 代码块，不要输出“下面是 Mermaid 代码”之类提示语
 
 输出格式：
 - 仅输出完整 Mermaid 代码
@@ -209,6 +255,7 @@ export function buildMermaidUserPrompt(
   };
   const { currentMermaid, requestKind = 'generate' } = options;
   const isRefine = requestKind === 'refine' && !!currentMermaid?.trim();
+  const detectedDiagramType = resolveDiagramTypeFromIntent(userInput, mergedContext.diagramType);
 
   return `${getMermaidGenerationPrompt(mergedContext)}
 
@@ -219,9 +266,14 @@ export function buildMermaidUserPrompt(
 - 不要脱离这段文本另起一套通用流程图
 - 如果文本里同时出现“整体阅读方向”和“局部结构要求”，优先同时满足两者
 - 请把所有结构信息直接体现在 Mermaid 的节点、连线和必要的少量 subgraph 中，不要输出解释文本
+- 如果用户明确写了图类型、样式词或样例语法，请优先吸收进最终 Mermaid
+- 根据原文推断的首选图类型：${getDiagramTypeLabel(detectedDiagramType)}
 - 节点命名优先压缩成短标签，避免长句直接进节点
 - 这是一次 one-shot 请求，不要先提问，也不要输出待确认占位节点
-- 输出时第一行必须直接是 flowchart ${mergedContext.layoutDirection}
+- 允许使用 classDef、class、style、linkStyle、subgraph、direction、注释与必要的指令来增强表达
+- 如果没有显式图类型，才根据语义自动判断，不要机械默认成 flowchart
+- 输出前请自行检查这份 Mermaid 是否能直接成功预览；如果不确定，请主动删掉高风险样式，保留核心结构
+- 宁可少一个辅节点、少一种样式，也不要输出需要事后修补的代码
 - 不要输出任何额外解释、标题、markdown 代码块或总结
 
 用户原始文本：
@@ -312,6 +364,127 @@ function getDensityText(density: string): string {
   return densityMap[density] || '平衡';
 }
 
+function getStyleModeRecipe(mode: GenerationContext['styleMode']) {
+  switch (mode) {
+    case 'minimal':
+      return '优先产出干净、克制、低装饰的版本，减少颜色和多余分组。';
+    case 'semantic':
+      return '优先用 classDef / class / style 做语义色板，把问题、方案、价值、理论等层次分出来。';
+    case 'grouped':
+      return '优先用 subgraph、section 或分层块强化信息分区，让读者按区块理解。';
+    case 'showcase':
+      return '在保证语义正确的前提下输出更强的展示感，允许核心节点高亮、颜色分层、分组标题和更完整的视觉节奏。';
+    case 'auto':
+    default:
+      return '根据原文自动决定是极简、语义配色还是分组信息图，但不要无意义堆砌样式。';
+  }
+}
+
+function getDiagramStyleText(style: GenerationContext['diagramStyle']): string {
+  switch (style) {
+    case 'architecture':
+      return '系统架构，模块边界更清楚';
+    case 'explainer':
+      return '讲解流程，叙事推进更明显';
+    case 'publication':
+    default:
+      return '论文刊物，克制而规整';
+  }
+}
+
+function getBeautyLevelText(level: GenerationContext['beautyLevel']): string {
+  switch (level) {
+    case 'conservative':
+      return '保守，以稳定和清晰为主';
+    case 'enhanced':
+      return '强化，主动追求版式感';
+    case 'balanced':
+    default:
+      return '平衡，兼顾稳定与观感';
+  }
+}
+
+function getLayoutRhythmText(rhythm: GenerationContext['layoutRhythm']): string {
+  switch (rhythm) {
+    case 'compact':
+      return '紧凑，减少无效绕行';
+    case 'symmetrical':
+      return '对称，尽量平衡两侧关系';
+    case 'airy':
+    default:
+      return '舒展，保留更清楚的层次留白';
+  }
+}
+
+function getVisualFocusText(focus: GenerationContext['visualFocus']): string {
+  switch (focus) {
+    case 'input':
+      return '输入端';
+    case 'output':
+      return '输出端';
+    case 'convergence':
+      return '汇聚点';
+    case 'core':
+    default:
+      return '核心方法';
+  }
+}
+
+function getDiagramStyleRecipe(style: GenerationContext['diagramStyle']) {
+  switch (style) {
+    case 'architecture':
+      return '把模块边界画清楚，局部分组只在边界明确时使用，整体像系统架构图而不是流水账。';
+    case 'explainer':
+      return '保持讲解顺序自然推进，减少不必要岔路，让读者一眼看到故事线。';
+    case 'publication':
+    default:
+      return '维持发表级论文插图的克制感，主干规整、局部层次清楚，不要为了装饰打散结构。';
+  }
+}
+
+function getBeautyLevelRecipe(level: GenerationContext['beautyLevel']) {
+  switch (level) {
+    case 'conservative':
+      return '优先选择最稳妥的节点组织方式，不追求复杂花样，先保证清楚和整齐。';
+    case 'enhanced':
+      return '在不增加复杂 Mermaid 语法的前提下，主动优化主干比例、并行块平衡和视觉锚点。';
+    case 'balanced':
+    default:
+      return '在稳定预览和图面层次之间取平衡，允许适度分组和更清楚的收束。';
+  }
+}
+
+function getLayoutRhythmRecipe(rhythm: GenerationContext['layoutRhythm']) {
+  switch (rhythm) {
+    case 'compact':
+      return '尽量减少不必要的横向或纵向拉长，结构紧凑但不要拥挤。';
+    case 'symmetrical':
+      return '若语义允许，尽量让并行支路和两侧模块长度接近，避免一边过重一边过空。';
+    case 'airy':
+    default:
+      return '让主干和辅助结构之间更有层次感，不要把所有节点挤成一团。';
+  }
+}
+
+function getVisualFocusRecipe(
+  focus: GenerationContext['visualFocus'],
+  emphasisTargets: string[] | undefined
+) {
+  const targetText = emphasisTargets?.length ? `，并优先照顾 ${emphasisTargets.join('、')}` : '';
+
+  switch (focus) {
+    case 'input':
+      return `把输入端做成最先被看见的起点，其他模块围绕输入展开${targetText}。`;
+    case 'output':
+      return `让输出端成为最明确的终点，前面过程服务于结果收束${targetText}。`;
+    case 'convergence':
+      return `让汇聚点成为主要锚点，并尽量把前置支路组织成清晰的收束关系${targetText}。`;
+    case 'core':
+    default:
+      return `让核心方法成为视觉中心，输入和输出围绕它服务，不要把重点打散${targetText}。`;
+  }
+}
+
 /**
  * 获取 Mermaid 定向修复提示词
  */
@@ -351,19 +524,33 @@ export function extractMermaidCode(text: string): string {
     return match[1].trim();
   }
 
-  // 如果没有代码块，尝试查找以 flowchart、graph 等开头的行
   const lines = text.split('\n');
-  const startIndex = lines.findIndex((line) =>
-    /^(flowchart|graph|stateDiagram|classDiagram|sequenceDiagram|erDiagram|gantt|pie|journey)/.test(line.trim())
-  );
+  const startIndex = findDiagramStartIndex(lines);
 
   if (startIndex !== -1) {
     const mermaidLines: string[] = [];
+    let currentDeclaration: string | null = null;
 
     for (const line of lines.slice(startIndex)) {
-      if (isLikelyMermaidLine(line, mermaidLines.length === 0)) {
+      if (line.trim().startsWith('```')) {
+        break;
+      }
+
+      const declaration = findDiagramDeclaration(line);
+      if (declaration) {
+        currentDeclaration = declaration;
+      }
+
+      if (isLikelyMermaidLine(line, mermaidLines.length === 0, currentDeclaration)) {
         mermaidLines.push(line);
         continue;
+      }
+
+      if (
+        mermaidLines.length > 0 &&
+        /^说明[:：]|^note[:：]|^解释[:：]|^总结[:：]|^summary[:：]|^下面是/i.test(line.trim())
+      ) {
+        break;
       }
 
       if (mermaidLines.length > 0) {
@@ -381,7 +568,11 @@ export function extractMermaidCode(text: string): string {
     const mermaidLines: string[] = [];
 
     for (const line of lines.slice(heuristicStartIndex)) {
-      if (isLikelyMermaidLine(line, false)) {
+      if (line.trim().startsWith('```')) {
+        break;
+      }
+
+      if (isLikelyMermaidLine(line, false, null)) {
         mermaidLines.push(line);
         continue;
       }
@@ -422,7 +613,52 @@ export function extractJsonBlock(text: string): string {
   return text.slice(start).trim();
 }
 
-function isLikelyMermaidLine(line: string, isFirstLine: boolean): boolean {
+function findDiagramStartIndex(lines: string[]) {
+  let insideFrontmatter = false;
+  let prefixStart = -1;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const trimmed = lines[index]?.trim() || '';
+
+    if (!trimmed) {
+      continue;
+    }
+
+    if (!insideFrontmatter && trimmed === '---') {
+      if (prefixStart === -1) {
+        prefixStart = index;
+      }
+      insideFrontmatter = true;
+      continue;
+    }
+
+    if (insideFrontmatter) {
+      if (trimmed === '---') {
+        insideFrontmatter = false;
+      }
+      continue;
+    }
+
+    if (/^%%\{.*\}%%$/.test(trimmed) || /^%%/.test(trimmed)) {
+      if (prefixStart === -1) {
+        prefixStart = index;
+      }
+      continue;
+    }
+
+    if (findDiagramDeclaration(trimmed)) {
+      return prefixStart === -1 ? index : prefixStart;
+    }
+  }
+
+  return -1;
+}
+
+function isLikelyMermaidLine(
+  line: string,
+  isFirstLine: boolean,
+  declaration: string | null
+): boolean {
   const trimmed = line.trim();
 
   if (!trimmed) {
@@ -430,9 +666,23 @@ function isLikelyMermaidLine(line: string, isFirstLine: boolean): boolean {
   }
 
   if (isFirstLine) {
-    return /^(flowchart|graph|stateDiagram|classDiagram|sequenceDiagram|erDiagram|gantt|pie|journey)/.test(
-      trimmed
-    );
+    return /^%%\{.*\}%%$/.test(trimmed) || trimmed === '---' || Boolean(findDiagramDeclaration(trimmed));
+  }
+
+  if (trimmed === '---' || /^%%\{.*\}%%$/.test(trimmed)) {
+    return true;
+  }
+
+  if (findDiagramDeclaration(trimmed)) {
+    return true;
+  }
+
+  if (declaration && requiresStrictBodyParsing(declaration)) {
+    return isLikelyStructuredDiagramBodyLine(trimmed, declaration);
+  }
+
+  if (declaration) {
+    return !/^说明[:：]|^note[:：]|^解释[:：]|^总结[:：]|^summary[:：]|^下面是/i.test(trimmed);
   }
 
   return /^(subgraph|end|classDef|class|style|linkStyle|click|%%)\b/.test(trimmed)
@@ -452,6 +702,55 @@ function isLikelyMermaidStartLine(line: string): boolean {
   return /^(subgraph|classDef|class|style|linkStyle|click|%%)\b/.test(trimmed)
     || /-->|---|-.->|==>|==/.test(trimmed)
     || /^\w[\w-]*\s*(?:\[[^\]]*\]|\([^)]+\)|\{[^}]+\}|:::.*)/.test(trimmed);
+}
+
+function requiresStrictBodyParsing(declaration: string) {
+  return /^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|stateDiagram-v2|erDiagram|gitGraph|requirementDiagram)$/i.test(
+    declaration
+  );
+}
+
+function isLikelyStructuredDiagramBodyLine(trimmed: string, declaration: string) {
+  const commonPattern =
+    /^(subgraph|end|classDef|class|style|linkStyle|click|%%|title|accTitle|accDescr|section|direction)\b/i;
+
+  if (commonPattern.test(trimmed)) {
+    return true;
+  }
+
+  if (/^(flowchart|graph|stateDiagram|stateDiagram-v2|requirementDiagram)$/i.test(declaration)) {
+    return /-->|---|-.->|==>|==|<-->|\{\{|}}/.test(trimmed)
+      || /^\w[\w-]*\s*(?:\[[^\]]*\]|\([^)]+\)|\{[^}]+\})?(?:\s*:::.*)?$/.test(trimmed)
+      || /^\w[\w-]*\s*:::/.test(trimmed)
+      || /^state\s+["\w]/i.test(trimmed)
+      || /^\[\*]\s*--/.test(trimmed);
+  }
+
+  if (/^sequenceDiagram$/i.test(declaration)) {
+    return /^(participant|actor|activate|deactivate|autonumber|Note|note|loop|alt|else|opt|par|and|critical|break|rect|box|create|destroy|end)\b/.test(
+      trimmed
+    ) || /-{1,2}>>|={1,2}>>|--x|x--|->>|-->>/.test(trimmed);
+  }
+
+  if (/^classDiagram$/i.test(declaration)) {
+    return /^(class|direction|namespace|note)\b/i.test(trimmed)
+      || /<\|--|--\*|--o|-->|\.\.>|\.\.\|>|\*--|o--/.test(trimmed)
+      || /^[+#~\-]\s*[\w"'<>{}()[\]:, ]+$/.test(trimmed)
+      || /^<<.+>>$/.test(trimmed)
+      || /^\w[\w-]*\s*:\s*.+$/.test(trimmed);
+  }
+
+  if (/^erDiagram$/i.test(declaration)) {
+    return /(\|\|--|\|o--|o\|--|o\{--|\}\|--|\}o--|\|\{--)/.test(trimmed)
+      || /^(%%|\w[\w-]*\s*\{|\})/.test(trimmed)
+      || /^\w+\s+\w+(\s+(PK|FK|UK))?$/i.test(trimmed);
+  }
+
+  if (/^gitGraph$/i.test(declaration)) {
+    return /^(commit|branch|checkout|merge|cherry-pick|reset)\b/i.test(trimmed);
+  }
+
+  return true;
 }
 
 function formatGraphInfo(graphInfo: GraphInfo): string {
@@ -489,35 +788,38 @@ export function validateMermaidCode(code: string): {
     errors.push('Mermaid 代码为空');
   }
 
-  // 检查是否包含基本的 Mermaid 关键字
-  const hasMermaidKeyword = /^(flowchart|graph|stateDiagram|classDiagram|sequenceDiagram|erDiagram|gantt|pie|journey)/.test(
-    trimmedCode
-  );
+  const declaration = findDiagramDeclaration(trimmedCode);
 
-  if (!hasMermaidKeyword) {
+  if (!declaration) {
     errors.push('缺少 Mermaid 类型声明（如 flowchart LR, graph TD 等）');
   }
 
-  const bracketPairs: Array<[string, string, string]> = [
-    ['\\[', '\\]', '方括号不匹配'],
-    ['\\(', '\\)', '圆括号不匹配'],
-    ['\\{', '\\}', '花括号不匹配'],
-  ];
+  if (declaration && isBracketSensitiveDeclaration(declaration)) {
+    const bracketPairs: Array<[string, string, string]> = [
+      ['\\[', '\\]', '方括号不匹配'],
+      ['\\(', '\\)', '圆括号不匹配'],
+      ['\\{', '\\}', '花括号不匹配'],
+    ];
 
-  bracketPairs.forEach(([openPattern, closePattern, message]) => {
-    const openCount = (trimmedCode.match(new RegExp(openPattern, 'g')) || []).length;
-    const closeCount = (trimmedCode.match(new RegExp(closePattern, 'g')) || []).length;
+    bracketPairs.forEach(([openPattern, closePattern, message]) => {
+      const openCount = (trimmedCode.match(new RegExp(openPattern, 'g')) || []).length;
+      const closeCount = (trimmedCode.match(new RegExp(closePattern, 'g')) || []).length;
 
-    if (openCount !== closeCount) {
-      errors.push(message);
-    }
-  });
+      if (openCount !== closeCount) {
+        errors.push(message);
+      }
+    });
+  }
 
   if (/```/.test(trimmedCode)) {
     warnings.push('代码中仍包含 markdown 代码块标记');
   }
 
-  if (lines.some((line) => /(-->|---|-.->|==>|==)\s*$/.test(line))) {
+  if (
+    declaration &&
+    isArrowSensitiveDeclaration(declaration) &&
+    lines.some((line) => /(-->|---|-.->|==>|==)\s*$/.test(line))
+  ) {
     errors.push('存在未完整的连接语句');
   }
 
@@ -540,4 +842,16 @@ export function validateMermaidCode(code: string): {
     errors,
     warnings,
   };
+}
+
+function isBracketSensitiveDeclaration(declaration: string) {
+  return /^(flowchart|graph|classDiagram|stateDiagram|stateDiagram-v2|erDiagram)$/i.test(
+    declaration
+  );
+}
+
+function isArrowSensitiveDeclaration(declaration: string) {
+  return /^(flowchart|graph|classDiagram|stateDiagram|stateDiagram-v2|erDiagram|gitGraph)$/i.test(
+    declaration
+  );
 }
