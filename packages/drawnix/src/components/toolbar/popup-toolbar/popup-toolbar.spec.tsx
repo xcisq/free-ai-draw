@@ -3,6 +3,11 @@ import { render, screen } from '@testing-library/react';
 import { PopupToolbar } from './popup-toolbar';
 
 const mockSetPositionReference = jest.fn();
+const mockPopupFontFamilyControl = jest.fn(
+  ({ currentFontFamily }: { currentFontFamily?: string }) => (
+    <div>{`font-family:${currentFontFamily || 'none'}`}</div>
+  )
+);
 const mockBoard = {
   viewport: {},
   selection: null,
@@ -67,7 +72,8 @@ jest.mock('@plait/draw', () => ({
   getStrokeStyleByElement: () => 'solid',
   isClosedCustomGeometry: () => false,
   isClosedDrawElement: () => true,
-  isDrawElementsIncludeText: () => false,
+  isDrawElementsIncludeText: (elements: Array<Record<string, unknown>>) =>
+    elements.some((element) => Boolean(element?.text) || element?.shape === 'text'),
   PlaitDrawElement: {
     isImage: (value: any) => value?.type === 'image',
     isDrawElement: () => true,
@@ -142,7 +148,8 @@ jest.mock('./font-color-button', () => ({
 }));
 
 jest.mock('./font-family-control', () => ({
-  PopupFontFamilyControl: () => <div>font-family</div>,
+  PopupFontFamilyControl: (props: { currentFontFamily?: string }) =>
+    mockPopupFontFamilyControl(props),
 }));
 
 jest.mock('./font-size-control', () => ({
@@ -202,6 +209,7 @@ jest.mock('../../../plugins/freehand/type', () => ({
 describe('PopupToolbar', () => {
   beforeEach(() => {
     mockSetPositionReference.mockReset();
+    mockPopupFontFamilyControl.mockClear();
     mockSelectedElements.splice(
       0,
       mockSelectedElements.length,
@@ -245,6 +253,57 @@ describe('PopupToolbar', () => {
     render(<PopupToolbar />);
 
     expect(screen.getByText('arrow-animation')).toBeTruthy();
+  });
+
+  it('选中文本元素时应显示字体与字号控件', () => {
+    mockSelectedElements.splice(
+      0,
+      mockSelectedElements.length,
+      {
+        id: 'text-1',
+        type: 'geometry',
+        shape: 'text',
+        text: {
+          type: 'paragraph',
+          children: [{ text: '标题' }],
+        },
+        fill: '#ffffff',
+        strokeColor: '#333333',
+      }
+    );
+
+    render(<PopupToolbar />);
+
+    expect(screen.getByText('font-family:none')).toBeTruthy();
+    expect(screen.getByText('font-size')).toBeTruthy();
+  });
+
+  it('字体已写回元素时应把当前字体传给字体控件', () => {
+    mockSelectedElements.splice(
+      0,
+      mockSelectedElements.length,
+      {
+        id: 'text-2',
+        type: 'geometry',
+        shape: 'text',
+        text: {
+          type: 'paragraph',
+          children: [{ text: '标题', ['font-family']: 'Georgia, serif' }],
+        },
+        textStyle: {
+          fontFamily: 'Georgia, serif',
+        },
+        textProperties: {
+          fontFamily: 'Georgia, serif',
+        },
+        fill: '#ffffff',
+        strokeColor: '#333333',
+      }
+    );
+
+    render(<PopupToolbar />);
+
+    expect(screen.getByText('font-family:Georgia, serif')).toBeTruthy();
   });
 
   it('单选普通图片时应显示换图与 AI 编辑按钮', () => {

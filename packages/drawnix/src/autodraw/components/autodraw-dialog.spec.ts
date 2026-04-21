@@ -1,6 +1,7 @@
 import {
   buildAutodrawAssetShelfItems,
   buildAssemblyBatches,
+  getAutodrawAssetShelfAssets,
   getAutodrawSpotlightAsset,
   getAutodrawVisibleAssetItems,
   getEffectiveWorkbenchStep,
@@ -118,6 +119,9 @@ describe('autodraw-dialog helpers', () => {
       getAutodrawVisibleAssetItems(assets).map((asset) => asset.name)
     ).toEqual(['figure.png', 'icon_AF01_nobg.png', 'final.svg']);
     expect(
+      getAutodrawAssetShelfAssets(assets).map((asset) => asset.name)
+    ).toEqual(['icon_AF01_nobg.png']);
+    expect(
       getAutodrawSpotlightAsset(assets, {
         preferredStep: 2,
         strictStep: true,
@@ -126,6 +130,61 @@ describe('autodraw-dialog helpers', () => {
     expect(getAutodrawSpotlightAsset(assets)?.url).toBe(
       'http://127.0.0.1:8001/api/jobs/job-1/artifacts/final.svg'
     );
+  });
+
+  it('prefers nobg icon assets in the asset room and removes duplicated icon crops', () => {
+    const assets = toAutodrawAssetItems(
+      [
+        {
+          name: 'icon_AF01.png',
+          path: 'icons/icon_AF01.png',
+          kind: 'icon',
+          size_bytes: 90,
+          download_url: '/api/jobs/job-1/artifacts/icons/icon_AF01.png',
+        },
+        {
+          name: 'icon_AF01_nobg.png',
+          path: 'icons/icon_AF01_nobg.png',
+          kind: 'icon',
+          size_bytes: 100,
+          download_url: '/api/jobs/job-1/artifacts/icons/icon_AF01_nobg.png',
+        },
+        {
+          name: 'icon_AF02_nobg.png',
+          path: 'icons/icon_AF02_nobg.png',
+          kind: 'icon',
+          size_bytes: 110,
+          download_url: '/api/jobs/job-1/artifacts/icons/icon_AF02_nobg.png',
+        },
+        {
+          name: 'final.svg',
+          path: 'final.svg',
+          kind: 'final_svg',
+          size_bytes: 200,
+          download_url: '/api/jobs/job-1/artifacts/final.svg',
+        },
+      ],
+      'http://127.0.0.1:8001/'
+    );
+
+    const shelf = buildAutodrawAssetShelfItems({
+      assets,
+      activeStep: 2,
+      isBusy: false,
+      stageLabels: [
+        '生成原始图',
+        '解析结构',
+        '提取图标',
+        '重建 SVG',
+        '导入画板',
+      ],
+    });
+
+    expect(shelf.map((item) => item.title)).toEqual([
+      'icon_AF01_nobg.png',
+      'icon_AF02_nobg.png',
+    ]);
+    expect(shelf.every((item) => item.asset?.kind === 'icon')).toBe(true);
   });
 
   it('lets logs and artifacts correct the effective workbench step', () => {
@@ -191,11 +250,9 @@ describe('autodraw-dialog helpers', () => {
     });
 
     expect(shelf.map((item) => item.title)).toEqual([
-      'figure.png',
-      'samed.png',
-      'icons/*',
+      'icons/*_nobg.png',
     ]);
-    expect(shelf.filter((item) => item.isPlaceholder)).toHaveLength(2);
+    expect(shelf.filter((item) => item.isPlaceholder)).toHaveLength(1);
   });
 
   it('upserts history entries and keeps the newest item first', () => {

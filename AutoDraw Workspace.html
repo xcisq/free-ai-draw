@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AutoDraw · 实验室工作台 · XAI Board</title>
+<template id="__bundler_thumbnail" data-bg-color="#f7f8fb">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#f7f8fb"/>
+    <text x="600" y="420" fill="#111827" font-family="Helvetica, Arial, sans-serif" font-size="72" text-anchor="middle" font-weight="600" letter-spacing="-2">AutoDraw</text>
+    <text x="600" y="470" fill="#667085" font-family="Georgia, serif" font-style="italic" font-size="28" text-anchor="middle">text → vector, on the board.</text>
+  </svg>
+</template>
+<style>
+  html, body { margin: 0; padding: 0; background: #f7f8fb; }
+  body {
+    font-family: "PingFang SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    color: #111827;
+  }
+  * { box-sizing: border-box; }
+  a { color: inherit; text-decoration: none; }
+  button { font-family: inherit; cursor: pointer; }
+  ::selection { background: #111827; color: #f7f8fb; }
+
+  /* Paper grid background */
+  .paper {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      linear-gradient(#e4e7ec 1px, transparent 1px),
+      linear-gradient(90deg, #e4e7ec 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.35;
+    mask-image: radial-gradient(ellipse at 50% 20%, black 40%, transparent 85%);
+    -webkit-mask-image: radial-gradient(ellipse at 50% 20%, black 40%, transparent 85%);
+  }
+
+  .anno {
+    font-family: "Songti SC","STSong","Noto Serif CJK SC","Times New Roman",serif;
+    font-style: italic; font-size: 12px; color: #667085; letter-spacing: 0.2px;
+  }
+  .anno.sm { font-size: 11px; }
+  .mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 11px; letter-spacing: 0.3px; }
+
+  /* Top bar */
+  .topbar {
+    position: relative; z-index: 3;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 24px;
+    border-bottom: 1px solid #e4e7ec;
+    background: rgba(247,248,251,0.85);
+    backdrop-filter: blur(8px);
+  }
+  .topbar .left { display: flex; align-items: center; gap: 14px; }
+  .topbar .crumb { display: flex; align-items: center; gap: 10px; color: #4b5563; font-size: 13px; }
+  .topbar .crumb .sep { color: #d0d5dd; }
+  .topbar .crumb .cur { color: #111827; font-weight: 500; }
+
+  .back-btn {
+    height: 30px; padding: 0 12px;
+    border: 1px solid #d0d5dd; border-radius: 999px;
+    background: #ffffff; color: #111827; font-size: 12px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .back-btn:hover { background: #f9fafb; }
+
+  .topbar .right { display: flex; align-items: center; gap: 10px; }
+  .status-dot { width: 6px; height: 6px; border-radius: 999px; background: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.18); }
+  .status-dot.idle { background: #9ca3af; box-shadow: 0 0 0 3px rgba(156,163,175,0.18); }
+  .icon-btn {
+    width: 30px; height: 30px; border-radius: 999px;
+    border: 1px solid #e4e7ec; background: #ffffff;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #667085;
+  }
+  .icon-btn:hover { border-color: #d0d5dd; color: #111827; }
+
+  /* Layout */
+  .workspace {
+    position: relative; z-index: 1;
+    display: grid;
+    grid-template-columns: 300px 1fr 320px;
+    gap: 0;
+    height: calc(100vh - 57px);
+    overflow: hidden;
+  }
+
+  .col { padding: 22px 20px; overflow-y: auto; overflow-x: hidden; }
+  .col.left { border-right: 1px solid #e4e7ec; background: #ffffff; }
+  .col.center { padding: 24px 28px 40px; }
+  .col.right { border-left: 1px solid #e4e7ec; background: #ffffff; }
+
+  /* Scrollbars — subtle */
+  .col::-webkit-scrollbar { width: 8px; }
+  .col::-webkit-scrollbar-thumb { background: #e4e7ec; border-radius: 999px; }
+  .col::-webkit-scrollbar-thumb:hover { background: #d0d5dd; }
+
+  /* Section heading */
+  .sec-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+  .sec-title { font-size: 13px; font-weight: 600; color: #111827; letter-spacing: 0.3px; }
+  .sec-title .italic {
+    font-family: "Songti SC","STSong",serif; font-style: italic; font-weight: 500; color: #667085;
+    margin-left: 6px;
+  }
+
+  /* Left column: input */
+  h1.page-title {
+    margin: 2px 0 8px;
+    font-size: 28px; font-weight: 600; letter-spacing: -0.015em;
+    color: #111827;
+  }
+  h1.page-title .it {
+    font-family: "Songti SC","STSong",serif; font-style: italic; font-weight: 500;
+  }
+  .page-kicker {
+    font-family: "Songti SC","STSong",serif; font-style: italic;
+    font-size: 12px; color: #667085; letter-spacing: 1.5px;
+    text-transform: uppercase; display: inline-block; margin-bottom: 6px;
+  }
+  .page-desc { font-size: 13px; color: #667085; line-height: 1.7; margin: 0 0 20px; }
+
+  .field { margin-bottom: 18px; }
+  .field-label {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .field-label .lbl { font-size: 12px; font-weight: 600; color: #344054; }
+  textarea.method {
+    width: 100%; min-height: 180px;
+    padding: 12px 14px;
+    border: 1px solid #d0d5dd; border-radius: 10px;
+    background: #fafbfd; color: #111827;
+    font-size: 13px; line-height: 1.7; resize: vertical;
+    font-family: "Songti SC","STSong","Noto Serif CJK SC",serif;
+    outline: none;
+  }
+  textarea.method:focus { border-color: #111827; background: #ffffff; }
+
+  .btn-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    height: 36px; padding: 0 16px; border-radius: 999px;
+    font-size: 13px; display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid #d0d5dd; background: #ffffff; color: #111827;
+  }
+  .btn:hover { background: #f9fafb; }
+  .btn.primary { background: #111827; color: #ffffff; border-color: #111827; }
+  .btn.primary:hover { background: #000000; }
+  .btn.ghost { border-color: transparent; background: transparent; color: #667085; }
+  .btn.ghost:hover { color: #111827; }
+
+  /* Resource gallery */
+  .gallery-head { display: flex; align-items: baseline; justify-content: space-between; margin: 28px 0 10px; }
+  .gallery-meta { font-size: 11px; color: #667085; }
+  .gallery-actions { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; }
+  .gallery-actions .mini { font-size: 11px; padding: 0 10px; height: 26px; border-radius: 999px; border: 1px solid #e4e7ec; background: #ffffff; color: #344054; }
+  .gallery-actions .mini:hover { border-color: #d0d5dd; }
+
+  .folder-tab {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 999px;
+    background: #f7f8fb; border: 1px solid #e4e7ec;
+    font-size: 11px; color: #344054;
+    margin-bottom: 10px;
+  }
+  .folder-tab .dot { width: 5px; height: 5px; border-radius: 999px; background: #9ca3af; }
+
+  .gal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .gal-card {
+    aspect-ratio: 1; border: 1px solid #e4e7ec; border-radius: 10px;
+    overflow: hidden; position: relative; background: #fafbfd;
+    cursor: pointer; transition: border-color .2s, transform .2s;
+  }
+  .gal-card:hover { border-color: #111827; transform: translateY(-1px); }
+  .gal-card .thumb { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  .gal-card .lbl {
+    position: absolute; left: 6px; bottom: 6px; right: 6px;
+    font-size: 10px; color: #344054;
+    font-family: "Songti SC","STSong",serif; font-style: italic;
+  }
+  .gal-card.active { border-color: #111827; box-shadow: 0 0 0 2px rgba(17,24,39,0.08); }
+
+  /* Center: header + pipeline */
+  .task-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .task-id {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-size: 13px; color: #344054;
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 24px; padding: 0 10px;
+    border-radius: 999px; font-size: 11px;
+    background: #f7f8fb; border: 1px solid #e4e7ec; color: #344054;
+  }
+  .chip .pulse { width: 5px; height: 5px; border-radius: 999px; background: #2563eb; animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .chip.ok { color: #047857; background: #ecfdf5; border-color: #a7f3d0; }
+  .chip.ok .pulse { background: #10b981; animation: none; }
+
+  .task-id code {
+    font-family: ui-monospace,"SF Mono",Consolas,monospace;
+    font-size: 11px; color: #667085; background: #f7f8fb;
+    padding: 2px 8px; border-radius: 999px; border: 1px solid #e4e7ec;
+  }
+
+  .counts { display: flex; gap: 8px; }
+  .count-card {
+    min-width: 64px; padding: 10px 12px;
+    background: #ffffff; border: 1px solid #e4e7ec; border-radius: 12px;
+    text-align: center;
+  }
+  .count-card .n { font-size: 20px; font-weight: 600; color: #111827; line-height: 1; letter-spacing: -0.02em; }
+  .count-card .l { margin-top: 4px; font-size: 10px; color: #667085; font-family: "Songti SC",serif; font-style: italic; }
+
+  /* Progress */
+  .progress-wrap { margin-bottom: 22px; }
+  .progress-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .progress-head .l { font-size: 12px; color: #667085; }
+  .progress-head .r { font-size: 12px; font-family: ui-monospace,monospace; color: #111827; }
+  .progress-bar {
+    position: relative; height: 6px; border-radius: 999px;
+    background: #e4e7ec; overflow: hidden;
+  }
+  .progress-fill {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: #111827; border-radius: 999px;
+    transition: width .4s cubic-bezier(.4,.2,.2,1);
+  }
+
+  /* Big pipeline */
+  .pipeline-card {
+    position: relative;
+    background: #ffffff; border: 1px solid #e4e7ec; border-radius: 16px;
+    padding: 26px 24px 30px;
+    margin-bottom: 22px;
+  }
+  .pipeline-stages {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 0;
+    position: relative;
+  }
+  .stage { position: relative; padding: 0 6px; text-align: center; }
+  .stage .no {
+    display: inline-block;
+    font-family: "Songti SC","STSong",serif; font-style: italic;
+    font-size: 13px; color: #9ca3af; letter-spacing: 1px;
+  }
+  .stage .thumb-box {
+    margin: 8px auto 0;
+    width: 100%; aspect-ratio: 4/3;
+    border: 1.2px solid #d0d5dd; border-radius: 12px;
+    background: #fafbfd;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; position: relative;
+    transition: border-color .3s, transform .3s;
+  }
+  .stage.active .thumb-box {
+    border-color: #111827; border-width: 1.5px;
+    box-shadow: 0 10px 30px rgba(15,23,42,0.08);
+  }
+  .stage.done .thumb-box { border-color: #111827; background: #ffffff; }
+  .stage.pending .thumb-box { border-style: dashed; opacity: 0.75; }
+
+  .stage .label { margin-top: 10px; font-size: 13px; font-weight: 600; color: #111827; }
+  .stage .sub { margin-top: 3px; font-size: 11px; color: #667085; font-family: "Songti SC",serif; font-style: italic; }
+  .stage .status-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    margin-top: 8px; font-size: 10px;
+    padding: 2px 8px; border-radius: 999px;
+    background: #f7f8fb; border: 1px solid #e4e7ec; color: #667085;
+    font-family: "Songti SC",serif; font-style: italic;
+  }
+  .stage.active .status-chip { background: #fff; border-color: #111827; color: #111827; }
+  .stage.done .status-chip { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+
+  /* Hand-drawn arrows between stages */
+  .stage-arrows {
+    position: absolute; top: 46px; left: 0; right: 0; height: 60px;
+    pointer-events: none;
+  }
+
+  /* Running shimmer on active thumb */
+  .stage.active .thumb-box::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(110deg, transparent 30%, rgba(17,24,39,0.06) 50%, transparent 70%);
+    background-size: 200% 100%;
+    animation: shimmer 1.8s linear infinite;
+  }
+  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+  /* Thumbnails per stage */
+  .th-text {
+    font-family: "Songti SC",serif; font-style: italic; font-size: 9px;
+    color: #344054; line-height: 1.4;
+    padding: 10px 12px; text-align: left;
+    width: 100%; height: 100%;
+    overflow: hidden;
+  }
+  .th-bmp {
+    width: 100%; height: 100%;
+    background:
+      radial-gradient(circle at 30% 35%, rgba(59,130,246,0.35), transparent 40%),
+      radial-gradient(circle at 70% 55%, rgba(244,114,182,0.35), transparent 45%),
+      radial-gradient(circle at 50% 70%, rgba(250,204,21,0.35), transparent 40%),
+      linear-gradient(180deg, #e0e7ff, #fce7f3);
+  }
+  .th-mask {
+    width: 100%; height: 100%; position: relative;
+    background: #fafbfd;
+  }
+  .th-mask svg { width: 100%; height: 100%; }
+  .th-cutout {
+    width: 100%; height: 100%;
+    background-image:
+      linear-gradient(45deg, #e4e7ec 25%, transparent 25%),
+      linear-gradient(-45deg, #e4e7ec 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #e4e7ec 75%),
+      linear-gradient(-45deg, transparent 75%, #e4e7ec 75%);
+    background-size: 10px 10px;
+    background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+    position: relative;
+  }
+  .th-svg {
+    width: 100%; height: 100%; position: relative;
+    background: #ffffff;
+  }
+  .th-board {
+    width: 100%; height: 100%; position: relative;
+    background-image:
+      linear-gradient(#e4e7ec 1px, transparent 1px),
+      linear-gradient(90deg, #e4e7ec 1px, transparent 1px);
+    background-size: 10px 10px;
+  }
+
+  /* Content area: input preview / output */
+  .output-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    margin-bottom: 22px;
+  }
+  .panel {
+    background: #ffffff; border: 1px solid #e4e7ec; border-radius: 14px;
+    padding: 18px 20px;
+  }
+  .panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 10px; margin-bottom: 12px;
+    border-bottom: 1px dashed #e4e7ec;
+  }
+  .panel-head .t { font-size: 13px; font-weight: 600; color: #111827; }
+  .panel-head .t .it { font-family:"Songti SC",serif; font-style:italic; font-weight:500; color:#667085; margin-left:4px; }
+  .panel-head .meta { font-size: 11px; color: #667085; font-family:"Songti SC",serif; font-style:italic; }
+
+  .asset-empty {
+    height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #9ca3af; gap: 8px;
+  }
+  .asset-empty .anno { color: #9ca3af; }
+
+  .asset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .asset-card {
+    aspect-ratio: 1;
+    border: 1px solid #e4e7ec; border-radius: 10px;
+    background: #fafbfd;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+    transition: border-color .2s, transform .2s;
+    cursor: pointer;
+  }
+  .asset-card:hover { border-color: #111827; transform: translateY(-1px); }
+  .asset-card .tag {
+    position: absolute; bottom: 6px; left: 6px;
+    font-size: 10px; font-family: ui-monospace,monospace;
+    color: #344054; background: rgba(255,255,255,0.9);
+    padding: 2px 6px; border-radius: 4px;
+  }
+
+  /* Right column */
+  .log-card, .history-card {
+    background: #ffffff; border: 1px solid #e4e7ec; border-radius: 14px;
+    padding: 16px 16px;
+    margin-bottom: 16px;
+  }
+  .log-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+  .log-tab {
+    font-size: 11px; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid transparent; background: transparent; color: #667085;
+    font-family: "Songti SC",serif; font-style: italic;
+  }
+  .log-tab.active { background: #111827; color: #ffffff; border-color: #111827; font-style: normal; font-family: inherit; }
+
+  .log-feed { max-height: 200px; overflow-y: auto; }
+  .log-line {
+    display: grid; grid-template-columns: 56px 10px 1fr; gap: 8px;
+    padding: 5px 0;
+    font-size: 11px; color: #344054; align-items: baseline;
+  }
+  .log-line .t { font-family: ui-monospace,monospace; color: #9ca3af; font-size: 10px; }
+  .log-line .m {
+    width: 5px; height: 5px; border-radius: 999px; background: #9ca3af;
+    transform: translateY(5px);
+  }
+  .log-line.ok .m { background: #10b981; }
+  .log-line.run .m { background: #2563eb; animation: pulse 1.4s infinite; }
+  .log-line .txt { color: #344054; line-height: 1.55; }
+
+  /* History */
+  .history-item {
+    display: block;
+    padding: 10px 12px; margin: 0 -16px;
+    border-top: 1px solid #f1f3f7;
+    transition: background .15s;
+  }
+  .history-item:hover { background: #fafbfd; }
+  .history-item:first-of-type { border-top: none; }
+  .history-row {
+    display: grid; grid-template-columns: 48px 1fr auto; gap: 12px; align-items: center;
+  }
+  .history-thumb {
+    width: 48px; height: 48px; border-radius: 8px;
+    border: 1px solid #e4e7ec; overflow: hidden;
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+  }
+  .history-meta .id {
+    font-family: ui-monospace,monospace; font-size: 11px; color: #111827;
+    letter-spacing: 0.2px;
+  }
+  .history-meta .date { font-size: 10px; color: #9ca3af; margin-top: 3px; font-family:"Songti SC",serif; font-style:italic; }
+  .history-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .mini-btn {
+    font-size: 10px; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid #e4e7ec; background: #ffffff; color: #344054;
+  }
+  .mini-btn:hover { border-color: #d0d5dd; }
+  .status-pill {
+    font-size: 10px; padding: 2px 8px; border-radius: 999px;
+    background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857;
+  }
+
+  /* Floating note — sketch annotation */
+  .sketch-note {
+    position: absolute; pointer-events: none;
+    color: #667085; opacity: 0.55;
+  }
+  .sketch-note text {
+    font-family: "Songti SC","STSong",serif; font-style: italic; font-size: 11px;
+  }
+
+  /* Back button bar */
+  .back-bar {
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  /* Divider between sections */
+  .divider {
+    height: 1px; background: #e4e7ec;
+    margin: 22px 0 20px;
+    position: relative;
+  }
+  .divider::before {
+    content: attr(data-label);
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    background: #f7f8fb; padding: 0 12px;
+    font-family: "Songti SC",serif; font-style: italic; font-size: 11px; color: #9ca3af;
+    letter-spacing: 1.5px;
+  }
+
+  /* Help chip */
+  .help-chip {
+    position: absolute; top: -10px; right: 20px;
+    background: #f7f8fb; padding: 0 10px;
+    font-size: 10px; color: #9ca3af;
+    font-family: "Songti SC",serif; font-style: italic;
+  }
+
+  /* Lineart placeholder SVG strokes */
+  .lineart {
+    stroke: #344054; fill: none; stroke-width: 1.2;
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+</style>
+</head>
+<body>
+
+<div class="paper"></div>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="left">
+    <button class="back-btn" onclick="history.back()">
+      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M9 3 L5 7 L9 11" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      返回首页
+    </button>
+    <div class="crumb">
+      <span>工具</span><span class="sep">/</span>
+      <span class="cur">AutoDraw · 实验室工作台</span>
+    </div>
+  </div>
+  <div class="right">
+    <span class="chip"><span class="pulse"></span>生成中</span>
+    <span class="anno">已连接 · gpu-node-02</span>
+    <button class="icon-btn" title="快捷键">
+      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M5 5 C 5 3, 9 3, 9 5 C 9 7, 7 6, 7 8 M7 10.5 L7 10.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+    </button>
+    <button class="icon-btn" title="设置">
+      <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7 2 L7 3 M7 11 L7 12 M2 7 L3 7 M11 7 L12 7 M3.5 3.5 L4.2 4.2 M9.8 9.8 L10.5 10.5 M3.5 10.5 L4.2 9.8 M9.8 4.2 L10.5 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- Workspace -->
+<div class="workspace">
+
+  <!-- LEFT: Input + Gallery -->
+  <aside class="col left">
+    <div class="page-kicker">AUTODRAW · 01</div>
+    <h1 class="page-title">实验室<span class="it">工作台</span></h1>
+    <p class="page-desc">
+      输入方法描述文本，上传参考风格图片。Autodraw 将调用后端生成图示，成功后自动导入画板。
+    </p>
+
+    <div class="sec-head">
+      <div class="sec-title">基础信息 <span class="italic">· input</span></div>
+      <span class="anno sm" id="char-count">999 chars</span>
+    </div>
+
+    <div class="field">
+      <div class="field-label">
+        <span class="lbl">方法描述</span>
+        <span class="anno sm">Ctrl+Enter 提交</span>
+      </div>
+      <textarea class="method" id="method" oninput="updateCount()">可视化通过丰富的可视编码和交互设计，将复杂数据和信息直观化为易于理解的形式。从医疗宣教到用户行为数据的研究与分析。尽管这些技术在人文医学中广泛应用，它们广泛的图形本质以及直观的访问形式，使得了轨迹对所表征和处理能力，进而弱化了可视化的结构任务，例如自动化生成、可视化查询和评估等。</textarea>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn primary" onclick="startRun()">
+        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1 L9 5 L2 9 Z" fill="currentColor"/></svg>
+        开始生成
+      </button>
+      <button class="btn">继续执行</button>
+      <button class="btn ghost">临时收起</button>
+    </div>
+    <div style="margin-top:10px;"><span class="anno sm">关闭</span></div>
+
+    <div class="divider" data-label="风格参考"></div>
+
+    <div class="sec-head">
+      <div class="sec-title">资源文件 <span class="italic">· style refs</span></div>
+      <span class="anno sm">手绘</span>
+    </div>
+    <div style="font-size:12px; color:#667085; margin-bottom:8px;">参考图库</div>
+    <div class="folder-tab"><span class="dot"></span>已选图库 · gallery</div>
+    <div class="gallery-actions">
+      <button class="mini">选择图库文件夹</button>
+      <button class="mini">刷新图库</button>
+      <button class="mini">新开图库</button>
+    </div>
+
+    <div class="gal-grid">
+      <div class="gal-card active">
+        <div class="thumb" style="background: linear-gradient(135deg,#f3f4f6,#e0e7ff);">
+          <svg width="70%" height="70%" viewBox="0 0 80 60">
+            <g class="lineart">
+              <rect x="8" y="10" width="20" height="14" rx="2"/>
+              <rect x="38" y="22" width="24" height="16" rx="2"/>
+              <path d="M28 17 L38 30"/>
+              <circle cx="20" cy="44" r="6"/>
+              <path d="M50 12 L58 20 L54 26"/>
+            </g>
+          </svg>
+        </div>
+        <div class="lbl">Magnetic Fields</div>
+      </div>
+      <div class="gal-card">
+        <div class="thumb" style="background: linear-gradient(135deg,#fef3c7,#fde68a);">
+          <svg width="70%" height="70%" viewBox="0 0 80 60">
+            <g class="lineart">
+              <path d="M10 30 C 20 10, 40 50, 50 30 S 70 10, 75 20"/>
+              <circle cx="15" cy="45" r="3"/>
+              <circle cx="40" cy="40" r="3"/>
+              <circle cx="65" cy="35" r="3"/>
+            </g>
+          </svg>
+        </div>
+        <div class="lbl">手绘</div>
+      </div>
+      <div class="gal-card">
+        <div class="thumb" style="background: linear-gradient(135deg,#fce7f3,#fbcfe8);">
+          <svg width="70%" height="70%" viewBox="0 0 80 60">
+            <g class="lineart">
+              <circle cx="40" cy="30" r="14"/>
+              <path d="M40 16 L40 44 M26 30 L54 30"/>
+              <path d="M30 22 L50 38 M50 22 L30 38"/>
+            </g>
+          </svg>
+        </div>
+        <div class="lbl">轴向对称</div>
+      </div>
+      <div class="gal-card">
+        <div class="thumb" style="background: linear-gradient(135deg,#dbeafe,#bfdbfe);">
+          <svg width="70%" height="70%" viewBox="0 0 80 60">
+            <g class="lineart">
+              <rect x="10" y="12" width="14" height="36" rx="1"/>
+              <rect x="28" y="20" width="14" height="28" rx="1"/>
+              <rect x="46" y="8" width="14" height="40" rx="1"/>
+              <rect x="64" y="26" width="10" height="22" rx="1"/>
+            </g>
+          </svg>
+        </div>
+        <div class="lbl">柱状图</div>
+      </div>
+      <div class="gal-card">
+        <div class="thumb" style="background: linear-gradient(135deg,#f0fdf4,#bbf7d0);">
+          <svg width="70%" height="70%" viewBox="0 0 80 60">
+            <g class="lineart">
+              <path d="M10 50 L 25 30 L 40 40 L 55 15 L 70 25"/>
+              <circle cx="25" cy="30" r="2"/>
+              <circle cx="40" cy="40" r="2"/>
+              <circle cx="55" cy="15" r="2"/>
+              <circle cx="70" cy="25" r="2"/>
+            </g>
+          </svg>
+        </div>
+        <div class="lbl">折线趋势</div>
+      </div>
+      <div class="gal-card">
+        <div class="thumb" style="background: linear-gradient(135deg,#f5f3ff,#ddd6fe);">
+          <svg width="70%" height="70%" viewBox="0 0 80 60">
+            <g class="lineart">
+              <circle cx="40" cy="30" r="16"/>
+              <path d="M40 30 L 40 14 M40 30 L 56 30 M40 30 L 28 42"/>
+            </g>
+          </svg>
+        </div>
+        <div class="lbl">饼图 / 环</div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
+      <span class="anno sm">共 24 张参考图</span>
+      <button class="btn ghost" style="height:26px; padding:0 10px; font-size:11px;">查看全部 →</button>
+    </div>
+  </aside>
+
+  <!-- CENTER: Pipeline -->
+  <main class="col center">
+
+    <div class="task-head">
+      <div class="task-id">
+        <span class="chip"><span class="pulse"></span>生成中</span>
+        <span style="font-weight:600; color:#111827;">实验室工作台</span>
+        <code>ID: 20260416_125215_adb3238b</code>
+      </div>
+      <div class="counts">
+        <div class="count-card"><div class="n">12</div><div class="l">文本 · text</div></div>
+        <div class="count-card"><div class="n">3</div><div class="l">粘头 · seed</div></div>
+        <div class="count-card"><div class="n">9</div><div class="l">组件 · parts</div></div>
+      </div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-head">
+        <span class="l">生成预估进度 <span class="anno sm" style="margin-left:6px;">· eta 1m 42s</span></span>
+        <span class="r" id="pct">42%</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="bar" style="width:42%"></div></div>
+    </div>
+
+    <!-- BIG PIPELINE -->
+    <div class="pipeline-card">
+      <span class="help-chip">// 每一步都可以回看 / 重跑</span>
+
+      <div class="sec-head" style="margin-bottom:18px;">
+        <div class="sec-title">Pipeline <span class="italic">· 文本 → 矢量</span></div>
+        <span class="anno sm" id="stage-caption">当前 · 解析结构（SAM3 分割中）</span>
+      </div>
+
+      <div class="pipeline-stages">
+
+        <!-- Stage 1: done -->
+        <div class="stage done">
+          <div class="no">01</div>
+          <div class="thumb-box">
+            <div class="th-text">
+              "可视化通过丰富的可视编码和交互设计，将复杂数据和信息直观化为易于理解的形式…"
+            </div>
+          </div>
+          <div class="label">生成原始图</div>
+          <div class="sub">扩散模型 · FLUX</div>
+          <div class="status-chip">✓ 2.3s</div>
+        </div>
+
+        <!-- Stage 2: done -->
+        <div class="stage done">
+          <div class="no">02</div>
+          <div class="thumb-box"><div class="th-bmp"></div></div>
+          <div class="label">原始位图</div>
+          <div class="sub">1024 × 1024 · PNG</div>
+          <div class="status-chip">✓ 18.1s</div>
+        </div>
+
+        <!-- Stage 3: active -->
+        <div class="stage active">
+          <div class="no">03</div>
+          <div class="thumb-box">
+            <div class="th-mask">
+              <svg viewBox="0 0 120 90" preserveAspectRatio="xMidYMid meet">
+                <defs>
+                  <pattern id="hatch" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                    <line x1="0" y1="0" x2="0" y2="4" stroke="#9ca3af" stroke-width="0.5"/>
+                  </pattern>
+                </defs>
+                <path d="M15 20 Q 30 8, 48 16 T 72 28 L 66 42 Q 50 50, 32 40 Z" fill="url(#hatch)" stroke="#111827" stroke-width="0.8" stroke-dasharray="2 2"/>
+                <path d="M60 48 Q 78 42, 92 52 T 105 72 L 88 78 Q 70 72, 58 62 Z" fill="rgba(244,114,182,0.3)" stroke="#111827" stroke-width="0.8" stroke-dasharray="2 2"/>
+                <circle cx="30" cy="68" r="10" fill="rgba(59,130,246,0.25)" stroke="#111827" stroke-width="0.8" stroke-dasharray="2 2"/>
+              </svg>
+            </div>
+          </div>
+          <div class="label">解析结构</div>
+          <div class="sub">SAM3 · 实例掩码</div>
+          <div class="status-chip">running…</div>
+        </div>
+
+        <!-- Stage 4: pending -->
+        <div class="stage pending">
+          <div class="no">04</div>
+          <div class="thumb-box"><div class="th-cutout"></div></div>
+          <div class="label">去除背景</div>
+          <div class="sub">alpha 抠图</div>
+          <div class="status-chip">待开始</div>
+        </div>
+
+        <!-- Stage 5: pending -->
+        <div class="stage pending">
+          <div class="no">05</div>
+          <div class="thumb-box">
+            <div class="th-svg">
+              <svg viewBox="0 0 120 90" preserveAspectRatio="xMidYMid meet" style="opacity:0.35;">
+                <g fill="none" stroke="#9ca3af" stroke-width="1" stroke-linecap="round">
+                  <path d="M20 25 L40 20 L55 35" stroke-dasharray="2 3"/>
+                  <path d="M60 50 Q 75 40, 90 55" stroke-dasharray="2 3"/>
+                  <circle cx="35" cy="65" r="8" stroke-dasharray="2 3"/>
+                </g>
+              </svg>
+            </div>
+          </div>
+          <div class="label">重建 SVG</div>
+          <div class="sub">矢量化 · paths</div>
+          <div class="status-chip">待开始</div>
+        </div>
+
+      </div>
+
+      <!-- Hand-drawn arrows between stages -->
+      <svg class="stage-arrows" viewBox="0 0 1000 60" preserveAspectRatio="none">
+        <g fill="none" stroke="#d0d5dd" stroke-width="1.1" stroke-linecap="round" opacity="0.7">
+          <!-- 1→2 -->
+          <path d="M180 30 C 195 22, 210 38, 220 30 M215 26 L222 30 L215 34"/>
+          <!-- 2→3 -->
+          <path d="M380 30 C 395 22, 410 38, 420 30 M415 26 L422 30 L415 34"/>
+          <!-- 3→4 -->
+          <path d="M580 30 C 595 22, 610 38, 620 30 M615 26 L622 30 L615 34" stroke-dasharray="3 3"/>
+          <!-- 4→5 -->
+          <path d="M780 30 C 795 22, 810 38, 820 30 M815 26 L822 30 L815 34" stroke-dasharray="3 3"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Input / Output panels -->
+    <div class="output-grid">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="t">落板预览 <span class="it">· canvas preview</span></div>
+          <div class="meta">生成到第 03 步</div>
+        </div>
+        <div style="position:relative; height:200px; border:1px dashed #d0d5dd; border-radius:10px; background:#fafbfd; overflow:hidden;">
+          <!-- grid -->
+          <div style="position:absolute;inset:0;background-image:linear-gradient(#eef0f4 1px,transparent 1px),linear-gradient(90deg,#eef0f4 1px,transparent 1px);background-size:16px 16px;opacity:0.6;"></div>
+          <svg viewBox="0 0 300 200" style="position:relative; width:100%; height:100%;">
+            <g fill="none" stroke="#111827" stroke-width="1.2" stroke-linecap="round">
+              <rect x="30" y="40" width="70" height="40" rx="4" stroke-dasharray="3 3"/>
+              <rect x="130" y="60" width="80" height="50" rx="4" stroke-dasharray="3 3"/>
+              <circle cx="230" cy="55" r="18" stroke-dasharray="3 3"/>
+              <path d="M100 60 C 115 55, 120 72, 130 75 M125 70 L132 75 L126 80" opacity="0.7"/>
+              <path d="M210 85 C 220 82, 215 95, 225 100 M220 95 L226 100 L220 104" opacity="0.7"/>
+            </g>
+            <text x="30" y="140" font-family="Songti SC,serif" font-style="italic" font-size="10" fill="#667085">
+              placing fragments · 3 / 9
+            </text>
+          </svg>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+          <span class="anno sm">自动导入画板 · 完成后跳转</span>
+          <button class="mini-btn">打开画板 →</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div class="t">资产室 <span class="it">· asset room</span></div>
+          <div class="meta">0 / 9 完成</div>
+        </div>
+        <div class="asset-grid">
+          <div class="asset-card">
+            <svg width="60%" height="60%" viewBox="0 0 40 40"><g class="lineart"><rect x="6" y="10" width="28" height="20" rx="2"/></g></svg>
+            <span class="tag">board_01</span>
+          </div>
+          <div class="asset-card">
+            <svg width="60%" height="60%" viewBox="0 0 40 40"><g class="lineart"><circle cx="20" cy="20" r="12"/><path d="M14 20 L20 26 L28 14"/></g></svg>
+            <span class="tag">icon_02</span>
+          </div>
+          <div class="asset-card">
+            <svg width="60%" height="60%" viewBox="0 0 40 40"><g class="lineart"><path d="M6 30 L14 14 L22 22 L32 10"/><circle cx="14" cy="14" r="1.5"/><circle cx="22" cy="22" r="1.5"/><circle cx="32" cy="10" r="1.5"/></g></svg>
+            <span class="tag">chart_03</span>
+          </div>
+          <div class="asset-card" style="opacity:0.5;">
+            <span class="anno sm">待生成</span>
+          </div>
+          <div class="asset-card" style="opacity:0.5;">
+            <span class="anno sm">待生成</span>
+          </div>
+          <div class="asset-card" style="opacity:0.5;">
+            <span class="anno sm">待生成</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- RIGHT: Logs + History -->
+  <aside class="col right">
+
+    <div class="log-card">
+      <div class="sec-head" style="margin-bottom:12px;">
+        <div class="sec-title">过程活动 <span class="italic">· activity</span></div>
+        <button class="btn ghost" style="height:24px; padding:0 8px; font-size:11px;">清除日志</button>
+      </div>
+      <div class="log-tabs">
+        <button class="log-tab active">时间线</button>
+        <button class="log-tab">原始日志</button>
+      </div>
+      <div class="log-feed">
+        <div class="log-line ok">
+          <span class="t">12:52:15</span><span class="m"></span>
+          <span class="txt">已接收请求 · 方法描述 262 chars</span>
+        </div>
+        <div class="log-line ok">
+          <span class="t">12:52:17</span><span class="m"></span>
+          <span class="txt">prompt 已构建 · 风格参考: Magnetic Fields</span>
+        </div>
+        <div class="log-line ok">
+          <span class="t">12:52:19</span><span class="m"></span>
+          <span class="txt">扩散模型调用成功 · seed=0x3a12</span>
+        </div>
+        <div class="log-line ok">
+          <span class="t">12:52:37</span><span class="m"></span>
+          <span class="txt">原始位图生成 · 1024×1024</span>
+        </div>
+        <div class="log-line run">
+          <span class="t">12:52:38</span><span class="m"></span>
+          <span class="txt">SAM3 分割中 · 已检出 9 个候选区 ……</span>
+        </div>
+        <div class="log-line">
+          <span class="t">—</span><span class="m"></span>
+          <span class="txt" style="color:#9ca3af;">去背景 · 待开始</span>
+        </div>
+        <div class="log-line">
+          <span class="t">—</span><span class="m"></span>
+          <span class="txt" style="color:#9ca3af;">重建 SVG · 待开始</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="history-card">
+      <div class="sec-head" style="margin-bottom:4px;">
+        <div class="sec-title">历史记录 <span class="italic">· runs</span></div>
+        <button class="btn ghost" style="height:24px; padding:0 8px; font-size:11px;">清空历史</button>
+      </div>
+      <div class="anno sm" style="display:block; margin-bottom:8px;">最近 12 条 · 全部已完成</div>
+
+      <div class="history-item">
+        <div class="history-row">
+          <div class="history-thumb">
+            <svg viewBox="0 0 48 48" width="100%" height="100%">
+              <g class="lineart" stroke-width="1.1">
+                <rect x="6" y="10" width="14" height="10" rx="1"/>
+                <rect x="28" y="10" width="14" height="10" rx="1"/>
+                <rect x="17" y="28" width="14" height="10" rx="1"/>
+                <path d="M13 20 L 13 28 M35 20 L 35 28 M24 28 L 24 22"/>
+              </g>
+            </svg>
+          </div>
+          <div class="history-meta">
+            <div class="id">20260420_034028_a0fb0f33</div>
+            <div class="date">2026/4/20 03:40:28</div>
+            <div style="margin-top:5px;"><span class="status-pill">已完成</span></div>
+          </div>
+          <div class="history-actions">
+            <button class="mini-btn">查看流程</button>
+            <button class="mini-btn">复制 ID</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="history-item">
+        <div class="history-row">
+          <div class="history-thumb" style="background: linear-gradient(135deg,#dbeafe,#bfdbfe);">
+            <svg viewBox="0 0 48 48" width="100%" height="100%">
+              <g class="lineart" stroke-width="1.1">
+                <path d="M6 40 L 14 24 L 22 32 L 30 14 L 42 22"/>
+                <circle cx="14" cy="24" r="1.5"/><circle cx="22" cy="32" r="1.5"/>
+                <circle cx="30" cy="14" r="1.5"/><circle cx="42" cy="22" r="1.5"/>
+              </g>
+            </svg>
+          </div>
+          <div class="history-meta">
+            <div class="id">20260419_175141_82c68205</div>
+            <div class="date">2026/4/19 17:51:41</div>
+            <div style="margin-top:5px;"><span class="status-pill">已完成</span></div>
+          </div>
+          <div class="history-actions">
+            <button class="mini-btn">查看流程</button>
+            <button class="mini-btn">复制 ID</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="history-item">
+        <div class="history-row">
+          <div class="history-thumb" style="background: linear-gradient(135deg,#fce7f3,#fbcfe8);">
+            <svg viewBox="0 0 48 48" width="100%" height="100%">
+              <g class="lineart" stroke-width="1.1">
+                <circle cx="24" cy="24" r="14"/>
+                <path d="M24 24 L 24 10 M24 24 L 38 24 M24 24 L 14 34"/>
+              </g>
+            </svg>
+          </div>
+          <div class="history-meta">
+            <div class="id">20260419_101422_f29ab3c4</div>
+            <div class="date">2026/4/19 10:14:22</div>
+            <div style="margin-top:5px;"><span class="status-pill">已完成</span></div>
+          </div>
+          <div class="history-actions">
+            <button class="mini-btn">查看流程</button>
+            <button class="mini-btn">复制 ID</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="history-item">
+        <div class="history-row">
+          <div class="history-thumb" style="background: linear-gradient(135deg,#f5f3ff,#ddd6fe);">
+            <svg viewBox="0 0 48 48" width="100%" height="100%">
+              <g class="lineart" stroke-width="1.1">
+                <path d="M10 36 C 20 16, 30 44, 40 20"/>
+                <path d="M10 36 L 40 36" stroke-dasharray="2 2"/>
+              </g>
+            </svg>
+          </div>
+          <div class="history-meta">
+            <div class="id">20260418_224409_71dc0a12</div>
+            <div class="date">2026/4/18 22:44:09</div>
+            <div style="margin-top:5px;"><span class="status-pill">已完成</span></div>
+          </div>
+          <div class="history-actions">
+            <button class="mini-btn">查看流程</button>
+            <button class="mini-btn">复制 ID</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </aside>
+
+</div>
+
+<script>
+  // Character counter
+  function updateCount() {
+    const el = document.getElementById('method');
+    const n = [...el.value].length;
+    document.getElementById('char-count').textContent = n + ' chars';
+  }
+  updateCount();
+
+  // Animated progress
+  let pct = 42;
+  setInterval(() => {
+    pct = Math.min(96, pct + (Math.random() * 0.6 - 0.1));
+    document.getElementById('bar').style.width = pct.toFixed(1) + '%';
+    document.getElementById('pct').textContent = Math.round(pct) + '%';
+  }, 500);
+
+  function startRun() {
+    pct = 0;
+  }
+
+  // Ctrl+Enter to submit
+  document.getElementById('method').addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') startRun();
+  });
+</script>
+
+</body>
+</html>

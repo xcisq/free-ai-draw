@@ -1,0 +1,23 @@
+# AutoDraw API-only runtime requirements
+# Scope:
+# - FastAPI backend
+# - Remote LLM / remote image API calls
+# - Remote SAM / Roboflow style HTTP integrations
+# - Basic image handling and scene validation
+#
+# Not included:
+# - torch / torchvision / transformers
+# - timm / kornia / other local inference stacks
+
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.24,<1.0
+pydantic>=2.6,<3.0
+python-multipart>=0.0.9,<1.0
+jsonschema>=4.22,<5.0
+
+requests>=2.31,<3.0
+openai>=1.0,<2.0
+google-genai>=1.0,<2.0
+inference-sdk>=0.37
+
+Pillow>=10.0,<12.0

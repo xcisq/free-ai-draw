@@ -192,7 +192,7 @@ const enTranslations: Translations = {
   'dialog.autodraw.assetHint':
     'Generated figures, icons, and SVGs appear here as they are produced. Click any visual asset to enlarge it.',
   'dialog.autodraw.assetHintLive':
-    'Only previewable visual assets are shown here, and the shelf updates live with pipeline progress.',
+    'Only component `_nobg` icon assets are shown here, and the shelf updates live with pipeline progress.',
   'dialog.autodraw.noAssets':
     'Assets will appear here once the pipeline starts producing them.',
   'dialog.autodraw.openPreview': 'Open Preview',

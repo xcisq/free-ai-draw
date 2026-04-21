@@ -2,7 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { PlaitBoard } from '@plait/core';
 import { setTextFontFamily } from '../../../transforms/property';
 import { Select } from '../../select/select';
+import { ChevronDownIcon } from '../../icons';
 import {
+  getPrimaryFontFamilyName,
   getConfiguredFontFamilyOptions,
   resolveFontFamilyOption,
 } from '../../../constants/font';
@@ -35,7 +37,6 @@ export const PopupFontFamilyControl: React.FC<PopupFontFamilyControlProps> = ({
       value={currentValue}
       onValueChange={(value) => {
         setTextFontFamily(board, value);
-        setOpen(false);
       }}
       placement={'top-start'}
       sideOffset={12}
@@ -60,9 +61,13 @@ export const PopupFontFamilyControl: React.FC<PopupFontFamilyControlProps> = ({
           >
             {currentLabel}
           </span>
+          <span className="popup-font-family__icon" aria-hidden="true">
+            {ChevronDownIcon}
+          </span>
         </button>
       </Select.Trigger>
       <Select.Content
+        className="popup-font-family-menu"
         container={container}
         style={{ minWidth: '11rem' }}
         onPointerDown={(event) => {
@@ -78,12 +83,25 @@ export const PopupFontFamilyControl: React.FC<PopupFontFamilyControlProps> = ({
             key={option.value}
             value={option.value}
             textValue={option.label}
-            onPointerUp={() => {
-              setTextFontFamily(board, option.value);
-              setOpen(false);
-            }}
+            className="popup-font-family-option"
           >
-            <span style={{ fontFamily: option.value }}>{option.label}</span>
+            <span className="popup-font-family-option__content">
+              <span className="popup-font-family-option__meta">
+                <span className="popup-font-family-option__name">
+                  {option.label}
+                </span>
+                <span className="popup-font-family-option__family">
+                  {getPrimaryFontFamilyName(option.value)}
+                </span>
+              </span>
+              <span
+                className="popup-font-family-option__preview"
+                style={{ fontFamily: option.value }}
+                aria-hidden="true"
+              >
+                Ag
+              </span>
+            </span>
           </Select.Item>
         ))}
       </Select.Content>

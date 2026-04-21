@@ -428,6 +428,47 @@ const getFontFamilyFromMarks = (marks?: Omit<CustomText, 'text'>) => {
   return typeof value === 'string' && value.trim() ? value : undefined;
 };
 
+const getFontFamilyFromTextLeaf = (value: unknown): string | undefined => {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  const record = value as Record<string, unknown>;
+  const leafValue = record['fontFamily'] ?? record['font-family'];
+  if (typeof leafValue === 'string' && leafValue.trim()) {
+    return leafValue;
+  }
+  if (Array.isArray(record['children'])) {
+    for (const child of record['children'] as unknown[]) {
+      const nested = getFontFamilyFromTextLeaf(child);
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+  return undefined;
+};
+
+const getFontFamilyFromElement = (element: unknown) => {
+  if (!element || typeof element !== 'object') {
+    return undefined;
+  }
+  const record = element as Record<string, unknown>;
+  const textStyle = record['textStyle'] as Record<string, unknown> | undefined;
+  const textProperties = record['textProperties'] as
+    | Record<string, unknown>
+    | undefined;
+  const styleValue = textStyle?.fontFamily ?? textStyle?.['font-family'];
+  if (typeof styleValue === 'string' && styleValue.trim()) {
+    return styleValue;
+  }
+  const propertyValue =
+    textProperties?.fontFamily ?? textProperties?.['font-family'];
+  if (typeof propertyValue === 'string' && propertyValue.trim()) {
+    return propertyValue;
+  }
+  return getFontFamilyFromTextLeaf(record['text']);
+};
+
 const getCurrentFontFamily = (
   board: PlaitBoard,
   marks?: Omit<CustomText, 'text'>
@@ -437,6 +478,10 @@ const getCurrentFontFamily = (
     return fromMarks;
   }
   const selectedElement = getSelectedElements(board)[0] as any;
+  const fromElement = getFontFamilyFromElement(selectedElement);
+  if (fromElement) {
+    return fromElement;
+  }
   const metadata = selectedElement?.sceneImportMetadata;
   if (isTextFragmentMetadata(metadata)) {
     return metadata.style?.fontFamily;

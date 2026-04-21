@@ -80,11 +80,30 @@ from typing import Optional, List, Dict, Any, Literal
 from urllib.parse import urlparse
 
 import requests
-import numpy as np
-import torch
 from PIL import Image, ImageDraw, ImageFont
-from torchvision import transforms
-from transformers import AutoModelForImageSegmentation
+try:
+    import torch
+    from torchvision import transforms
+    from transformers import AutoModelForImageSegmentation
+except ModuleNotFoundError:
+    torch = None
+    transforms = None
+    AutoModelForImageSegmentation = None
+
+
+def _require_local_ml_stack(feature_name: str) -> None:
+    missing = []
+    if torch is None:
+        missing.append("torch")
+    if transforms is None:
+        missing.append("torchvision")
+    if AutoModelForImageSegmentation is None:
+        missing.append("transformers")
+    if missing:
+        raise RuntimeError(
+            f"{feature_name} 需要本地推理依赖: {', '.join(missing)}。"
+            "当前 requirements.txt 已按纯 API 模式精简，如需本地模型能力请单独安装这些包。"
+        )
 
 
 def _load_local_env() -> None:
@@ -2336,6 +2355,7 @@ def segment_with_sam3(
     handled_backend = False
 
     if backend == "local":
+        _require_local_ml_stack("SAM3 本地分割")
         try:
             from sam3.model_builder import build_sam3_image_model
             from sam3.model.sam3_image_processor import Sam3Processor
@@ -2608,6 +2628,7 @@ class BriaRMBG2Remover:
     """使用 BRIA-RMBG 2.0 模型进行高质量背景抠图"""
 
     def __init__(self, model_path: Path | str | None = None, output_dir: Path | str | None = None):
+        _require_local_ml_stack("RMBG 本地去背景")
         self.model_path = Path(model_path) if model_path else None
         self.output_dir = Path(output_dir) if output_dir else Path("./output/icons")
         self.output_dir.mkdir(parents=True, exist_ok=True)

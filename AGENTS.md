@@ -65,6 +65,31 @@ Install dependencies with `npm install`. Start the local app with `npm run start
 
 Current PaperDraw work is local-first. Prefer `apps/web/.env.local` for model configuration, and do not plan production deployment, hosted secrets, or online feature gating unless explicitly requested.
 
+## System UI Style Guide
+
+当前系统级 UI 已确定为统一的“学术编辑台 / paper workbench”风格。涉及 `AutoDraw`、`Auto-Mermaid`、图片编辑等工作台时，默认遵守下面约定，除非用户明确要求另起一套视觉语言。
+
+- 整体基调：
+  浅色纸面背景，主背景接近 `#f7f8fb`，前景卡片为白色，依靠细边框、背景层次和少量阴影建立结构，不使用厚重渐变或强玻璃质感。
+- 纹理与空间：
+  工作台允许使用低对比网格纸背景，透明度保持克制；主内容区以大留白、规则分栏、卡片式信息分组为主，不堆叠杂乱装饰。
+- 字体系统：
+  正文与交互使用 `PingFang SC / Hiragino Sans GB / Microsoft YaHei / Helvetica Neue / Arial`；标题中的强调片段、kicker、hint、注释、状态辅助文案优先使用 `Songti SC / STSong / Noto Serif CJK SC / Times New Roman` 的斜体表达。
+- 工作台骨架：
+  优先使用 `topbar + breadcrumb + status chip + close button + page kicker + title + desc + multi-column workspace` 的结构。新工作台应先解决“定位、状态、操作”三件事，再展开细节。
+- Surface 规则：
+  卡片背景统一为白色或极浅灰白，边框使用 `#e4e7ec / #d0d5dd` 这一档；圆角优先使用 `10 / 12 / 16 / pill` 四档，不混用多套半径体系。
+- 控件规则：
+  输入框、下拉框、文本域默认浅底细边框，focus 时以深墨色边框或轻量 focus ring 强调；按钮和胶囊控件统一支持 `:active { transform: scale(0.96) }`。
+- 色彩规则：
+  主文字保持深墨色 `#111827` 一档，辅助文字使用 `#667085 / #344054`；状态色只用于结果反馈，如蓝色表示进行中、绿色表示成功、红色表示失败，不让状态色主导整个页面。
+- 内容语气：
+  页面标题和主要交互文案保持明确、直接、偏工具化；说明文字简洁，hint 与注释可带轻微“编辑台”气质，但不要写成营销文案。
+- 禁止项：
+  不要回到默认紫蓝 AI 渐变大按钮风格；不要在同一工作台里混入多套阴影、圆角、表单语言；不要为了“科技感”加入高饱和装饰光效。
+- 响应式：
+  桌面端优先保证工作台分栏清晰；窄屏时允许折叠为单栏，但必须保留 topbar、状态、主操作按钮和主要内容顺序，不得出现按钮漂移或信息断层。
+
 ## Coding Style & Naming Conventions
 
 Use TypeScript, React, and SCSS following the existing Nx layout. `.editorconfig` enforces 2-space indentation, UTF-8, and final newlines; `.prettierrc` uses single quotes. Keep React components and exported types in `PascalCase`, hooks in `camelCase` with a `use-` prefix, and file names mostly in kebab-case such as `paperdraw-dialog.tsx` or `with-hotkey.ts`. Place styles close to components when possible, for example `component.tsx` with `component.scss`.

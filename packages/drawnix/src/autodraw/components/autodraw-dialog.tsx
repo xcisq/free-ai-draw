@@ -3182,32 +3182,30 @@ const AutodrawDialog = () => {
                       </div>
                     )}
 
-                    {(hasImportedPreview || isJobBusy) && (
-                      <div className="autodraw-output-canvas__assembly">
-                        {Array.from(
-                          { length: batchPreviewCount },
-                          (_, index) => {
-                            const complete =
-                              assemblyProgress.totalBatches > 0
-                                ? index < assemblyProgress.completedBatches
-                                : index < batchPreviewCount;
-                            return (
-                              <span
-                                key={`assembly-${index}`}
-                                className={classNames(
-                                  'autodraw-output-canvas__brick',
-                                  {
-                                    'autodraw-output-canvas__brick--complete':
-                                      complete,
-                                  }
-                                )}
-                              />
-                            );
-                          }
-                        )}
-                      </div>
-                    )}
                   </div>
+
+                  {(hasImportedPreview || isJobBusy) && (
+                    <div className="autodraw-output-assembly">
+                      {Array.from({ length: batchPreviewCount }, (_, index) => {
+                        const complete =
+                          assemblyProgress.totalBatches > 0
+                            ? index < assemblyProgress.completedBatches
+                            : index < batchPreviewCount;
+                        return (
+                          <span
+                            key={`assembly-${index}`}
+                            className={classNames(
+                              'autodraw-output-assembly__brick',
+                              {
+                                'autodraw-output-assembly__brick--complete':
+                                  complete,
+                              }
+                            )}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
 
                   <div className="autodraw-panel-foot">
                     <span className="autodraw-anno autodraw-anno--small">

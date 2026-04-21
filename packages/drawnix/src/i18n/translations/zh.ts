@@ -188,7 +188,7 @@ const zhTranslations: Translations = {
   'dialog.autodraw.assetHint':
     '生成中的图片、图标和 SVG 会在这里逐步亮起，可点击放大预览。',
   'dialog.autodraw.assetHintLive':
-    '这里只展示可预览视觉资产，并会随着任务推进实时刷新。',
+    '这里只展示组件的 `_nobg` 图标资产，并会随着任务推进实时刷新。',
   'dialog.autodraw.noAssets': '生成资产后会在这里出现。',
   'dialog.autodraw.openPreview': '打开预览',
   'dialog.autodraw.timeline': '时间线',

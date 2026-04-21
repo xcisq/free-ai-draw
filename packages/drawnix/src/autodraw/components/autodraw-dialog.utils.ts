@@ -69,32 +69,15 @@ type AutodrawSpotlightOptions = {
 
 const AUTODRAW_ASSET_STAGE_PLACEHOLDERS = [
   {
-    id: 'placeholder:figure',
-    stageIndex: 0,
-    kind: 'figure',
-    title: 'figure.png',
-  },
-  {
-    id: 'placeholder:samed',
-    stageIndex: 1,
-    kind: 'samed',
-    title: 'samed.png',
-  },
-  {
     id: 'placeholder:icons',
     stageIndex: 2,
     kind: 'icon',
-    title: 'icons/*',
-  },
-  {
-    id: 'placeholder:final',
-    stageIndex: 3,
-    kind: 'final_svg',
-    title: 'final.svg',
+    title: 'icons/*_nobg.png',
   },
 ] as const;
 
 const VISUAL_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.svg'];
+const NOBG_ICON_PATTERN = /_nobg\.[^.]+$/i;
 const LOG_STEP_PATTERNS: Array<{
   step: number;
   patterns: RegExp[];
@@ -297,14 +280,63 @@ export const getAutodrawVisibleAssetItems = (assets: AutodrawAssetItem[]) => {
   );
 };
 
+const isNobgIconAsset = (asset: AutodrawAssetItem) => {
+  return asset.kind === 'icon' && NOBG_ICON_PATTERN.test(asset.path);
+};
+
+const getAutodrawAssetShelfDedupKey = (asset: AutodrawAssetItem) => {
+  return asset.path.toLowerCase().replace(/_nobg(?=\.[^.]+$)/i, '');
+};
+
+export const getAutodrawAssetShelfAssets = (assets: AutodrawAssetItem[]) => {
+  const iconAssets = getAutodrawVisibleAssetItems(assets).filter(
+    (asset) => asset.kind === 'icon'
+  );
+  const preferredAssets = iconAssets.filter(isNobgIconAsset);
+  const shelfSourceAssets = preferredAssets.length ? preferredAssets : iconAssets;
+  const shelfAssetMap = new Map<string, AutodrawAssetItem>();
+
+  shelfSourceAssets.forEach((asset) => {
+    const dedupKey = getAutodrawAssetShelfDedupKey(asset);
+    const existingAsset = shelfAssetMap.get(dedupKey);
+    if (!existingAsset) {
+      shelfAssetMap.set(dedupKey, asset);
+      return;
+    }
+
+    if (asset.priority < existingAsset.priority) {
+      shelfAssetMap.set(dedupKey, asset);
+      return;
+    }
+
+    if (asset.priority === existingAsset.priority) {
+      const nextName = asset.name.toLowerCase();
+      const currentName = existingAsset.name.toLowerCase();
+      if (nextName.localeCompare(currentName) < 0) {
+        shelfAssetMap.set(dedupKey, asset);
+      }
+    }
+  });
+
+  return [...shelfAssetMap.values()].sort((left, right) => {
+    if (left.stageIndex !== right.stageIndex) {
+      return left.stageIndex - right.stageIndex;
+    }
+    if (left.priority !== right.priority) {
+      return left.priority - right.priority;
+    }
+    return left.name.localeCompare(right.name);
+  });
+};
+
 export const buildAutodrawAssetShelfItems = (payload: {
   assets: AutodrawAssetItem[];
   activeStep: number;
   isBusy: boolean;
   stageLabels: string[];
 }) => {
-  const visibleAssets = getAutodrawVisibleAssetItems(payload.assets);
-  const assetShelfItems = visibleAssets.map<AutodrawAssetShelfItem>(
+  const shelfAssets = getAutodrawAssetShelfAssets(payload.assets);
+  const assetShelfItems = shelfAssets.map<AutodrawAssetShelfItem>(
     (asset) => ({
       id: asset.id,
       title: asset.name,
@@ -325,7 +357,7 @@ export const buildAutodrawAssetShelfItems = (payload: {
 
   const cappedStep = Math.min(3, Math.max(0, payload.activeStep));
   const stagesWithAssets = new Set(
-    visibleAssets
+    shelfAssets
       .filter((asset) => asset.stageIndex <= 3)
       .map((asset) => asset.stageIndex)
   );

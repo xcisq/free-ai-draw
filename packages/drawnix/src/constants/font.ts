@@ -88,6 +88,11 @@ export const normalizeFontFamilyTokens = (value?: string) =>
     item.replace(/^['"]|['"]$/g, '').toLowerCase()
   );
 
+export const getPrimaryFontFamilyName = (value?: string) => {
+  const [first] = splitFontFamilyCandidates(value);
+  return first ? first.replace(/^['"]|['"]$/g, '') : undefined;
+};
+
 export const normalizeFontFamilyOption = (
   input: FontFamilyConfigInput
 ): FontFamilyOption | null => {
@@ -191,9 +196,21 @@ export const resolveFontFamilyOption = (currentFontFamily?: string) => {
   if (currentFamilies.length === 0) {
     return availableOptions[0]!;
   }
+  const currentPrimary = getPrimaryFontFamilyName(currentFontFamily)?.toLowerCase();
+  const matchedByPrimary =
+    currentPrimary &&
+    availableOptions.find((option) => {
+      return getPrimaryFontFamilyName(option.value)?.toLowerCase() === currentPrimary;
+    });
+  if (matchedByPrimary) {
+    return matchedByPrimary;
+  }
   const matched = availableOptions.find((option) => {
     const optionFamilies = normalizeFontFamilyTokens(option.value);
-    return optionFamilies.some((family) => currentFamilies.includes(family));
+    return (
+      optionFamilies.length > 0 &&
+      optionFamilies.every((family) => currentFamilies.includes(family))
+    );
   });
   return (
     matched || {

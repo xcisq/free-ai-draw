@@ -143,7 +143,7 @@ const SelectRoot: React.FC<SelectRootProps> = ({
     ],
   });
 
-  const click = useClick(context, { enabled: !disabled && controlledOpen === undefined });
+  const click = useClick(context, { enabled: !disabled });
   const dismiss = useDismiss(context);
   const role = useRole(context, { role: 'listbox' });
 

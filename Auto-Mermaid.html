@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Auto-Mermaid · One-shot 学术生成器 · XAI Board</title>
+<template id="__bundler_thumbnail" data-bg-color="#f7f8fb">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#f7f8fb"/>
+    <text x="600" y="420" fill="#111827" font-family="Helvetica, Arial, sans-serif" font-size="72" text-anchor="middle" font-weight="600" letter-spacing="-2">Auto-Mermaid</text>
+    <text x="600" y="470" fill="#667085" font-family="Georgia, serif" font-style="italic" font-size="28" text-anchor="middle">one-shot · text → diagram</text>
+  </svg>
+</template>
+<style>
+  html, body { margin: 0; padding: 0; background: #f7f8fb; color: #111827; }
+  body {
+    font-family: "PingFang SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  * { box-sizing: border-box; }
+  a { color: inherit; text-decoration: none; }
+  button, input, textarea { font-family: inherit; }
+  button { cursor: pointer; }
+  ::selection { background: #111827; color: #f7f8fb; }
+
+  .paper {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      linear-gradient(#e4e7ec 1px, transparent 1px),
+      linear-gradient(90deg, #e4e7ec 1px, transparent 1px);
+    background-size: 40px 40px; opacity: 0.32;
+    mask-image: radial-gradient(ellipse at 50% 20%, black 40%, transparent 85%);
+    -webkit-mask-image: radial-gradient(ellipse at 50% 20%, black 40%, transparent 85%);
+  }
+
+  .anno {
+    font-family: "Songti SC","STSong","Noto Serif CJK SC","Times New Roman",serif;
+    font-style: italic; color: #667085; font-size: 12px; letter-spacing: 0.2px;
+  }
+  .anno.sm { font-size: 11px; }
+  .mono { font-family: ui-monospace,"SF Mono",Consolas,monospace; font-size: 11px; }
+
+  /* Topbar */
+  .topbar {
+    position: relative; z-index: 3;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px;
+    border-bottom: 1px solid #e4e7ec;
+    background: rgba(247,248,251,0.88); backdrop-filter: blur(8px);
+  }
+  .topbar .left { display: flex; align-items: center; gap: 14px; }
+  .crumb { display: flex; align-items: center; gap: 10px; color: #4b5563; font-size: 13px; }
+  .crumb .sep { color: #d0d5dd; }
+  .crumb .cur { color: #111827; font-weight: 500; }
+  .back-btn {
+    height: 30px; padding: 0 12px; border: 1px solid #d0d5dd;
+    border-radius: 999px; background: #ffffff; color: #111827; font-size: 12px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .back-btn:hover { background: #f9fafb; }
+  .topbar .right { display: flex; align-items: center; gap: 10px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 24px; padding: 0 10px; border-radius: 999px;
+    font-size: 11px; background: #f7f8fb; border: 1px solid #e4e7ec; color: #344054;
+  }
+  .chip .dot { width: 5px; height: 5px; border-radius: 999px; background: #9ca3af; }
+  .chip.idle .dot { background: #9ca3af; }
+  .close-btn {
+    height: 30px; padding: 0 14px; border-radius: 999px;
+    border: 1px solid #d0d5dd; background: #ffffff; color: #111827; font-size: 12px;
+  }
+  .close-btn:hover { background: #f9fafb; }
+
+  /* Page container */
+  .page {
+    position: relative; z-index: 1;
+    max-width: 1400px; margin: 0 auto;
+    padding: 30px 40px 60px;
+  }
+
+  .page-kicker {
+    font-family: "Songti SC","STSong",serif; font-style: italic;
+    font-size: 11px; letter-spacing: 1.5px; color: #667085;
+    text-transform: uppercase;
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 12px; border: 1px solid #e4e7ec; border-radius: 999px;
+    background: #ffffff;
+    margin-bottom: 14px;
+  }
+  .page-title {
+    font-size: 40px; font-weight: 600; letter-spacing: -0.02em;
+    margin: 2px 0 8px; line-height: 1.15;
+  }
+  .page-title .it {
+    font-family: "Songti SC","STSong",serif; font-style: italic; font-weight: 500;
+  }
+  .page-desc { font-size: 13.5px; color: #667085; margin: 0 0 28px; max-width: 640px; line-height: 1.7; }
+
+  /* Layout */
+  .layout {
+    display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.1fr);
+    gap: 24px;
+  }
+
+  /* Cards */
+  .card {
+    position: relative;
+    background: #ffffff; border: 1px solid #e4e7ec; border-radius: 16px;
+    padding: 22px 24px;
+    margin-bottom: 22px;
+  }
+  .card .help-chip {
+    position: absolute; top: -10px; right: 20px;
+    background: #f7f8fb; padding: 0 10px; font-size: 10px; color: #9ca3af;
+    font-family: "Songti SC",serif; font-style: italic;
+  }
+  .card h3 {
+    font-size: 15px; font-weight: 600; margin: 0 0 4px;
+    color: #111827;
+  }
+  .card h3 .it {
+    font-family: "Songti SC","STSong",serif; font-style: italic; font-weight: 500;
+    color: #667085; margin-left: 6px; font-size: 13px;
+  }
+  .card .sub { font-size: 12px; color: #667085; margin: 0 0 16px; }
+
+  /* Field */
+  .field { margin-bottom: 16px; }
+  .field-label {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .field-label .lbl {
+    font-size: 12px; font-weight: 600; color: #344054;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .field-label .lbl .n {
+    font-family: "Songti SC",serif; font-style: italic; color: #9ca3af;
+    font-weight: 500; margin-right: 2px;
+  }
+  .field-label .hint { font-size: 11px; color: #9ca3af; font-family: "Songti SC",serif; font-style: italic; }
+
+  /* Inputs */
+  input.text, textarea.text {
+    width: 100%; padding: 10px 14px;
+    border: 1px solid #d0d5dd; border-radius: 10px;
+    background: #fafbfd; color: #111827;
+    font-size: 13px; line-height: 1.6; outline: none;
+  }
+  textarea.text {
+    min-height: 84px; resize: vertical;
+    font-family: "Songti SC","STSong",serif;
+  }
+  input.text:focus, textarea.text:focus { border-color: #111827; background: #ffffff; }
+  input.text::placeholder, textarea.text::placeholder { color: #9ca3af; font-family: "Songti SC",serif; font-style: italic; }
+
+  /* Pill toggles */
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pill {
+    height: 30px; padding: 0 14px;
+    border: 1px solid #e4e7ec; border-radius: 999px;
+    background: #ffffff; color: #344054; font-size: 12px;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: border-color .15s, background .15s, color .15s;
+  }
+  .pill:hover { border-color: #d0d5dd; }
+  .pill.active { background: #111827; color: #ffffff; border-color: #111827; }
+  .pill .mark { font-family: "Songti SC",serif; font-style: italic; font-size: 10px; opacity: 0.7; }
+
+  /* Direction picker with arrow glyph */
+  .dir-glyph { display: inline-block; width: 14px; height: 10px; }
+
+  /* Summary list */
+  .summary {
+    background: #fafbfd; border: 1px dashed #d0d5dd; border-radius: 10px;
+    padding: 14px 16px;
+    margin-top: 6px;
+  }
+  .summary ul { margin: 0; padding: 0; list-style: none; }
+  .summary li {
+    font-size: 12.5px; color: #344054; line-height: 1.7;
+    padding: 2px 0 2px 18px; position: relative;
+    font-family: "Songti SC","STSong",serif;
+  }
+  .summary li::before {
+    content: '—'; position: absolute; left: 0; color: #9ca3af; font-family: serif;
+  }
+
+  .note-block {
+    background: #ffffff; border: 1px solid #e4e7ec; border-radius: 10px;
+    padding: 12px 14px; margin-top: 12px;
+    position: relative;
+  }
+  .note-block .tag {
+    position: absolute; top: -9px; left: 12px;
+    background: #ffffff; padding: 0 8px;
+    font-size: 11px; color: #667085;
+    font-family: "Songti SC",serif; font-style: italic;
+  }
+  .note-block p { margin: 0; font-size: 12.5px; color: #344054; line-height: 1.7;
+    font-family: "Songti SC","STSong",serif; }
+
+  /* Buttons */
+  .btn-row { display: flex; align-items: center; gap: 10px; }
+  .btn {
+    height: 38px; padding: 0 18px; border-radius: 999px;
+    font-size: 13px; display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid #d0d5dd; background: #ffffff; color: #111827;
+  }
+  .btn:hover { background: #f9fafb; }
+  .btn.primary { background: #111827; color: #ffffff; border-color: #111827; }
+  .btn.primary:hover { background: #000000; }
+  .btn.ghost { border-color: transparent; background: transparent; color: #667085; }
+  .btn.ghost:hover { color: #111827; }
+
+  /* Result panel */
+  .result {
+    background: #ffffff; border: 1px solid #e4e7ec; border-radius: 16px;
+    padding: 22px 24px;
+    min-height: 600px;
+    display: flex; flex-direction: column;
+    position: sticky; top: 80px;
+  }
+  .result-head {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .result-head .ttl h3 { font-size: 15px; font-weight: 600; margin: 0; }
+  .result-head .ttl h3 .it { font-family: "Songti SC",serif; font-style: italic; font-weight: 500; color: #667085; margin-left: 6px; font-size: 13px; }
+  .result-head .ttl .sub { font-size: 12px; color: #667085; margin-top: 4px; }
+  .state-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 11px; background: #f7f8fb; border: 1px solid #e4e7ec; color: #667085;
+    font-family: "Songti SC",serif; font-style: italic;
+  }
+  .state-chip .d { width: 5px; height: 5px; border-radius: 999px; background: #9ca3af; }
+
+  /* Result body: tabs + content */
+  .tabs {
+    display: flex; gap: 4px; margin-bottom: 16px;
+    border-bottom: 1px solid #e4e7ec;
+  }
+  .tab {
+    padding: 8px 14px; border-radius: 999px 999px 0 0;
+    font-size: 12px; color: #667085; background: transparent; border: none;
+    font-family: "Songti SC",serif; font-style: italic;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tab.active { color: #111827; border-bottom-color: #111827; font-style: normal; font-family: inherit; font-weight: 600; }
+  .tab .n { font-family: ui-monospace,monospace; font-style: normal; font-size: 10px; color: #9ca3af; margin-left: 4px; }
+  .tab.active .n { color: #111827; }
+
+  .guide-card {
+    background: #fafbfd; border: 1px solid #e4e7ec; border-radius: 12px;
+    padding: 18px 20px; margin-bottom: 18px;
+  }
+  .guide-card h4 {
+    font-size: 14px; font-weight: 600; margin: 0 0 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .guide-card ul {
+    margin: 0; padding: 0 0 0 18px;
+    font-size: 12.5px; line-height: 1.85; color: #344054;
+    font-family: "Songti SC",serif;
+  }
+  .guide-card li { padding: 1px 0; }
+  .guide-example {
+    margin-top: 14px;
+    background: #ffffff; border: 1px dashed #d0d5dd; border-radius: 10px;
+    padding: 12px 14px; position: relative;
+  }
+  .guide-example .tag {
+    position: absolute; top: -9px; left: 12px;
+    background: #fafbfd; padding: 0 8px; font-size: 11px; color: #667085;
+    font-family: "Songti SC",serif; font-style: italic;
+  }
+  .guide-example p { margin: 0; font-size: 12.5px; color: #344054; line-height: 1.7; font-family: "Songti SC",serif; }
+
+  /* Mermaid preview window */
+  .preview-window {
+    flex: 1;
+    background: #fafbfd; border: 1px solid #e4e7ec; border-radius: 12px;
+    min-height: 340px;
+    position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .preview-window::before {
+    content: ''; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(#eef0f4 1px, transparent 1px),
+      linear-gradient(90deg, #eef0f4 1px, transparent 1px);
+    background-size: 20px 20px; opacity: 0.7;
+  }
+  .preview-empty {
+    position: relative; text-align: center; color: #9ca3af;
+  }
+  .preview-empty .big {
+    font-family: "Songti SC",serif; font-style: italic; font-size: 22px; color: #667085;
+    margin-bottom: 6px;
+  }
+  .preview-empty .anno { display: block; margin-top: 8px; }
+
+  /* Diagram mock (shown when has-result) */
+  .diagram {
+    position: relative; width: 100%; height: 100%; padding: 20px;
+  }
+
+  /* Footer meta on result */
+  .result-foot {
+    margin-top: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; color: #9ca3af;
+  }
+
+  /* Sketch note — corner labels */
+  .corner-note {
+    position: absolute; pointer-events: none;
+    font-family: "Songti SC",serif; font-style: italic;
+    font-size: 11px; color: #9ca3af;
+  }
+
+  /* SVG line art (shared) */
+  .lineart { stroke: #344054; fill: none; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+
+  @media (max-width: 1024px) {
+    .layout { grid-template-columns: 1fr; }
+    .result { position: static; }
+  }
+</style>
+</head>
+<body>
+
+<div class="paper"></div>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="left">
+    <button class="back-btn" onclick="history.back()">
+      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M9 3 L5 7 L9 11" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      返回首页
+    </button>
+    <div class="crumb">
+      <span>工具</span><span class="sep">/</span>
+      <span class="cur">Auto-Mermaid · 学术生成器</span>
+    </div>
+  </div>
+  <div class="right">
+    <span class="chip idle"><span class="dot"></span>本地整理 · 未调用模型</span>
+    <button class="close-btn">关闭</button>
+  </div>
+</div>
+
+<!-- Page -->
+<div class="page">
+
+  <div class="page-kicker">
+    <span style="width:4px;height:4px;border-radius:999px;background:#111827;"></span>
+    AUTO-MERMAID · 02
+  </div>
+  <h1 class="page-title">One-shot <span class="it">学术生成器</span></h1>
+  <p class="page-desc">
+    提交前先把结构意图说清楚，提交后把完整的一次生成机会留给模型。本地整理不产生调用，直到你按下「生成图稿」。
+  </p>
+
+  <div class="layout">
+
+    <!-- LEFT: Input form -->
+    <section>
+
+      <!-- Card 1: Structure brief -->
+      <div class="card">
+        <span class="help-chip">// 只在本地整理，不触发模型</span>
+
+        <h3>提交前整理 <span class="it">· draft only</span></h3>
+        <p class="sub">只在本地帮助你表达清楚，不会提前调用模型。</p>
+
+        <div class="field">
+          <div class="field-label">
+            <span class="lbl"><span class="n">01</span>原始文本 / 方法描述</span>
+            <span class="hint">支持粘贴 · 最多 4000 字</span>
+          </div>
+          <textarea class="text" id="raw" placeholder="把原始论文段落 / 方法描述粘在这里。先不用排版，先放进来 …"></textarea>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <span class="lbl"><span class="n">02</span>阅读方向</span>
+            <span class="hint">多数论文从左到右</span>
+          </div>
+          <div class="pills" data-group="dir">
+            <button class="pill active" data-val="LR">
+              <svg class="dir-glyph" viewBox="0 0 14 10"><path d="M1 5 L12 5 M9 2 L12 5 L9 8" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              从左到右
+            </button>
+            <button class="pill" data-val="TB">
+              <svg class="dir-glyph" viewBox="0 0 10 14"><path d="M5 1 L5 12 M2 9 L5 12 L8 9" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              从上到下
+            </button>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <span class="lbl"><span class="n">03</span>结构模式</span>
+            <span class="hint">可任选其一 · 影响图形骨架</span>
+          </div>
+          <div class="pills" data-group="struct">
+            <button class="pill" data-val="linear">线性主干</button>
+            <button class="pill" data-val="tree">主干分支</button>
+            <button class="pill" data-val="parallel">并行汇聚</button>
+            <button class="pill" data-val="stacked">上下辅轨</button>
+            <button class="pill" data-val="feedback">反馈回路</button>
+            <button class="pill active" data-val="hybrid">混合结构</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <span class="lbl"><span class="n">04</span>图面密度</span>
+            <span class="hint">决定节点间距与留白</span>
+          </div>
+          <div class="pills" data-group="density">
+            <button class="pill" data-val="dense">紧凑</button>
+            <button class="pill active" data-val="balanced">平衡</button>
+            <button class="pill" data-val="airy">疏朗</button>
+          </div>
+        </div>
+
+        <div class="field" style="margin-bottom:0;">
+          <div class="field-label">
+            <span class="lbl"><span class="n">05</span>重点模块</span>
+            <span class="hint">可选 · 最多 3 个</span>
+          </div>
+          <input class="text" placeholder="例如：核心方法，评估阶段，最终输出" />
+        </div>
+
+      </div>
+
+      <!-- Card 2: Summary -->
+      <div class="card">
+        <h3>提交前摘要 <span class="it">· pre-flight</span></h3>
+        <p class="sub">先贴原始文本，再把 one-shot 机会交给模型。</p>
+
+        <div class="summary">
+          <ul>
+            <li>建议直接粘贴论文方法描述、模块说明或流程草稿。</li>
+            <li>系统会在本地帮你整理方向、结构和重点，但不会提前调用模型。</li>
+          </ul>
+        </div>
+
+        <div class="note-block">
+          <span class="tag">补一句结构走向</span>
+          <p>整体从左到右，中间两路并行，最后汇聚到评估模块。</p>
+        </div>
+
+        <div class="btn-row" style="margin-top:18px;">
+          <button class="btn primary" onclick="runGen()">
+            <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1 L9 5 L2 9 Z" fill="currentColor"/></svg>
+            生成图稿
+          </button>
+          <button class="btn">清空</button>
+          <span class="anno sm" style="margin-left:auto;">Ctrl + Enter 快速生成</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- RIGHT: Result -->
+    <section>
+      <div class="result">
+        <div class="result-head">
+          <div class="ttl">
+            <h3>生成结果 <span class="it">· output</span></h3>
+            <div class="sub">顺序固定为摘要、预览、代码，不再暴露多轮聊天流程。</div>
+          </div>
+          <span class="state-chip" id="state-chip"><span class="d"></span>待生成</span>
+        </div>
+
+        <div class="tabs">
+          <button class="tab active" data-tab="brief">摘要 <span class="n">01</span></button>
+          <button class="tab" data-tab="preview">预览 <span class="n">02</span></button>
+          <button class="tab" data-tab="code">代码 <span class="n">03</span></button>
+        </div>
+
+        <!-- Brief tab -->
+        <div class="tab-pane" data-pane="brief">
+          <div class="guide-card">
+            <h4>
+              <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M7 4 L7 7.5 M7 9.5 L7 9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+              适合论文图的输入方式
+            </h4>
+            <ul>
+              <li>先贴论文方法描述，再补一句整体方向和局部结构。</li>
+              <li>节点名尽量压缩，避免把整句原文直接放进图里。</li>
+              <li>如果有重点模块，直接写在「重点模块」里，让图面更稳。</li>
+            </ul>
+            <div class="guide-example">
+              <span class="tag">示例补充</span>
+              <p>整体从左到右，中间两路并行，最后汇聚到评估模块。</p>
+            </div>
+          </div>
+
+          <!-- Dry-run pre-flight check list -->
+          <div class="guide-card" style="background:#ffffff;">
+            <h4>
+              <svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 7 L6 10 L11 4" fill="none" stroke="#10b981" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              本地 dry-run · 还没调用模型
+            </h4>
+            <div style="display:grid; grid-template-columns: 120px 1fr; row-gap:8px; font-size:12.5px;">
+              <div class="anno">方向</div><div style="color:#111827;">从左到右 · LR</div>
+              <div class="anno">结构</div><div style="color:#111827;">混合结构 · hybrid</div>
+              <div class="anno">密度</div><div style="color:#111827;">平衡 · balanced</div>
+              <div class="anno">重点</div><div style="color:#667085;">—</div>
+              <div class="anno">token 预估</div><div class="mono">≈ 1.2k / 4k</div>
+            </div>
+          </div>
+
+          <div class="preview-window" id="preview-window" style="display:none;"></div>
+        </div>
+
+        <div class="result-foot">
+          <span class="anno sm">Tips · 只在按下「生成图稿」时才会消耗一次调用</span>
+          <span class="anno sm">v 0.3.1</span>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+  // Pill toggles
+  document.querySelectorAll('.pills').forEach(group => {
+    group.addEventListener('click', e => {
+      const p = e.target.closest('.pill');
+      if (!p) return;
+      group.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+      p.classList.add('active');
+    });
+  });
+
+  // Tabs
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+    });
+  });
+
+  // Generate (mock) — swaps state chip and reveals a tiny diagram
+  function runGen() {
+    const chip = document.getElementById('state-chip');
+    chip.innerHTML = '<span class="d" style="background:#2563eb;"></span>生成中 …';
+    setTimeout(() => {
+      chip.innerHTML = '<span class="d" style="background:#10b981;"></span>已完成 · 1.4s';
+      const w = document.getElementById('preview-window');
+      w.style.display = 'flex';
+      w.innerHTML = `
+        <div class="diagram">
+          <svg viewBox="0 0 600 260" width="100%" height="100%">
+            <defs>
+              <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M0 0 L10 5 L0 10 z" fill="#111827"/>
+              </marker>
+            </defs>
+            <g font-family="PingFang SC,sans-serif" font-size="12" fill="#111827">
+              <!-- nodes -->
+              <rect x="20" y="110" width="90" height="40" rx="8" fill="#fff" stroke="#111827" stroke-width="1.2"/>
+              <text x="65" y="135" text-anchor="middle">原始文本</text>
+
+              <rect x="160" y="50"  width="110" height="40" rx="8" fill="#fff" stroke="#111827" stroke-width="1.2"/>
+              <text x="215" y="75" text-anchor="middle">结构解析</text>
+
+              <rect x="160" y="170" width="110" height="40" rx="8" fill="#fff" stroke="#111827" stroke-width="1.2"/>
+              <text x="215" y="195" text-anchor="middle">语义分组</text>
+
+              <rect x="320" y="110" width="110" height="40" rx="8" fill="#fff" stroke="#111827" stroke-width="1.2"/>
+              <text x="375" y="135" text-anchor="middle">汇聚对齐</text>
+
+              <rect x="480" y="110" width="100" height="40" rx="8" fill="#111827" stroke="#111827"/>
+              <text x="530" y="135" text-anchor="middle" fill="#fff">评估输出</text>
+
+              <!-- edges -->
+              <g fill="none" stroke="#111827" stroke-width="1.2" marker-end="url(#arr)">
+                <path d="M110 125 C 135 125, 140 70, 160 70"/>
+                <path d="M110 135 C 135 135, 140 190, 160 190"/>
+                <path d="M270 70 C 295 70, 300 125, 320 125"/>
+                <path d="M270 190 C 295 190, 300 135, 320 135"/>
+                <path d="M430 130 L 480 130"/>
+              </g>
+
+              <text x="300" y="30" text-anchor="middle" font-family="Songti SC,serif" font-style="italic" fill="#667085" font-size="11">
+                混合结构 · LR · balanced
+              </text>
+            </g>
+          </svg>
+        </div>
+      `;
+    }, 900);
+  }
+
+  // Ctrl+Enter
+  document.getElementById('raw').addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runGen();
+  });
+</script>
+
+</body>
+</html>
