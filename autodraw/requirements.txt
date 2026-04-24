@@ -19,5 +19,6 @@ requests>=2.31,<3.0
 openai>=1.0,<2.0
 google-genai>=1.0,<2.0
 inference-sdk>=0.37
+fal-client>=0.7,<1.0
 
 Pillow>=10.0,<12.0

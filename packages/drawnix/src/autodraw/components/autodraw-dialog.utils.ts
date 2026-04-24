@@ -3,8 +3,10 @@ export type AutodrawStatus =
   | 'submitting'
   | 'queued'
   | 'running'
+  | 'cancelling'
   | 'importing'
   | 'succeeded'
+  | 'cancelled'
   | 'failed';
 
 type AssemblyCandidate = {
@@ -57,8 +59,13 @@ export interface AutodrawHistoryEntry {
   subtitle: string;
   status: AutodrawStatus | 'local';
   createdAt: string;
+  updatedAt?: string;
   jobId?: string;
   previewUrl?: string;
+  bundleUrl?: string | null;
+  currentStage?: number;
+  failedStage?: number | null;
+  minStartStage?: number;
   summary?: AutodrawHistorySummary;
 }
 
@@ -288,8 +295,17 @@ const getAutodrawAssetShelfDedupKey = (asset: AutodrawAssetItem) => {
   return asset.path.toLowerCase().replace(/_nobg(?=\.[^.]+$)/i, '');
 };
 
+const getPreferredAssetForKinds = (
+  assets: AutodrawAssetItem[],
+  kinds: string[]
+) => {
+  const kindSet = new Set(kinds);
+  return assets.find((asset) => kindSet.has(asset.kind));
+};
+
 export const getAutodrawAssetShelfAssets = (assets: AutodrawAssetItem[]) => {
-  const iconAssets = getAutodrawVisibleAssetItems(assets).filter(
+  const visibleAssets = getAutodrawVisibleAssetItems(assets);
+  const iconAssets = visibleAssets.filter(
     (asset) => asset.kind === 'icon'
   );
   const preferredAssets = iconAssets.filter(isNobgIconAsset);
@@ -318,7 +334,17 @@ export const getAutodrawAssetShelfAssets = (assets: AutodrawAssetItem[]) => {
     }
   });
 
-  return [...shelfAssetMap.values()].sort((left, right) => {
+  const representativeAssets = [
+    getPreferredAssetForKinds(visibleAssets, ['figure']),
+    ...shelfAssetMap.values(),
+    getPreferredAssetForKinds(visibleAssets, [
+      'final_svg',
+      'optimized_template_svg',
+      'template_svg',
+    ]),
+  ].filter((asset): asset is AutodrawAssetItem => Boolean(asset));
+
+  return representativeAssets.sort((left, right) => {
     if (left.stageIndex !== right.stageIndex) {
       return left.stageIndex - right.stageIndex;
     }
@@ -493,16 +519,104 @@ export const upsertAutodrawHistory = (
   entry: AutodrawHistoryEntry,
   limit = 12
 ) => {
+  const normalizedEntry =
+    entry.type === 'job' && entry.jobId
+      ? {
+          ...entry,
+          id: createAutodrawJobHistoryId(entry.jobId),
+        }
+      : entry;
   const nextEntries = [
-    entry,
-    ...entries.filter((item) => item.id !== entry.id),
+    normalizedEntry,
+    ...entries.filter((item) => {
+      if (item.id === normalizedEntry.id) {
+        return false;
+      }
+      if (
+        item.type === 'job' &&
+        normalizedEntry.type === 'job' &&
+        item.jobId &&
+        normalizedEntry.jobId
+      ) {
+        return item.jobId !== normalizedEntry.jobId;
+      }
+      return true;
+    }),
   ];
   nextEntries.sort((left, right) => {
     return (
-      new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+      getAutodrawHistoryTimestamp(right) - getAutodrawHistoryTimestamp(left)
     );
   });
   return nextEntries.slice(0, limit);
+};
+
+export const createAutodrawJobHistoryId = (jobId: string) => `job:${jobId}`;
+
+export const getAutodrawHistoryTimestamp = (
+  entry: Pick<AutodrawHistoryEntry, 'createdAt' | 'updatedAt'>
+) =>
+  new Date(entry.updatedAt || entry.createdAt).getTime() ||
+  new Date(entry.createdAt).getTime();
+
+export const getAutodrawHistoryMinReplayStage = (
+  entry: Pick<AutodrawHistoryEntry, 'minStartStage'>
+) => Math.min(4, Math.max(1, entry.minStartStage || 1));
+
+export const getAutodrawHistoryDefaultReplayStage = (
+  entry: Pick<
+    AutodrawHistoryEntry,
+    'currentStage' | 'failedStage' | 'minStartStage'
+  >
+) => {
+  const minStage = getAutodrawHistoryMinReplayStage(entry);
+  const fallbackStage =
+    mapBackendStageToWorkbenchStep(entry.failedStage ?? entry.currentStage) + 1;
+  return Math.min(4, Math.max(minStage, fallbackStage || 1));
+};
+
+export const orderAutodrawHistoryEntries = (
+  entries: AutodrawHistoryEntry[],
+  currentJobId?: string | null,
+  limit = 12
+) => {
+  const sortedEntries = [...entries].sort((left, right) => {
+    const leftPinned =
+      Boolean(currentJobId) &&
+      left.type === 'job' &&
+      left.jobId === currentJobId;
+    const rightPinned =
+      Boolean(currentJobId) &&
+      right.type === 'job' &&
+      right.jobId === currentJobId;
+
+    if (leftPinned !== rightPinned) {
+      return leftPinned ? -1 : 1;
+    }
+
+    return getAutodrawHistoryTimestamp(right) - getAutodrawHistoryTimestamp(left);
+  });
+
+  return sortedEntries.slice(0, limit);
+};
+
+export const getAutodrawStatusBadgeClass = (nextStatus: AutodrawStatus) => {
+  switch (nextStatus) {
+    case 'succeeded':
+      return 'autodraw-badge--success';
+    case 'cancelled':
+      return 'autodraw-badge--warning';
+    case 'failed':
+      return 'autodraw-badge--error';
+    case 'cancelling':
+    case 'running':
+    case 'submitting':
+    case 'importing':
+    case 'queued':
+      return 'autodraw-badge--processing';
+    default:
+      return 'autodraw-badge--idle';
+  }
 };
 
 export const mapBackendStageToWorkbenchStep = (
@@ -528,10 +642,10 @@ export const getWorkbenchStepForStatus = (
   if (status === 'importing' || status === 'succeeded') {
     return 4;
   }
-  if (status === 'failed') {
+  if (status === 'failed' || status === 'cancelled') {
     return mapBackendStageToWorkbenchStep(failedStage ?? currentStage);
   }
-  if (status === 'running') {
+  if (status === 'running' || status === 'cancelling') {
     return mapBackendStageToWorkbenchStep(currentStage);
   }
   return 0;
@@ -557,7 +671,7 @@ export const getWorkbenchProgressRatio = (
     typeof stepOverride === 'number'
       ? stepOverride
       : getWorkbenchStepForStatus(status, currentStage, failedStage);
-  if (status === 'failed') {
+  if (status === 'failed' || status === 'cancelled') {
     return Math.min(1, (step + 1) / 5);
   }
   if (status === 'importing') {

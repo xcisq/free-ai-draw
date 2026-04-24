@@ -68,3 +68,14 @@ async def upload_image_edit_source(
         upload_prefix="edit",
         error_label="image edit source",
     )
+
+
+@router.post("/source-figure", response_model=UploadReferenceImageResponse)
+async def upload_source_figure(
+    file: UploadFile = File(...)
+) -> UploadReferenceImageResponse:
+    return await _save_uploaded_image(
+        file=file,
+        upload_prefix="srcfig",
+        error_label="source figure",
+    )

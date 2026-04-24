@@ -10,9 +10,18 @@ Provider = Literal["openrouter", "bianxie", "qingyun", "gemini", "local"]
 SamBackend = Literal["local", "fal", "roboflow", "api"]
 PlaceholderMode = Literal["none", "box", "label"]
 ImageSize = Literal["1K", "2K", "4K"]
-JobStatus = Literal["queued", "running", "succeeded", "failed"]
+JobStatus = Literal[
+    "queued",
+    "running",
+    "cancelling",
+    "succeeded",
+    "failed",
+    "cancelled",
+]
 ResumeStage = Literal["auto", 1, 2, 3, 4, 5]
+ReplayStage = Literal[1, 2, 3, 4, 5]
 JobType = Literal["autodraw", "image-edit"]
+SourceProcessingMode = Literal["segmented", "direct_svg"]
 
 
 class CreateJobRequest(BaseModel):
@@ -36,6 +45,8 @@ class CreateJobRequest(BaseModel):
     optimize_iterations: int = Field(0, ge=0)
     merge_threshold: float = 0.001
     reference_image_path: Optional[str] = None
+    source_figure_path: Optional[str] = None
+    source_processing_mode: SourceProcessingMode = "segmented"
     start_stage: int = Field(1, ge=1, le=5)
     source_job_id: Optional[str] = None
     resume_from_stage: Optional[int] = Field(None, ge=1, le=5)
@@ -46,8 +57,20 @@ class CreateJobRequest(BaseModel):
     @model_validator(mode="after")
     def validate_payload(self) -> "CreateJobRequest":
         if self.job_type == "autodraw":
-            if not self.method_text or not self.method_text.strip():
-                raise ValueError("method_text is required for autodraw jobs")
+            has_method_text = bool(self.method_text and self.method_text.strip())
+            has_source_figure = bool(
+                self.source_figure_path and self.source_figure_path.strip()
+            )
+            if not has_method_text and not has_source_figure:
+                raise ValueError(
+                    "method_text is required for autodraw jobs unless source_figure_path is provided"
+                )
+            if has_source_figure:
+                if self.source_processing_mode == "direct_svg":
+                    if self.start_stage < 4:
+                        self.start_stage = 4
+                elif self.start_stage < 2:
+                    self.start_stage = 2
         else:
             if not self.prompt or not self.prompt.strip():
                 raise ValueError("prompt is required for image-edit jobs")
@@ -71,6 +94,12 @@ class CreateJobResponse(BaseModel):
 
 class ResumeJobRequest(BaseModel):
     resume_from_stage: ResumeStage = "auto"
+    image_model: Optional[str] = None
+    svg_model: Optional[str] = None
+
+
+class ReplayJobRequest(BaseModel):
+    start_stage: ReplayStage
     image_model: Optional[str] = None
     svg_model: Optional[str] = None
 
@@ -108,6 +137,7 @@ class JobResponse(BaseModel):
     source_job_id: Optional[str] = None
     resume_from_stage: Optional[int] = None
     resume_count: int = 0
+    min_start_stage: int = 1
 
 
 class JobListItem(BaseModel):
@@ -118,7 +148,9 @@ class JobListItem(BaseModel):
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
     error_message: Optional[str] = None
-    artifacts: list[ArtifactInfo] = Field(default_factory=list)
     bundle_url: Optional[str] = None
+    preview_url: Optional[str] = None
+    artifact_count: int = 0
     current_stage: int = 1
     failed_stage: Optional[int] = None
+    min_start_stage: int = 1

@@ -76,7 +76,7 @@ import shutil
 import sys
 import time
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Literal
+from typing import Optional, List, Dict, Any, Literal, Callable
 from urllib.parse import urlparse
 
 import requests
@@ -203,7 +203,7 @@ BOXLIB_NO_ICON_MODE_KEY = "no_icon_mode"
 
 # SAM3 API config
 SAM3_FAL_API_URL = os.environ.get("SAM3_API_URL") or os.environ.get(
-    "FAL_API_URL", "https://fal.run/fal-ai/sam-3/image"
+    "FAL_API_URL", "https://fal.run/fal-ai/sam-3-1/image"
 )
 SAM3_FAL_PROXY_BASE_URL = os.environ.get("FAL_BASE_URL", "").strip()
 SAM3_ROBOFLOW_API_URL = _normalize_roboflow_api_url(
@@ -317,6 +317,7 @@ def call_llm_multimodal(
     provider: ProviderType,
     max_tokens: int = 16000,
     temperature: float = 0.7,
+    prefer_qingyun_native: bool = False,
 ) -> Optional[str]:
     """
     统一的多模态 LLM 调用接口
@@ -340,6 +341,18 @@ def call_llm_multimodal(
     if provider == "gemini":
         return _call_gemini_multimodal(contents, api_key, model, max_tokens, temperature)
     if provider == "qingyun":
+        if prefer_qingyun_native:
+            try:
+                return _call_qingyun_gemini_native_multimodal(
+                    contents,
+                    api_key,
+                    model,
+                    base_url,
+                    max_tokens,
+                    temperature,
+                )
+            except Exception as exc:
+                print(f"[Qingyun] 原生 Gemini 多模态接口失败，回退 OpenAI 兼容接口: {exc}")
         try:
             return _call_openrouter_multimodal(
                 contents,
@@ -414,6 +427,19 @@ def call_llm_image_generation(
             image_size=image_size,
         )
     if provider == "qingyun":
+        if model == "gpt-image-2-all" and reference_image is None:
+            try:
+                return _call_qingyun_openai_images_generation(
+                    prompt=prompt,
+                    api_key=api_key,
+                    model=model,
+                    base_url=base_url,
+                    image_size=image_size,
+                )
+            except Exception as exc:
+                print(
+                    f"[Qingyun] /images/generations 生图接口失败，回退 OpenAI 兼容 chat 生图: {exc}"
+                )
         try:
             return _call_openrouter_image_generation(
                 prompt,
@@ -442,6 +468,136 @@ def call_llm_image_generation(
         reference_image,
         provider_name=provider_name,
     )
+
+
+def _get_svg_multimodal_max_tokens(default: int = 24000) -> int:
+    override = _get_env_override("SVG_MULTIMODAL_MAX_TOKENS")
+    if override is None:
+        return default
+    try:
+        return max(4096, int(override))
+    except ValueError:
+        return default
+
+
+def _should_prefer_qingyun_svg_native() -> bool:
+    value = _get_env_override("QINGYUN_SVG_PREFER_NATIVE")
+    if value is None:
+        return False
+    return value.lower() in {"1", "true", "yes", "on"}
+
+
+def _get_svg_multimodal_image_max_edge(default: int = 1024) -> int:
+    override = _get_env_override("SVG_MULTIMODAL_IMAGE_MAX_EDGE")
+    if override is None:
+        return default
+    try:
+        return max(256, int(override))
+    except ValueError:
+        return default
+
+
+def _build_svg_box_summary(boxlib_path: str) -> str:
+    with open(boxlib_path, 'r', encoding='utf-8') as f:
+        boxlib_data = json.load(f)
+
+    boxes = boxlib_data.get("boxes", [])
+    if not isinstance(boxes, list) or not boxes:
+        return "No icon boxes detected."
+
+    lines: list[str] = []
+    for box in boxes:
+        label = str(box.get("label", "")).strip() or f"AF{int(box.get('id', 0)) + 1:02d}"
+        x1 = int(box.get("x1", 0))
+        y1 = int(box.get("y1", 0))
+        x2 = int(box.get("x2", 0))
+        y2 = int(box.get("y2", 0))
+        width = max(0, x2 - x1)
+        height = max(0, y2 - y1)
+        lines.append(f"{label}: x={x1}, y={y1}, width={width}, height={height}")
+    return "\n".join(lines)
+
+
+def _prepare_svg_multimodal_image(image: Image.Image, *, max_edge: int) -> Image.Image:
+    prepared = image.convert("RGB")
+    width, height = prepared.size
+    longest_edge = max(width, height)
+    if longest_edge <= max_edge:
+        return prepared
+
+    scale = max_edge / float(longest_edge)
+    resized = prepared.resize(
+        (max(1, int(width * scale)), max(1, int(height * scale))),
+        Image.Resampling.LANCZOS,
+    )
+    return resized
+
+
+def _get_openai_images_api_url(base_url: str) -> str:
+    normalized_base = base_url.rstrip("/")
+    if normalized_base.endswith("/chat/completions"):
+        normalized_base = normalized_base[: -len("/chat/completions")]
+    if normalized_base.endswith("/images/generations"):
+        return normalized_base
+    return f"{normalized_base}/images/generations"
+
+
+def _map_openai_images_size(image_size: str) -> str:
+    # Keep this conservative: Qingyun/OpenAI-compatible image endpoints are picky about supported sizes.
+    # Use a stable default unless we later confirm wider size support.
+    return "1024x1024"
+
+
+def _call_qingyun_openai_images_generation(
+    *,
+    prompt: str,
+    api_key: str,
+    model: str,
+    base_url: str,
+    image_size: str,
+) -> Optional[Image.Image]:
+    api_url = _get_openai_images_api_url(base_url)
+    headers = _get_openrouter_headers(api_key, provider_name="Qingyun")
+    payload: dict[str, Any] = {
+        "model": model,
+        "prompt": prompt,
+        "n": 1,
+        "size": _map_openai_images_size(image_size),
+        "response_format": "b64_json",
+    }
+
+    response = requests.post(api_url, headers=headers, json=payload, timeout=300)
+    if response.status_code != 200:
+        raise Exception(f"Qingyun images/generations API 错误: {response.status_code} - {response.text[:500]}")
+
+    result = response.json()
+    if "error" in result:
+        error_msg = result.get("error", {})
+        if isinstance(error_msg, dict):
+            error_msg = error_msg.get("message", str(error_msg))
+        raise Exception(f"Qingyun images/generations API 错误: {error_msg}")
+
+    data = result.get("data")
+    if not isinstance(data, list) or not data:
+        raise RuntimeError("Qingyun images/generations 返回 data 为空，无法解析图片")
+
+    first = data[0] if isinstance(data[0], dict) else {}
+    image_b64 = first.get("b64_json")
+    if isinstance(image_b64, str) and image_b64.strip():
+        decoded = _decode_base64_image_payload(image_b64)
+        if decoded is not None:
+            return decoded
+
+    image_url = first.get("url")
+    if isinstance(image_url, str) and image_url.strip():
+        resp = requests.get(image_url, timeout=120)
+        if resp.status_code != 200 or not resp.content:
+            raise RuntimeError("Qingyun images/generations 返回 url 但拉取失败")
+        image = Image.open(io.BytesIO(resp.content))
+        image.load()
+        return image
+
+    raise RuntimeError("Qingyun images/generations 响应缺少 b64_json/url，无法解析图片")
 
 
 # ============================================================================
@@ -1821,6 +1977,67 @@ def _image_to_remote_sam3_data_uri(
     )
 
 
+def _get_sam3_fal_application() -> str:
+    candidate = (SAM3_FAL_API_URL or "").strip()
+    if not candidate:
+        return "fal-ai/sam-3-1/image"
+
+    if "://" not in candidate:
+        return candidate.lstrip("/")
+
+    parsed = urlparse(candidate)
+    path = parsed.path.strip("/")
+    return path or "fal-ai/sam-3-1/image"
+
+
+def _prepare_remote_sam3_upload(
+    image: Image.Image,
+    *,
+    api_key: str,
+    max_side: int | None = None,
+    jpeg_quality: int | None = None,
+) -> tuple[str, dict[str, int | str]]:
+    max_side = max_side or int(os.environ.get("SAM3_REMOTE_MAX_SIDE", "1024"))
+    jpeg_quality = jpeg_quality or int(os.environ.get("SAM3_REMOTE_JPEG_QUALITY", "85"))
+
+    processed = image.convert("RGB")
+    original_width, original_height = processed.size
+    longest_side = max(original_width, original_height)
+
+    if longest_side > max_side > 0:
+        scale = float(max_side) / float(longest_side)
+        resized_width = max(1, int(round(original_width * scale)))
+        resized_height = max(1, int(round(original_height * scale)))
+        processed = processed.resize((resized_width, resized_height), Image.Resampling.LANCZOS)
+    else:
+        resized_width, resized_height = original_width, original_height
+
+    buf = io.BytesIO()
+    processed.save(buf, format="JPEG", quality=jpeg_quality, optimize=True)
+    payload = buf.getvalue()
+
+    try:
+        from fal_client import SyncClient
+    except ImportError as exc:
+        raise RuntimeError(
+            "fal-client 未安装，无法使用稳定的 SAM3 Fal 上传/队列调用；请执行 `pip install -r autodraw/requirements.txt`"
+        ) from exc
+
+    client = SyncClient(key=api_key, default_timeout=float(SAM3_API_TIMEOUT))
+    remote_url = client.upload(payload, "image/jpeg", "sam3-input.jpg")
+    return (
+        remote_url,
+        {
+            "original_width": original_width,
+            "original_height": original_height,
+            "sent_width": resized_width,
+            "sent_height": resized_height,
+            "payload_bytes": len(payload),
+            "transport": "fal-cdn-url",
+        },
+    )
+
+
 def _image_to_base64(image: Image.Image) -> str:
     buf = io.BytesIO()
     image.save(buf, format="PNG")
@@ -2057,26 +2274,21 @@ def _extract_roboflow_detections(response_json: dict, image_size: tuple[int, int
 
 
 def _call_sam3_api(
-    image_data_uri: str,
+    image_url: str,
     prompt: str,
     api_key: str,
     max_masks: int,
 ) -> dict:
     if SAM3_FAL_PROXY_BASE_URL:
         return _call_sam3_api_via_proxy(
-            image_data_uri=image_data_uri,
+            image_data_uri=image_url,
             prompt=prompt,
             api_key=api_key,
             max_masks=max_masks,
             base_url=SAM3_FAL_PROXY_BASE_URL,
         )
-
-    headers = {
-        "Authorization": f"Key {api_key}",
-        "Content-Type": "application/json",
-    }
     payload = {
-        "image_url": image_data_uri,
+        "image_url": image_url,
         "prompt": prompt,
         "apply_mask": False,
         "return_multiple_masks": True,
@@ -2084,10 +2296,23 @@ def _call_sam3_api(
         "include_scores": True,
         "include_boxes": True,
     }
-    response = requests.post(SAM3_FAL_API_URL, headers=headers, json=payload, timeout=SAM3_API_TIMEOUT)
-    if response.status_code != 200:
-        raise Exception(f"SAM3 API 错误: {response.status_code} - {response.text[:500]}")
-    result = response.json()
+
+    try:
+        from fal_client import SyncClient
+    except ImportError as exc:
+        raise RuntimeError(
+            "fal-client 未安装，无法使用稳定的 SAM3 Fal 队列调用；请执行 `pip install -r autodraw/requirements.txt`"
+        ) from exc
+
+    application = _get_sam3_fal_application()
+    client = SyncClient(key=api_key, default_timeout=float(SAM3_API_TIMEOUT))
+    result = client.subscribe(
+        application,
+        arguments=payload,
+        with_logs=False,
+        start_timeout=float(SAM3_API_TIMEOUT),
+        client_timeout=float(SAM3_API_TIMEOUT),
+    )
     if isinstance(result, dict) and "error" in result:
         raise Exception(f"SAM3 API 错误: {result.get('error')}")
     return result
@@ -2101,7 +2326,7 @@ def _call_sam3_api_via_proxy(
     base_url: str,
 ) -> dict:
     normalized_base = base_url.rstrip("/")
-    model_path = "fal-ai/sam-3/image"
+    model_path = "fal-ai/sam-3-1/image"
     create_url = f"{normalized_base}/{model_path}"
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -2417,19 +2642,20 @@ def segment_with_sam3(
     if not handled_backend and backend == "fal":
         api_key = _get_fal_api_key(sam_api_key)
         max_masks = max(1, min(32, int(sam_max_masks)))
-        image_data_uri, remote_image_meta = _image_to_remote_sam3_data_uri(image)
+        remote_image_url, remote_image_meta = _prepare_remote_sam3_upload(image, api_key=api_key)
         print(f"SAM3 remote API 模式: max_masks={max_masks}")
         print(
-            "  请求图像压缩: "
+            "  请求图像压缩/上传: "
             f"{remote_image_meta['original_width']}x{remote_image_meta['original_height']} -> "
             f"{remote_image_meta['sent_width']}x{remote_image_meta['sent_height']}, "
-            f"bytes={remote_image_meta['payload_bytes']}"
+            f"bytes={remote_image_meta['payload_bytes']}, "
+            f"transport={remote_image_meta['transport']}"
         )
 
         for prompt in prompt_list:
             print(f"\n  正在检测: '{prompt}'")
             response_json = _call_sam3_api(
-                image_data_uri=image_data_uri,
+                image_url=remote_image_url,
                 prompt=prompt,
                 api_key=api_key,
                 max_masks=max_masks,
@@ -2798,11 +3024,20 @@ def generate_svg_template(
     print(f"Provider: {provider}")
     print(f"模型: {model}")
     print(f"占位符模式: {placeholder_mode}")
+    prefer_qingyun_native = provider == "qingyun" and _should_prefer_qingyun_svg_native()
+    svg_multimodal_max_tokens = _get_svg_multimodal_max_tokens()
+    svg_image_max_edge = _get_svg_multimodal_image_max_edge()
+    if provider == "qingyun":
+        print(f"Qingyun SVG 优先原生: {prefer_qingyun_native}")
+    print(f"步骤四 max_tokens: {svg_multimodal_max_tokens}")
+    print(f"步骤四图片最长边: {svg_image_max_edge}")
     if no_icon_mode:
         print("无图标模式: 启用纯 SVG 复现回退")
 
     figure_img = Image.open(figure_path)
     samed_img = Image.open(samed_path)
+    figure_prompt_img = _prepare_svg_multimodal_image(figure_img, max_edge=svg_image_max_edge)
+    samed_prompt_img = _prepare_svg_multimodal_image(samed_img, max_edge=svg_image_max_edge)
 
     figure_width, figure_height = figure_img.size
     print(f"原图尺寸: {figure_width} x {figure_height}")
@@ -2856,9 +3091,13 @@ Please output ONLY the SVG code, starting with <svg and ending with </svg>. Do n
 
     elif not no_icon_mode and placeholder_mode == "label":
         # label 模式：要求占位符样式与 samed.png 一致
-        prompt_text = base_prompt + """
+        box_summary = _build_svg_box_summary(boxlib_path)
+        prompt_text = base_prompt + f"""
 PLACEHOLDER STYLE REQUIREMENT:
-Look at the second image (samed.png) - each icon area is marked with a gray rectangle (#808080), black border, and a centered label like <AF>01, <AF>02, etc.
+Use the following icon placeholder boxes directly. Each placeholder must preserve its position and size.
+
+ICON BOX SUMMARY:
+{box_summary}
 
 Your SVG placeholders MUST match this exact style:
 - Rectangle with fill="#808080" and stroke="black" stroke-width="2"
@@ -2877,7 +3116,10 @@ Please output ONLY the SVG code, starting with <svg and ending with </svg>. Do n
         prompt_text = base_prompt + """
 Please output ONLY the SVG code, starting with <svg and ending with </svg>. Do not include any explanation or markdown formatting."""
 
-    contents = [prompt_text, figure_img, samed_img]
+    if not no_icon_mode and placeholder_mode == "label":
+        contents = [prompt_text, figure_prompt_img]
+    else:
+        contents = [prompt_text, figure_prompt_img, samed_prompt_img]
 
     print(f"发送多模态请求到: {base_url}")
 
@@ -2887,7 +3129,8 @@ Please output ONLY the SVG code, starting with <svg and ending with </svg>. Do n
         model=model,
         base_url=base_url,
         provider=provider,
-        max_tokens=50000,
+        max_tokens=svg_multimodal_max_tokens,
+        prefer_qingyun_native=prefer_qingyun_native,
     )
 
     if not content:
@@ -3445,6 +3688,13 @@ def optimize_svg_with_llm(
     print(f"Provider: {provider}")
     print(f"模型: {model}")
     print(f"最大迭代次数: {max_iterations}")
+    prefer_qingyun_native = provider == "qingyun" and _should_prefer_qingyun_svg_native()
+    svg_multimodal_max_tokens = _get_svg_multimodal_max_tokens()
+    svg_image_max_edge = _get_svg_multimodal_image_max_edge()
+    if provider == "qingyun":
+        print(f"Qingyun SVG 优先原生: {prefer_qingyun_native}")
+    print(f"步骤四 max_tokens: {svg_multimodal_max_tokens}")
+    print(f"步骤四图片最长边: {svg_image_max_edge}")
     if no_icon_mode:
         print("无图标模式: 优化时禁止引入占位框")
 
@@ -3488,6 +3738,9 @@ def optimize_svg_with_llm(
         figure_img = Image.open(figure_path)
         samed_img = Image.open(samed_path)
         current_png_img = Image.open(str(current_png_path))
+        figure_prompt_img = _prepare_svg_multimodal_image(figure_img, max_edge=svg_image_max_edge)
+        samed_prompt_img = _prepare_svg_multimodal_image(samed_img, max_edge=svg_image_max_edge)
+        current_prompt_img = _prepare_svg_multimodal_image(current_png_img, max_edge=svg_image_max_edge)
 
         if no_icon_mode:
             prompt = f"""You are an expert SVG optimizer. Compare the current SVG rendering with the original figure and optimize the SVG code to better match the original.
@@ -3551,7 +3804,7 @@ Please carefully compare and check the following **TWO MAJOR ASPECTS with EIGHT 
 - Keep all icon placeholder structures intact (the <g> elements with id like "AF01")
 - Focus on position and style corrections"""
 
-        contents = [prompt, figure_img, samed_img, current_png_img]
+        contents = [prompt, figure_prompt_img, samed_prompt_img, current_prompt_img]
 
         try:
             print("  发送优化请求...")
@@ -3561,8 +3814,9 @@ Please carefully compare and check the following **TWO MAJOR ASPECTS with EIGHT 
                 model=model,
                 base_url=base_url,
                 provider=provider,
-                max_tokens=50000,
+                max_tokens=svg_multimodal_max_tokens,
                 temperature=0.3,
+                prefer_qingyun_native=prefer_qingyun_native,
             )
 
             if not content:
@@ -3647,6 +3901,7 @@ def method_to_svg(
     merge_threshold: float = 0.9,
     image_size: str = GEMINI_DEFAULT_IMAGE_SIZE,
     start_stage: int = 1,
+    cancellation_check: Optional[Callable[[int, str], None]] = None,
 ) -> dict:
     """
     完整流程：Paper Method → SVG with Icons
@@ -3721,8 +3976,13 @@ def method_to_svg(
     optimized_template_path = output_dir / "optimized_template.svg"
     final_svg_path = output_dir / "final.svg"
 
+    def check_cancellation(stage: int, label: str) -> None:
+        if cancellation_check:
+            cancellation_check(stage, label)
+
     # 步骤一：生成图片
     if start_stage <= 1:
+        check_cancellation(1, "步骤一：生成图片")
         try:
             generate_figure_from_method(
                 method_text=method_text,
@@ -3755,6 +4015,7 @@ def method_to_svg(
 
     # 步骤二：SAM3 分割（包含Box合并）
     if start_stage <= 2:
+        check_cancellation(2, "步骤二：SAM3 分割")
         try:
             samed_path_str, boxlib_path_str, valid_boxes = segment_with_sam3(
                 image_path=str(figure_path),
@@ -3799,6 +4060,7 @@ def method_to_svg(
     # 步骤三：裁切 + 去背景
     icon_infos = []
     if start_stage <= 3:
+        check_cancellation(3, "步骤三：裁切与去背景")
         if no_icon_mode:
             print("步骤三跳过：当前为无图标回退模式")
         else:
@@ -3837,6 +4099,7 @@ def method_to_svg(
 
     # 步骤四：生成 SVG 模板
     if start_stage <= 4:
+        check_cancellation(4, "步骤四：生成 SVG 模板")
         try:
             generate_svg_template(
                 figure_path=str(figure_path),
@@ -3895,6 +4158,7 @@ def method_to_svg(
 
     # 步骤五：图标替换
     if start_stage <= 5:
+        check_cancellation(5, "步骤五：图标替换")
         try:
             if no_icon_mode:
                 if svg_template_for_replace.is_file():

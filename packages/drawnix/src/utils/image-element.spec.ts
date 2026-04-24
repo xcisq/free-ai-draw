@@ -1,8 +1,13 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 import {
+  appendImageEraseStroke,
+  clearImageEraseMask,
   findBoardElementById,
   getSingleSelectedImageElement,
+  getSingleSelectedRasterImageElement,
+  isEditableRasterImageElement,
+  isEditableRasterImageUrl,
   replaceImageElementUrl,
 } from './image-element';
 
@@ -86,5 +91,92 @@ describe('image-element utils', () => {
     replaceImageElementUrl(board, 'image-4', 'new.png');
 
     expect(mockSetNode).toHaveBeenCalledWith(board, { url: 'new.png' }, [0]);
+  });
+
+  it('只把 png/jpg/webp 识别为可编辑栅格图', () => {
+    expect(isEditableRasterImageUrl('https://example.com/demo.png')).toBe(true);
+    expect(isEditableRasterImageUrl('data:image/jpeg;base64,abc')).toBe(true);
+    expect(isEditableRasterImageUrl('data:image/svg+xml;base64,abc')).toBe(
+      false
+    );
+    expect(isEditableRasterImageUrl('https://example.com/demo.svg')).toBe(
+      false
+    );
+  });
+
+  it('可以判断图片元素是否属于可编辑栅格图', () => {
+    expect(
+      isEditableRasterImageElement({
+        id: 'image-5',
+        type: 'image',
+        url: 'figure.webp',
+      } as any)
+    ).toBe(true);
+    expect(
+      isEditableRasterImageElement({
+        id: 'image-6',
+        type: 'image',
+        url: 'fragment.svg',
+      } as any)
+    ).toBe(false);
+  });
+
+  it('只在直接单选栅格图时返回图片元素', () => {
+    const imageElement = { id: 'image-7', type: 'image', url: 'a.png' };
+    mockGetSelectedElements.mockReturnValue([imageElement]);
+
+    expect(getSingleSelectedRasterImageElement({} as any)).toEqual(imageElement);
+
+    mockGetSelectedElements.mockReturnValue([
+      imageElement,
+      { id: 'shape-1', type: 'geometry' },
+    ]);
+    expect(getSingleSelectedRasterImageElement({} as any)).toBeNull();
+  });
+
+  it('支持给图片追加一条擦除笔迹', () => {
+    const board = {
+      children: [{ id: 'image-8', type: 'image', url: 'old.png' }],
+    } as any;
+
+    appendImageEraseStroke(board, 'image-8', {
+      points: [[0.1, 0.2]],
+      radius: 0.05,
+    });
+
+    expect(mockSetNode).toHaveBeenCalledWith(
+      board,
+      {
+        eraseMask: {
+          version: 1,
+          strokes: [{ points: [[0.1, 0.2]], radius: 0.05 }],
+        },
+      },
+      [0]
+    );
+  });
+
+  it('支持清空图片擦除蒙版', () => {
+    const board = {
+      children: [
+        {
+          id: 'image-9',
+          type: 'image',
+          url: 'old.png',
+          eraseMask: {
+            version: 1,
+            strokes: [{ points: [[0.1, 0.2]], radius: 0.05 }],
+          },
+        },
+      ],
+    } as any;
+
+    clearImageEraseMask(board, 'image-9');
+
+    expect(mockSetNode).toHaveBeenCalledWith(
+      board,
+      { eraseMask: undefined },
+      [0]
+    );
   });
 });

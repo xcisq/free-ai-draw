@@ -246,7 +246,11 @@ const buildTextElement = (element: SceneTextElement) => {
       : element.layout.anchor === 'end'
         ? 'right'
         : 'left';
-  const fontSize = Math.max(22, element.style.fontSize || 0);
+  // Preserve scene-provided fontSize for fidelity; avoid hard minimums that distort imports.
+  const fontSize =
+    typeof element.style.fontSize === 'number' && element.style.fontSize > 0
+      ? element.style.fontSize
+      : 16;
   const isItalic = String(element.style.fontStyle || '').toLowerCase() === 'italic';
   const numericWeight =
     typeof element.style.fontWeight === 'number'
@@ -263,6 +267,7 @@ const buildTextElement = (element: SceneTextElement) => {
     ],
     element.text,
     {
+      autoSize: false,
       fill: 'transparent',
       strokeColor: 'transparent',
       textStyle: {
@@ -274,18 +279,21 @@ const buildTextElement = (element: SceneTextElement) => {
         ['font-family']: resolvedFontFamily,
         fontWeight: element.style.fontWeight,
         fontStyle: element.style.fontStyle,
+        lineHeight:
+          typeof element.style.lineHeight === 'number' ? element.style.lineHeight : undefined,
         ['line-height']:
           typeof element.style.lineHeight === 'number'
             ? String(element.style.lineHeight)
+            : undefined,
+        letterSpacing:
+          typeof element.style.letterSpacing === 'number'
+            ? element.style.letterSpacing
             : undefined,
         ['letter-spacing']:
           typeof element.style.letterSpacing === 'number'
             ? String(element.style.letterSpacing)
             : undefined,
-        opacity:
-          typeof element.style.opacity === 'number'
-            ? String(element.style.opacity)
-            : undefined,
+        opacity: typeof element.style.opacity === 'number' ? element.style.opacity : undefined,
       },
     } as any,
     {
@@ -293,7 +301,7 @@ const buildTextElement = (element: SceneTextElement) => {
       color: element.style.fill,
       bold: isBold || undefined,
       italic: isItalic || undefined,
-      ['font-size']: fontSize,
+      ['font-size']: String(fontSize),
       fontFamily: resolvedFontFamily,
       ['font-family']: resolvedFontFamily,
       fontWeight: element.style.fontWeight,
@@ -313,6 +321,9 @@ const buildTextElement = (element: SceneTextElement) => {
     } as any
   ) as PlaitElement & { id: string };
   next.id = element.id;
+  if (element.layout.rotation) {
+    (next as any).angle = element.layout.rotation;
+  }
   return next;
 };
 

@@ -8,6 +8,15 @@ const mockPopupFontFamilyControl = jest.fn(
     <div>{`font-family:${currentFontFamily || 'none'}`}</div>
   )
 );
+const mockPopupRectangleRadiusControl = jest.fn(
+  ({
+    currentRadius,
+    maxRadius,
+  }: {
+    currentRadius?: number;
+    maxRadius: number;
+  }) => <div>{`corner-radius:${currentRadius ?? 'none'}:${maxRadius}`}</div>
+);
 const mockBoard = {
   viewport: {},
   selection: null,
@@ -20,6 +29,10 @@ const mockSelectedElements: any[] = [
     id: 'shape-1',
     type: 'geometry',
     shape: 'rectangle',
+    points: [
+      [0, 0],
+      [100, 60],
+    ],
     fill: '#ffffff',
     strokeColor: '#333333',
   },
@@ -55,6 +68,20 @@ jest.mock('@plait/core', () => ({
     isReadonly: () => false,
   },
   RectangleClient: {
+    getRectangleByPoints: (points: Array<[number, number]>) => {
+      const xs = points.map((point) => point[0]);
+      const ys = points.map((point) => point[1]);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+      return {
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY,
+      };
+    },
     getPoints: () => [
       [0, 0],
       [100, 60],
@@ -67,6 +94,10 @@ jest.mock('@plait/core', () => ({
 }));
 
 jest.mock('@plait/draw', () => ({
+  BasicShapes: {
+    rectangle: 'rectangle',
+    roundRectangle: 'roundRectangle',
+  },
   ArrowLineComponent: class {},
   getStrokeColorByElement: () => '#333333',
   getStrokeStyleByElement: () => 'solid',
@@ -156,6 +187,13 @@ jest.mock('./font-size-control', () => ({
   PopupFontSizeControl: () => <div>font-size</div>,
 }));
 
+jest.mock('./rectangle-radius-control', () => ({
+  PopupRectangleRadiusControl: (props: {
+    currentRadius?: number;
+    maxRadius: number;
+  }) => mockPopupRectangleRadiusControl(props),
+}));
+
 jest.mock('./stroke-button', () => ({
   PopupStrokeButton: ({ children }: { children?: React.ReactNode }) => (
     <div>{children || 'stroke'}</div>
@@ -210,6 +248,7 @@ describe('PopupToolbar', () => {
   beforeEach(() => {
     mockSetPositionReference.mockReset();
     mockPopupFontFamilyControl.mockClear();
+    mockPopupRectangleRadiusControl.mockClear();
     mockSelectedElements.splice(
       0,
       mockSelectedElements.length,
@@ -217,6 +256,10 @@ describe('PopupToolbar', () => {
         id: 'shape-1',
         type: 'geometry',
         shape: 'rectangle',
+        points: [
+          [0, 0],
+          [100, 60],
+        ],
         fill: '#ffffff',
         strokeColor: '#333333',
       }
@@ -263,6 +306,10 @@ describe('PopupToolbar', () => {
         id: 'text-1',
         type: 'geometry',
         shape: 'text',
+        points: [
+          [0, 0],
+          [100, 40],
+        ],
         text: {
           type: 'paragraph',
           children: [{ text: '标题' }],
@@ -286,6 +333,10 @@ describe('PopupToolbar', () => {
         id: 'text-2',
         type: 'geometry',
         shape: 'text',
+        points: [
+          [0, 0],
+          [120, 48],
+        ],
         text: {
           type: 'paragraph',
           children: [{ text: '标题', ['font-family']: 'Georgia, serif' }],
@@ -304,6 +355,166 @@ describe('PopupToolbar', () => {
     render(<PopupToolbar />);
 
     expect(screen.getByText('font-family:Georgia, serif')).toBeTruthy();
+  });
+
+  it('单选矩形时应显示圆角控件', () => {
+    render(<PopupToolbar />);
+
+    expect(screen.getByText('corner-radius:0:30')).toBeTruthy();
+  });
+
+  it('单选圆角矩形时应把当前圆角传给控件', () => {
+    mockSelectedElements.splice(
+      0,
+      mockSelectedElements.length,
+      {
+        id: 'shape-2',
+        type: 'geometry',
+        shape: 'roundRectangle',
+        radius: 18,
+        points: [
+          [0, 0],
+          [100, 60],
+        ],
+        fill: '#ffffff',
+        strokeColor: '#333333',
+      }
+    );
+
+    render(<PopupToolbar />);
+
+    expect(screen.getByText('corner-radius:18:30')).toBeTruthy();
+  });
+
+  it('混选 rectangle 和 roundRectangle 时仍应显示圆角控件', () => {
+    mockSelectedElements.splice(
+      0,
+      mockSelectedElements.length,
+      {
+        id: 'shape-1',
+        type: 'geometry',
+        shape: 'rectangle',
+        points: [
+          [0, 0],
+          [100, 60],
+        ],
+        fill: '#ffffff',
+        strokeColor: '#333333',
+      },
+      {
+        id: 'shape-2',
+        type: 'geometry',
+        shape: 'roundRectangle',
+        radius: 12,
+        points: [
+          [0, 0],
+          [80, 40],
+        ],
+        fill: '#ffffff',
+        strokeColor: '#333333',
+      }
+    );
+
+    render(<PopupToolbar />);
+
+    expect(screen.getByText('corner-radius:0:20')).toBeTruthy();
+  });
+
+  it('混选矩形和椭圆时不应显示圆角控件', () => {
+    mockSelectedElements.splice(
+      0,
+      mockSelectedElements.length,
+      {
+        id: 'shape-1',
+        type: 'geometry',
+        shape: 'rectangle',
+        points: [
+          [0, 0],
+          [100, 60],
+        ],
+        fill: '#ffffff',
+        strokeColor: '#333333',
+      },
+      {
+        id: 'shape-3',
+        type: 'geometry',
+        shape: 'ellipse',
+        points: [
+          [0, 0],
+          [90, 50],
+        ],
+        fill: '#ffffff',
+        strokeColor: '#333333',
+      }
+    );
+
+    render(<PopupToolbar />);
+
+    expect(screen.queryByText(/corner-radius:/)).toBeNull();
+  });
+
+  it('混选矩形和文本时不应显示圆角控件', () => {
+    mockSelectedElements.splice(
+      0,
+      mockSelectedElements.length,
+      {
+        id: 'shape-1',
+        type: 'geometry',
+        shape: 'rectangle',
+        points: [
+          [0, 0],
+          [100, 60],
+        ],
+        fill: '#ffffff',
+        strokeColor: '#333333',
+      },
+      {
+        id: 'text-3',
+        type: 'geometry',
+        shape: 'text',
+        points: [
+          [0, 0],
+          [80, 40],
+        ],
+        text: {
+          type: 'paragraph',
+          children: [{ text: '说明' }],
+        },
+        fill: '#ffffff',
+        strokeColor: '#333333',
+      }
+    );
+
+    render(<PopupToolbar />);
+
+    expect(screen.queryByText(/corner-radius:/)).toBeNull();
+  });
+
+  it('混选矩形和图片时不应显示圆角控件', () => {
+    mockSelectedElements.splice(
+      0,
+      mockSelectedElements.length,
+      {
+        id: 'shape-1',
+        type: 'geometry',
+        shape: 'rectangle',
+        points: [
+          [0, 0],
+          [100, 60],
+        ],
+        fill: '#ffffff',
+        strokeColor: '#333333',
+      },
+      {
+        id: 'image-2',
+        type: 'image',
+        url: 'image.png',
+      }
+    );
+
+    render(<PopupToolbar />);
+
+    expect(screen.queryByText(/corner-radius:/)).toBeNull();
   });
 
   it('单选普通图片时应显示换图与 AI 编辑按钮', () => {

@@ -13,10 +13,13 @@ from ..schemas import (
     JobLogChunkResponse,
     JobListItem,
     JobResponse,
+    ReplayJobRequest,
     ResumeJobRequest,
 )
 from ..services.job_runner import (
+    cancel_job,
     create_job,
+    create_replay_job,
     create_resume_job,
     get_job,
     get_job_response,
@@ -48,6 +51,32 @@ def resume_job(job_id: str, request: ResumeJobRequest) -> CreateJobResponse:
     return CreateJobResponse(job_id=record.job_id, status=record.status)
 
 
+@router.post("/{job_id}/replay", response_model=CreateJobResponse)
+def replay_job(job_id: str, request: ReplayJobRequest) -> CreateJobResponse:
+    try:
+        record = create_replay_job(job_id, request)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return CreateJobResponse(job_id=record.job_id, status=record.status)
+
+
+@router.post("/{job_id}/cancel", response_model=JobResponse)
+def terminate_job(job_id: str) -> JobResponse:
+    try:
+        cancel_job(job_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    response = get_job_response(job_id)
+    if response is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return response
+
+
 @router.get("/{job_id}", response_model=JobResponse)
 def fetch_job(job_id: str) -> JobResponse:
     response = get_job_response(job_id)
@@ -74,7 +103,7 @@ def fetch_job_logs(job_id: str, offset: int = 0, limit: int = 65536) -> JobLogCh
         next_offset = handle.tell()
 
     lines = payload.splitlines()
-    completed = record.status in {"succeeded", "failed"} and next_offset >= log_path.stat().st_size
+    completed = record.status in {"succeeded", "failed", "cancelled"} and next_offset >= log_path.stat().st_size
     return JobLogChunkResponse(
         job_id=job_id,
         offset=safe_offset,
@@ -117,7 +146,7 @@ def stream_job_logs(job_id: str) -> StreamingResponse:
                         ensure_ascii=False,
                     )
                     yield f"event: log\ndata: {message}\n\n"
-            elif current_record.status in {"succeeded", "failed"}:
+            elif current_record.status in {"succeeded", "failed", "cancelled"}:
                 message = json.dumps(
                     {
                         "job_id": job_id,

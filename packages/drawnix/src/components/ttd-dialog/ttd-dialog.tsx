@@ -3,11 +3,13 @@ import { Dialog, DialogContent } from '../dialog/dialog';
 import MermaidToDrawnix from './mermaid-to-drawnix';
 import { DialogType, useDrawnix } from '../../hooks/use-drawnix';
 import MarkdownToDrawnix from './markdown-to-drawnix';
-import AutodrawDialog from '../../autodraw/components/autodraw-dialog';
 import ImageEditDialog from '../../image-edit/components/image-edit-dialog';
 
 const LLMMermaidDialog = lazy(
   () => import('../../llm-mermaid/components/llm-mermaid-dialog')
+);
+const AutodrawDialog = lazy(
+  () => import('../../autodraw/components/autodraw-dialog')
 );
 
 export const TTDDialog = ({ container }: { container: HTMLElement | null }) => {
@@ -53,7 +55,9 @@ export const TTDDialog = ({ container }: { container: HTMLElement | null }) => {
           className="Dialog ttd-dialog autodraw-dialog-modal"
           container={container}
         >
-          <AutodrawDialog />
+          <Suspense fallback={<div style={{ padding: 16 }}>Loading...</div>}>
+            <AutodrawDialog />
+          </Suspense>
         </DialogContent>
       </Dialog>
       <Dialog

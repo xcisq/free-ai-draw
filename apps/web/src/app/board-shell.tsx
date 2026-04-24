@@ -32,7 +32,7 @@ const FONT_SCHEMES = [
       {
         label: '思源黑体',
         value:
-          '"Source Han Sans SC", "Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", sans-serif',
+          '"Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
       },
       {
         label: 'Arial',
@@ -41,12 +41,12 @@ const FONT_SCHEMES = [
       {
         label: '宋体',
         value:
-          '"Songti SC", "STSong", "Noto Serif CJK SC", "Times New Roman", serif',
+          '"Noto Serif SC", "Songti SC", "STSong", "Times New Roman", serif',
       },
       {
         label: '文楷',
         value:
-          '"LXGW WenKai", "Kaiti SC", "STKaiti", "Songti SC", serif',
+          '"Kaiti SC", "STKaiti", "Noto Serif SC", "Songti SC", serif',
       },
       {
         label: '等宽',
@@ -56,15 +56,15 @@ const FONT_SCHEMES = [
     ],
     fontRoleFamilies: {
       title:
-        '"Source Han Sans SC", "Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif',
+        '"Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif',
       body:
-        '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", "Helvetica Neue", Arial, sans-serif',
+        '"Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", "Helvetica Neue", Arial, sans-serif',
       plain:
-        '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", "Helvetica Neue", Arial, sans-serif',
+        '"Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", "Helvetica Neue", Arial, sans-serif',
       annotation:
-        '"Songti SC", "STSong", "Noto Serif CJK SC", "Times New Roman", serif',
+        '"Noto Serif SC", "Songti SC", "STSong", "Times New Roman", serif',
       'decorative-symbol':
-        '"Source Han Sans SC", "Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", sans-serif',
+        '"Kaiti SC", "STKaiti", "Noto Serif SC", "Songti SC", serif',
       emoji:
         '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif',
       code:
@@ -84,7 +84,7 @@ const FONT_SCHEMES = [
       {
         label: '思源黑体',
         value:
-          '"Source Han Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif',
+          '"Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
       },
       {
         label: 'Arial',
@@ -93,12 +93,12 @@ const FONT_SCHEMES = [
       {
         label: '文楷',
         value:
-          '"LXGW WenKai", "Kaiti SC", "STKaiti", serif',
+          '"Kaiti SC", "STKaiti", "Noto Serif SC", serif',
       },
       {
         label: '宋体',
         value:
-          '"Songti SC", "STSong", "Noto Serif CJK SC", serif',
+          '"Noto Serif SC", "Songti SC", "STSong", serif',
       },
       {
         label: '等宽',
@@ -108,15 +108,15 @@ const FONT_SCHEMES = [
     ],
     fontRoleFamilies: {
       title:
-        '"Source Han Sans SC", "Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", sans-serif',
+        '"Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
       body:
-        '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
+        '"Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
       plain:
-        '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
+        '"Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
       annotation:
-        '"Songti SC", "STSong", "Noto Serif CJK SC", serif',
+        '"Noto Serif SC", "Songti SC", "STSong", serif',
       'decorative-symbol':
-        '"LXGW WenKai", "Kaiti SC", "STKaiti", serif',
+        '"Kaiti SC", "STKaiti", "Noto Serif SC", serif',
       emoji:
         '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif',
       code:

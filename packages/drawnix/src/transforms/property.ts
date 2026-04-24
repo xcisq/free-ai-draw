@@ -5,10 +5,15 @@ import {
   Path,
   PlaitBoard,
   PlaitElement,
+  RectangleClient,
   Transforms,
 } from '@plait/core';
 import { getMemorizeKey } from '@plait/draw';
-import { isDrawElementsIncludeText, PlaitDrawElement } from '@plait/draw';
+import {
+  BasicShapes,
+  isDrawElementsIncludeText,
+  PlaitDrawElement,
+} from '@plait/draw';
 import {
   applyOpacityToHex,
   hexAlphaToOpacity,
@@ -159,6 +164,58 @@ export const setTextFontSize = (board: PlaitBoard, size: number) => {
     return;
   }
   TextTransforms.setFontSize(board, String(size) as any, DEFAULT_FONT_SIZE);
+};
+
+const isRectangleCornerRadiusElement = (element: PlaitElement) => {
+  if (!PlaitDrawElement.isDrawElement(element)) {
+    return false;
+  }
+  const shape = (element as { shape?: string }).shape;
+  return (
+    shape === BasicShapes.rectangle || shape === BasicShapes.roundRectangle
+  );
+};
+
+const getRectangleCornerRadiusLimit = (element: PlaitElement) => {
+  const points = (element as { points?: [number, number][] }).points;
+  if (!Array.isArray(points) || points.length === 0) {
+    return 0;
+  }
+  const rectangle = RectangleClient.getRectangleByPoints(points);
+  const width = Math.abs(rectangle.width || 0);
+  const height = Math.abs(rectangle.height || 0);
+  const limit = Math.min(width, height) / 2;
+  return Number.isFinite(limit) && limit > 0 ? limit : 0;
+};
+
+export const setRectangleCornerRadius = (
+  board: PlaitBoard,
+  radius: number
+) => {
+  if (!Number.isFinite(radius)) {
+    return;
+  }
+
+  getSelectedElements(board).forEach((element) => {
+    if (!isRectangleCornerRadiusElement(element)) {
+      return;
+    }
+
+    const path = PlaitBoard.findPath(board, element);
+    const limit = getRectangleCornerRadiusLimit(element);
+    const nextRadius = Math.min(limit, Math.max(0, radius));
+    const nextShape =
+      nextRadius > 0 ? BasicShapes.roundRectangle : BasicShapes.rectangle;
+
+    Transforms.setNode(
+      board,
+      {
+        shape: nextShape,
+        radius: nextRadius,
+      },
+      path
+    );
+  });
 };
 
 type BoardElementEntry = {

@@ -68,15 +68,15 @@ export const normalizeFontFamilyStack = (fontFamily?: string) => {
 
 export const DEFAULT_FONT_ROLE_FAMILIES: FontRoleFamilyConfig = {
   title:
-    '"Source Han Sans SC", "Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif',
+    '"Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif',
   body:
-    '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", "Helvetica Neue", Arial, sans-serif',
+    '"Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", "Helvetica Neue", Arial, sans-serif',
   plain:
-    '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", "Helvetica Neue", Arial, sans-serif',
+    '"Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", "Helvetica Neue", Arial, sans-serif',
   annotation:
-    '"Songti SC", "STSong", "Noto Serif CJK SC", "Times New Roman", serif',
+    '"Noto Serif SC", "Songti SC", "STSong", "Times New Roman", serif',
   'decorative-symbol':
-    '"Source Han Sans SC", "Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", sans-serif',
+    '"Kaiti SC", "STKaiti", "Noto Serif SC", "Songti SC", serif',
   emoji:
     '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif',
   code:

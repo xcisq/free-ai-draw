@@ -2,6 +2,8 @@ import classNames from 'classnames';
 import {
   ChangeEvent,
   KeyboardEvent,
+  startTransition,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -10,6 +12,7 @@ import {
 import '../styles/autodraw-dialog.scss';
 import { useBoard } from '@plait-board/react-board';
 import {
+  clearSelectedElement,
   getViewportOrigination,
   PlaitBoard,
   PlaitElement,
@@ -25,6 +28,7 @@ import { useI18n } from '../../i18n';
 import { SvgImportSummary } from '../../svg-import/convert-svg-to-drawnix';
 import { importBundlePackage } from '../../scene-import/import-bundle-package';
 import { scaleTextMetricBag } from './autodraw-text-scale';
+import { AutodrawActivityPanel } from './autodraw-activity-panel';
 import {
   AutodrawReferenceDirectoryHandle,
   AutodrawReferenceGalleryItemFile,
@@ -44,13 +48,17 @@ import {
   AutodrawHistoryEntry,
   buildAutodrawAssetShelfItems,
   buildAssemblyBatches,
+  getAutodrawHistoryDefaultReplayStage,
+  getAutodrawHistoryMinReplayStage,
+  getAutodrawStatusBadgeClass,
   getEffectiveWorkbenchStep,
   getAutodrawSpotlightAsset,
   getWorkbenchProgressRatio,
   mergeAutodrawArtifacts,
   toAutodrawAssetItems,
-  upsertAutodrawHistory,
 } from './autodraw-dialog.utils';
+import { AutodrawHistoryPanel } from './autodraw-history-panel';
+import { useAutodrawHistory } from './use-autodraw-history';
 
 interface UploadReferenceImageResponse {
   upload_id: string;
@@ -62,17 +70,18 @@ interface UploadReferenceImageResponse {
 
 interface CreateJobResponse {
   job_id: string;
-  status: 'queued' | 'running' | 'succeeded' | 'failed';
+  status: AutodrawStatus;
 }
 
 interface JobResponse {
   job_id: string;
-  status: 'queued' | 'running' | 'succeeded' | 'failed';
+  status: AutodrawStatus;
   error_message?: string | null;
   bundle_url?: string | null;
   artifacts?: AutodrawArtifact[];
   failed_stage?: number | null;
   current_stage?: number;
+  min_start_stage?: number;
   source_job_id?: string | null;
   created_at?: string;
   request?: {
@@ -88,20 +97,6 @@ interface JobLogChunkResponse {
   lines: string[];
 }
 
-interface JobListItemResponse {
-  job_id: string;
-  job_type?: 'autodraw' | 'image-edit';
-  status: 'queued' | 'running' | 'succeeded' | 'failed';
-  created_at: string;
-  started_at?: string | null;
-  finished_at?: string | null;
-  error_message?: string | null;
-  artifacts?: AutodrawArtifact[];
-  bundle_url?: string | null;
-  current_stage?: number;
-  failed_stage?: number | null;
-}
-
 type AssemblyProgress = {
   active: boolean;
   totalBatches: number;
@@ -115,12 +110,16 @@ type WorkbenchStageDefinition = {
   stepNumber: string;
 };
 
-type ActivityTab = 'timeline' | 'logs';
-
 type AssetPreviewState = {
-  asset: AutodrawAssetItem;
+  title: string;
+  subtitle: string;
+  url: string;
+  mode: 'default' | 'icon';
 };
 
+type AutodrawInputMode = 'generate' | 'source';
+type AutodrawImageSize = '2K' | '4K';
+type AutodrawSourceRunMode = 'segmented' | 'direct-svg';
 type ReferenceSource = 'gallery' | 'upload' | null;
 
 type ReferenceGalleryState =
@@ -135,12 +134,49 @@ type ReferenceGalleryItem = AutodrawReferenceGalleryItemFile & {
   previewUrl: string;
 };
 
+const createAssetPreviewState = (
+  asset: AutodrawAssetItem,
+  subtitle = asset.path
+): AssetPreviewState => ({
+  title: asset.name,
+  subtitle,
+  url: asset.url,
+  mode: asset.kind === 'icon' ? 'icon' : 'default',
+});
+
+const createGalleryPreviewState = (
+  item: ReferenceGalleryItem
+): AssetPreviewState => ({
+  title: item.name,
+  subtitle: item.file.name,
+  url: item.previewUrl,
+  mode: 'default',
+});
+
+const createHistoryPreviewState = (
+  entry: AutodrawHistoryEntry
+): AssetPreviewState | null => {
+  if (!entry.previewUrl) {
+    return null;
+  }
+  return {
+    title: entry.title,
+    subtitle: entry.jobId || entry.subtitle,
+    url: entry.previewUrl,
+    mode: 'default',
+  };
+};
+
 type AutodrawPersistedDraft = {
   backendUrl?: string;
   methodText?: string;
   provider?: string;
   baseUrl?: string;
   imageModel?: string;
+  imageSize?: AutodrawImageSize;
+  inputMode?: AutodrawInputMode;
+  sourceRunMode?: AutodrawSourceRunMode;
+  samPrompt?: string;
   svgModel?: string;
   jobId?: string;
   jobIdInput?: string;
@@ -164,11 +200,17 @@ const readDefaultBackendUrl = () => {
 };
 
 const DEFAULT_BACKEND_URL = readDefaultBackendUrl();
-const AUTODRAW_HISTORY_STORAGE_KEY = 'drawnix:autodraw-history:v1';
 const AUTODRAW_DRAFT_STORAGE_KEY = 'drawnix:autodraw-draft:v2';
+const AUTODRAW_HISTORY_PREVIEW_LIMIT = 12;
 const AUTODRAW_REALTIME_POLL_INTERVAL = 1200;
 const AUTODRAW_ASSEMBLY_LEAD_IN_DELAY = 220;
 const AUTODRAW_ASSEMBLY_ENTER_BASE_DURATION = 340;
+const AUTODRAW_DEFERRED_INIT_DELAY =
+  typeof process !== 'undefined' && process.env.NODE_ENV === 'test' ? 0 : 140;
+const AUTODRAW_DRAFT_PERSIST_DELAY =
+  typeof process !== 'undefined' && process.env.NODE_ENV === 'test' ? 0 : 220;
+const DEFAULT_AUTODRAW_IMAGE_SIZE: AutodrawImageSize = '4K';
+const DEFAULT_AUTODRAW_SAM_PROMPT = 'icon,person,robot,animal,arrow';
 const AUTODRAW_REALTIME_PROBE_DEFINITIONS = [
   {
     name: 'figure.png',
@@ -222,9 +264,6 @@ const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, '');
 const IMPORT_MAX_VIEWPORT_WIDTH_RATIO = 2.4;
 const IMPORT_MAX_VIEWPORT_HEIGHT_RATIO = 2.2;
 
-const createAutodrawHistorySessionId = (jobId: string) =>
-  `job:${jobId}:${Date.now()}`;
-
 const createRealtimeProbeArtifact = (
   jobId: string,
   definition: (typeof AUTODRAW_REALTIME_PROBE_DEFINITIONS)[number]
@@ -250,6 +289,33 @@ const loadPersistedAutodrawDraft = (): AutodrawPersistedDraft => {
   } catch {
     return {};
   }
+};
+
+const normalizeAutodrawInputMode = (
+  value?: string | null
+): AutodrawInputMode => {
+  return value === 'source' ? 'source' : 'generate';
+};
+
+const normalizeAutodrawImageSize = (
+  value?: string | null
+): AutodrawImageSize => {
+  return value === '2K' ? '2K' : DEFAULT_AUTODRAW_IMAGE_SIZE;
+};
+
+const normalizeAutodrawSourceRunMode = (
+  value?: string | null
+): AutodrawSourceRunMode => {
+  return value === 'direct-svg' ? 'direct-svg' : 'segmented';
+};
+
+const normalizeSamPromptValue = (value?: string | null) => {
+  const normalized = (value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .join(',');
+  return normalized || DEFAULT_AUTODRAW_SAM_PROMPT;
 };
 
 const getElementRectangle = (elements: PlaitElement[]) => {
@@ -538,12 +604,15 @@ const AutodrawDialog = () => {
   const persistedDraftRef = useRef<AutodrawPersistedDraft>(
     loadPersistedAutodrawDraft()
   );
-  const initialBackendUrlRef = useRef(
-    persistedDraftRef.current.backendUrl || DEFAULT_BACKEND_URL
-  );
 
   const [backendUrl, setBackendUrl] = useState(
     persistedDraftRef.current.backendUrl || DEFAULT_BACKEND_URL
+  );
+  const [inputMode, setInputMode] = useState<AutodrawInputMode>(
+    normalizeAutodrawInputMode(persistedDraftRef.current.inputMode)
+  );
+  const [sourceRunMode, setSourceRunMode] = useState<AutodrawSourceRunMode>(
+    normalizeAutodrawSourceRunMode(persistedDraftRef.current.sourceRunMode)
   );
   const [methodText, setMethodText] = useState(
     persistedDraftRef.current.methodText || ''
@@ -558,10 +627,17 @@ const AutodrawDialog = () => {
   const [imageModel, setImageModel] = useState(
     persistedDraftRef.current.imageModel || ''
   );
+  const [imageSize, setImageSize] = useState<AutodrawImageSize>(
+    normalizeAutodrawImageSize(persistedDraftRef.current.imageSize)
+  );
+  const [samPrompt, setSamPrompt] = useState(
+    normalizeSamPromptValue(persistedDraftRef.current.samPrompt)
+  );
   const [svgModel, setSvgModel] = useState(
     persistedDraftRef.current.svgModel || ''
   );
   const [referenceImage, setReferenceImage] = useState<File | null>(null);
+  const [sourceFigure, setSourceFigure] = useState<File | null>(null);
   const [referenceSource, setReferenceSource] = useState<ReferenceSource>(
     persistedDraftRef.current.referenceSource === 'gallery' ? 'gallery' : null
   );
@@ -582,9 +658,7 @@ const AutodrawDialog = () => {
   const [realtimeArtifacts, setRealtimeArtifacts] = useState<
     AutodrawArtifact[]
   >([]);
-  const [historyEntries, setHistoryEntries] = useState<AutodrawHistoryEntry[]>(
-    []
-  );
+  const [workspaceReplayStage, setWorkspaceReplayStage] = useState(1);
   const [logMode, setLogMode] = useState<'idle' | 'sse' | 'polling'>('idle');
   const [summary, setSummary] = useState<SvgImportSummary>(emptySummary);
   const [previewElements, setPreviewElements] = useState<PlaitElement[]>([]);
@@ -599,13 +673,11 @@ const AutodrawDialog = () => {
   const [showAdvanced, setShowAdvanced] = useState(
     Boolean(persistedDraftRef.current.showAdvanced)
   );
-  const [activityTab, setActivityTab] = useState<ActivityTab>('timeline');
   const [assetPreview, setAssetPreview] = useState<AssetPreviewState | null>(
     null
   );
   const [isWorkbenchDocked, setIsWorkbenchDocked] = useState(false);
-  const [logFilter, setLogFilter] = useState('');
-  const [autoScroll, setAutoScroll] = useState(true);
+  const [deferredPanelsReady, setDeferredPanelsReady] = useState(false);
   const [galleryItems, setGalleryItems] = useState<ReferenceGalleryItem[]>([]);
   const [galleryState, setGalleryState] = useState<ReferenceGalleryState>(() =>
     isAutodrawReferenceGallerySupported() ? 'idle' : 'unsupported'
@@ -623,9 +695,9 @@ const AutodrawDialog = () => {
   const logPollingTimerRef = useRef<number | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const activeHistoryEntryIdRef = useRef('');
-  const logPanelRef = useRef<HTMLPreElement | null>(null);
   const assemblyRunIdRef = useRef(0);
   const copyTimerRef = useRef<number | null>(null);
+  const draftPersistTimerRef = useRef<number | null>(null);
   const galleryDirectoryHandleRef =
     useRef<AutodrawReferenceDirectoryHandle | null>(null);
   const galleryPreviewUrlsRef = useRef<string[]>([]);
@@ -648,9 +720,60 @@ const AutodrawDialog = () => {
     galleryPreviewUrlsRef.current = hydratedItems.map(
       (item) => item.previewUrl
     );
-    setGalleryItems(hydratedItems);
+    startTransition(() => {
+      setGalleryItems(hydratedItems);
+    });
     return hydratedItems;
   };
+
+  useEffect(() => {
+    if (!assetPreview) {
+      return;
+    }
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setAssetPreview(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [assetPreview]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      startTransition(() => {
+        setDeferredPanelsReady(true);
+      });
+    }, AUTODRAW_DEFERRED_INIT_DELAY);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  const {
+    clearHistory,
+    currentJobHistoryEntry,
+    deleteHistoryEntry,
+    historyPreviewEntries,
+    rememberBundleHistory,
+    rememberJobHistory,
+    stopWatchingJob,
+    watchJobUntilSettled,
+  } = useAutodrawHistory({
+    activeHistoryEntryIdRef,
+    backendUrl,
+    currentJobId: jobId,
+    deferredReady: deferredPanelsReady,
+    historyLimit: AUTODRAW_HISTORY_PREVIEW_LIMIT,
+  });
+
+  const deferredLogs = useDeferredValue(logs);
+  const deferredHistoryPreviewEntries = useDeferredValue(historyPreviewEntries);
 
   const loadReferenceGalleryFromHandle = async (
     handle: AutodrawReferenceDirectoryHandle,
@@ -728,14 +851,7 @@ const AutodrawDialog = () => {
   }, [referenceImage]);
 
   useEffect(() => {
-    if (!logPanelRef.current || !autoScroll) {
-      return;
-    }
-    logPanelRef.current.scrollTop = logPanelRef.current.scrollHeight;
-  }, [logs, autoScroll]);
-
-  useEffect(() => {
-    if (status === 'failed') {
+    if (status === 'failed' || status === 'cancelled') {
       setShowAdvanced(true);
       setIsWorkbenchDocked(false);
     }
@@ -751,117 +867,16 @@ const AutodrawDialog = () => {
     if (typeof window === 'undefined') {
       return;
     }
-    try {
-      const payload = window.localStorage.getItem(AUTODRAW_HISTORY_STORAGE_KEY);
-      if (!payload) {
-        return;
-      }
-      const parsed = JSON.parse(payload) as AutodrawHistoryEntry[];
-      if (Array.isArray(parsed)) {
-        setHistoryEntries(filterAutodrawHistoryEntries(parsed));
-      }
-    } catch {
-      // ignore invalid history payload
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    let cancelled = false;
-    const base = normalizeBaseUrl(initialBackendUrlRef.current);
-
-    const loadRuntimeJobs = async () => {
-      try {
-        const response = await fetch(`${base}/api/jobs?limit=20&offset=0`);
-        if (!response.ok) {
-          return;
-        }
-        const items: JobListItemResponse[] = await response.json();
-        if (cancelled || !Array.isArray(items) || items.length === 0) {
-          return;
-        }
-
-        setHistoryEntries((current) => {
-          const imageEditJobIds = new Set(
-            items
-              .filter((item) => item?.job_type === 'image-edit')
-              .map((item) => item.job_id)
-              .filter((jobId): jobId is string => Boolean(jobId))
-          );
-          let nextEntries = filterAutodrawHistoryEntries(
-            current.filter(
-              (entry) => !entry.jobId || !imageEditJobIds.has(entry.jobId)
-            )
-          );
-          for (const item of items) {
-            const jobId = item?.job_id;
-            if (!jobId || typeof jobId !== 'string') {
-              continue;
-            }
-            if (item.job_type === 'image-edit') {
-              continue;
-            }
-            if (nextEntries.some((entry) => entry.jobId === jobId)) {
-              continue;
-            }
-            const artifacts = Array.isArray(item.artifacts)
-              ? item.artifacts
-              : [];
-            const previewAsset = getAutodrawSpotlightAsset(
-              toAutodrawAssetItems(artifacts, base)
-            );
-            const createdAt =
-              typeof item.created_at === 'string' && item.created_at
-                ? item.created_at
-                : new Date().toISOString();
-            nextEntries = upsertAutodrawHistory(nextEntries, {
-              id: `job:${jobId}`,
-              type: 'job',
-              jobType: 'autodraw',
-              title: jobId,
-              subtitle: 'Runtime job',
-              status: item.status as AutodrawStatus,
-              createdAt,
-              jobId,
-              previewUrl: previewAsset?.url,
-            });
-          }
-          return nextEntries;
-        });
-      } catch {
-        // ignore runtime jobs listing failures
-      }
-    };
-
-    void loadRuntimeJobs();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    window.localStorage.setItem(
-      AUTODRAW_HISTORY_STORAGE_KEY,
-      JSON.stringify(historyEntries)
-    );
-  }, [historyEntries]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
     const draft: AutodrawPersistedDraft = {
       backendUrl,
+      inputMode,
+      sourceRunMode,
       methodText,
       provider,
       baseUrl,
       imageModel,
+      imageSize,
+      samPrompt: normalizeSamPromptValue(samPrompt),
       svgModel,
       jobId,
       jobIdInput,
@@ -870,16 +885,31 @@ const AutodrawDialog = () => {
       selectedGalleryItemId,
       referenceSource: referenceSource === 'gallery' ? 'gallery' : null,
     };
-    window.localStorage.setItem(
-      AUTODRAW_DRAFT_STORAGE_KEY,
-      JSON.stringify(draft)
-    );
+    if (draftPersistTimerRef.current) {
+      window.clearTimeout(draftPersistTimerRef.current);
+    }
+    draftPersistTimerRef.current = window.setTimeout(() => {
+      window.localStorage.setItem(
+        AUTODRAW_DRAFT_STORAGE_KEY,
+        JSON.stringify(draft)
+      );
+    }, AUTODRAW_DRAFT_PERSIST_DELAY);
+    return () => {
+      if (draftPersistTimerRef.current) {
+        window.clearTimeout(draftPersistTimerRef.current);
+        draftPersistTimerRef.current = null;
+      }
+    };
   }, [
     backendUrl,
+    inputMode,
+    sourceRunMode,
     methodText,
     provider,
     baseUrl,
     imageModel,
+    imageSize,
+    samPrompt,
     svgModel,
     jobId,
     jobIdInput,
@@ -891,7 +921,7 @@ const AutodrawDialog = () => {
 
   useEffect(() => {
     let active = true;
-    if (!isAutodrawReferenceGallerySupported()) {
+    if (!deferredPanelsReady || !isAutodrawReferenceGallerySupported()) {
       return () => {
         active = false;
       };
@@ -922,7 +952,7 @@ const AutodrawDialog = () => {
       active = false;
       disposeGalleryPreviewUrls();
     };
-  }, [t]);
+  }, [deferredPanelsReady, t]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -952,6 +982,9 @@ const AutodrawDialog = () => {
       }
       if (copyTimerRef.current) {
         window.clearTimeout(copyTimerRef.current);
+      }
+      if (draftPersistTimerRef.current) {
+        window.clearTimeout(draftPersistTimerRef.current);
       }
       disposeGalleryPreviewUrls();
       eventSourceRef.current?.close();
@@ -1022,6 +1055,9 @@ const AutodrawDialog = () => {
     if (status === 'running') {
       return t('dialog.autodraw.status.running');
     }
+    if (status === 'cancelling') {
+      return t('dialog.autodraw.status.cancelling');
+    }
     if (status === 'submitting') {
       return t('dialog.autodraw.status.submitting');
     }
@@ -1031,6 +1067,9 @@ const AutodrawDialog = () => {
     if (status === 'succeeded') {
       return t('dialog.autodraw.status.succeeded');
     }
+    if (status === 'cancelled') {
+      return t('dialog.autodraw.status.cancelled');
+    }
     return t('dialog.autodraw.status.failed');
   }, [status, t]);
 
@@ -1038,14 +1077,6 @@ const AutodrawDialog = () => {
     previewElements.length > 0 ||
     assemblyProgress.completedBatches > 0 ||
     status === 'succeeded';
-
-  const filteredLogs = useMemo(() => {
-    if (!logFilter.trim()) {
-      return logs;
-    }
-    const lowerFilter = logFilter.toLowerCase();
-    return logs.filter((line) => line.toLowerCase().includes(lowerFilter));
-  }, [logs, logFilter]);
 
   const batchPreviewCount = useMemo(() => {
     if (assemblyProgress.totalBatches > 0) {
@@ -1062,6 +1093,7 @@ const AutodrawDialog = () => {
     status === 'submitting' ||
     status === 'queued' ||
     status === 'running' ||
+    status === 'cancelling' ||
     status === 'importing';
 
   const mergedArtifacts = useMemo(
@@ -1117,13 +1149,19 @@ const AutodrawDialog = () => {
       ),
     [activeWorkbenchStep, currentStage, failedStage, status]
   );
-
-  const timelineItems = useMemo(() => logs.slice(-8).reverse(), [logs]);
   const selectedGalleryItem = useMemo(
     () =>
       galleryItems.find((item) => item.id === selectedGalleryItemId) || null,
     [galleryItems, selectedGalleryItemId]
   );
+
+  const openAssetPreview = (asset: AutodrawAssetItem, subtitle?: string) => {
+    setAssetPreview(createAssetPreviewState(asset, subtitle));
+  };
+
+  const openGalleryPreview = (item: ReferenceGalleryItem) => {
+    setAssetPreview(createGalleryPreviewState(item));
+  };
 
   const currentStageLabel =
     workbenchStages[Math.min(activeWorkbenchStep, workbenchStages.length - 1)]
@@ -1142,74 +1180,6 @@ const AutodrawDialog = () => {
     setJobIdCopied(false);
   };
 
-  const rememberHistory = (entry: AutodrawHistoryEntry) => {
-    setHistoryEntries((current) =>
-      filterAutodrawHistoryEntries(upsertAutodrawHistory(current, entry))
-    );
-  };
-
-  const rememberJobHistory = (payload: {
-    historyId?: string;
-    jobId: string;
-    jobType?: 'autodraw' | 'image-edit';
-    status: AutodrawStatus;
-    createdAt?: string;
-    summary?: SvgImportSummary;
-    nextArtifacts?: AutodrawArtifact[];
-  }) => {
-    const assetPreviewItem = getAutodrawSpotlightAsset(
-      toAutodrawAssetItems(payload.nextArtifacts || [], backendUrl)
-    );
-    const currentHistoryEntry = historyEntries.find(
-      (entry) => entry.id === activeHistoryEntryIdRef.current
-    );
-    const historyId =
-      payload.historyId ||
-      (currentHistoryEntry?.jobId === payload.jobId
-        ? currentHistoryEntry.id
-        : '') ||
-      historyEntries.find((entry) => entry.jobId === payload.jobId)?.id ||
-      createAutodrawHistorySessionId(payload.jobId);
-    activeHistoryEntryIdRef.current = historyId;
-    rememberHistory({
-      id: historyId,
-      type: 'job',
-      jobType: payload.jobType || 'autodraw',
-      title: payload.jobId,
-      subtitle: 'Generated job',
-      status: payload.status,
-      createdAt: payload.createdAt || new Date().toISOString(),
-      jobId: payload.jobId,
-      previewUrl: assetPreviewItem?.url,
-      summary: payload.summary
-        ? {
-            textCount: payload.summary.textCount,
-            arrowCount: payload.summary.arrowCount,
-            componentCount: payload.summary.componentCount,
-          }
-        : undefined,
-    });
-  };
-
-  const rememberBundleHistory = (payload: {
-    bundleName: string;
-    summary: SvgImportSummary;
-  }) => {
-    rememberHistory({
-      id: `bundle:${payload.bundleName}:${Date.now()}`,
-      type: 'bundle',
-      title: payload.bundleName,
-      subtitle: 'Local ZIP',
-      status: 'local',
-      createdAt: new Date().toISOString(),
-      summary: {
-        textCount: payload.summary.textCount,
-        arrowCount: payload.summary.arrowCount,
-        componentCount: payload.summary.componentCount,
-      },
-    });
-  };
-
   const resetAssemblyState = () => {
     assemblyRunIdRef.current += 1;
     setAssemblyProgress(initialAssemblyProgress);
@@ -1218,6 +1188,10 @@ const AutodrawDialog = () => {
   const stopLogStreaming = () => {
     eventSourceRef.current?.close();
     eventSourceRef.current = null;
+    if (pollingTimerRef.current) {
+      window.clearTimeout(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
     if (logPollingTimerRef.current) {
       window.clearTimeout(logPollingTimerRef.current);
       logPollingTimerRef.current = null;
@@ -1446,6 +1420,7 @@ const AutodrawDialog = () => {
       startPoint,
       WritableClipboardOperationType.paste
     );
+    clearSelectedElement(board);
     return {
       ids: collectElementIds(fragmentElements),
       insertedElements: fragmentElements,
@@ -1601,6 +1576,65 @@ const AutodrawDialog = () => {
     await importBundleFile(file, { currentJobId, nextArtifacts });
   };
 
+  const downloadBundleFile = async (
+    currentJobId: string,
+    bundleUrl: string
+  ) => {
+    const response = await fetch(bundleUrl);
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    const blob = await response.blob();
+    const objectUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    try {
+      link.href = objectUrl;
+      link.download = `${currentJobId}.zip`;
+      document.body.appendChild(link);
+      link.click();
+    } finally {
+      link.remove();
+      window.URL.revokeObjectURL(objectUrl);
+    }
+  };
+
+  const resolveHistoryBundleUrl = async (entry: AutodrawHistoryEntry) => {
+    const base = normalizeBaseUrl(backendUrl);
+    if (entry.bundleUrl) {
+      return /^https?:\/\//.test(entry.bundleUrl)
+        ? entry.bundleUrl
+        : `${base}${entry.bundleUrl}`;
+    }
+    if (!entry.jobId) {
+      throw new Error(t('dialog.autodraw.error.noBundle'));
+    }
+
+    const response = await fetch(`${base}/api/jobs/${entry.jobId}`);
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    const data: JobResponse = await response.json();
+    if (data.status !== 'succeeded' || !data.bundle_url) {
+      throw new Error(t('dialog.autodraw.error.noBundle'));
+    }
+
+    rememberJobHistory({
+      historyId: entry.id,
+      jobId: data.job_id,
+      jobType: data.request?.job_type || 'autodraw',
+      status: data.status as AutodrawStatus,
+      createdAt: data.created_at,
+      nextArtifacts: data.artifacts ?? [],
+      bundleUrl: data.bundle_url || null,
+      currentStage: data.current_stage,
+      failedStage: data.failed_stage,
+      minStartStage: data.min_start_stage,
+    });
+
+    return `${base}${data.bundle_url}`;
+  };
+
   const importBundleFile = async (
     file: File,
     options?: {
@@ -1631,6 +1665,7 @@ const AutodrawDialog = () => {
     const insertedElementIds = await insertElementsWithAssembly(
       normalizedElements
     );
+    clearSelectedElement(board);
     setLastImportedElementIds(
       insertedElementIds.length
         ? insertedElementIds
@@ -1685,9 +1720,17 @@ const AutodrawDialog = () => {
       status: data.status as AutodrawStatus,
       createdAt: data.created_at,
       nextArtifacts: data.artifacts ?? [],
+      bundleUrl: data.bundle_url || null,
+      currentStage: data.current_stage,
+      failedStage: data.failed_stage,
+      minStartStage: data.min_start_stage,
     });
 
-    if (data.status === 'queued' || data.status === 'running') {
+    if (
+      data.status === 'queued' ||
+      data.status === 'running' ||
+      data.status === 'cancelling'
+    ) {
       pollingTimerRef.current = window.setTimeout(() => {
         void pollJob(currentJobId).catch(handleJobError);
       }, 1000);
@@ -1695,6 +1738,11 @@ const AutodrawDialog = () => {
     }
 
     stopLogStreaming();
+
+    if (data.status === 'cancelled') {
+      setErrorMessage('');
+      return;
+    }
 
     if (data.status === 'failed') {
       setErrorMessage(
@@ -1741,8 +1789,16 @@ const AutodrawDialog = () => {
     setFailedStage(null);
     setJobIdCopied(false);
     setAssetPreview(null);
-    setActivityTab('timeline');
     resetAssemblyState();
+  };
+
+  const releaseForegroundJob = () => {
+    stopLogStreaming();
+    resetWorkbench();
+    setStatus('idle');
+    setJobId('');
+    setCurrentStage(null);
+    setFailedStage(null);
   };
 
   useEffect(() => {
@@ -1818,47 +1874,52 @@ const AutodrawDialog = () => {
   }, [activeWorkbenchStep, backendUrl, isJobBusy, jobId, mergedArtifacts]);
 
   const loadJobById = async (currentJobId: string) => {
-    if (!currentJobId.trim()) {
+    const nextJobId = currentJobId.trim();
+    if (!nextJobId) {
       return;
     }
 
     stopLogStreaming();
     resetWorkbench();
+    stopWatchingJob(nextJobId);
 
     try {
       const base = normalizeBaseUrl(backendUrl);
-      const response = await fetch(`${base}/api/jobs/${currentJobId.trim()}`);
+      const response = await fetch(`${base}/api/jobs/${nextJobId}`);
       if (!response.ok) {
         throw new Error(await response.text());
       }
       const data: JobResponse = await response.json();
-      const currentHistoryEntry = historyEntries.find(
-        (entry) => entry.id === activeHistoryEntryIdRef.current
-      );
-      activeHistoryEntryIdRef.current =
-        (currentHistoryEntry?.jobId === data.job_id
-          ? currentHistoryEntry.id
-          : '') ||
-        historyEntries.find((entry) => entry.jobId === data.job_id)?.id ||
-        createAutodrawHistorySessionId(data.job_id);
       syncJobState(data.job_id);
       setStatus(data.status as AutodrawStatus);
       setCurrentStage(data.current_stage ?? null);
       setFailedStage(data.failed_stage ?? null);
       setArtifacts(data.artifacts ?? []);
       rememberJobHistory({
-        historyId: activeHistoryEntryIdRef.current,
         jobId: data.job_id,
         jobType: data.request?.job_type || 'autodraw',
         status: data.status as AutodrawStatus,
         createdAt: data.created_at,
         nextArtifacts: data.artifacts ?? [],
+        bundleUrl: data.bundle_url || null,
+        currentStage: data.current_stage,
+        failedStage: data.failed_stage,
+        minStartStage: data.min_start_stage,
       });
       await loadJobLogs(data.job_id);
 
-      if (data.status === 'queued' || data.status === 'running') {
+      if (
+        data.status === 'queued' ||
+        data.status === 'running' ||
+        data.status === 'cancelling'
+      ) {
         startLogStreaming(data.job_id);
         await pollJob(data.job_id);
+        return;
+      }
+
+      if (data.status === 'cancelled') {
+        setErrorMessage('');
         return;
       }
 
@@ -1882,8 +1943,12 @@ const AutodrawDialog = () => {
   };
 
   const handleSubmit = async () => {
-    if (!methodText.trim()) {
+    if (!isSourceInputMode && !methodText.trim()) {
       setErrorMessage(t('dialog.autodraw.error.noMethodText'));
+      return;
+    }
+    if (isSourceInputMode && !sourceFigure) {
+      setErrorMessage(t('dialog.autodraw.error.noSourceFigure'));
       return;
     }
 
@@ -1891,13 +1956,31 @@ const AutodrawDialog = () => {
     resetWorkbench();
     setIsWorkbenchDocked(false);
     setStatus('submitting');
-    setCurrentStage(1);
+    const sourceStartStage = sourceRunMode === 'direct-svg' ? 4 : 2;
+    setCurrentStage(isSourceInputMode ? sourceStartStage : 1);
 
     try {
       const base = normalizeBaseUrl(backendUrl);
       let referenceImagePath: string | undefined;
+      let sourceFigurePath: string | undefined;
 
-      if (referenceImage) {
+      if (isSourceInputMode && sourceFigure) {
+        const formData = new FormData();
+        formData.append('file', sourceFigure);
+        const uploadResponse = await fetch(
+          `${base}/api/uploads/source-figure`,
+          {
+            method: 'POST',
+            body: formData,
+          }
+        );
+        if (!uploadResponse.ok) {
+          throw new Error(await uploadResponse.text());
+        }
+        const uploadData: UploadReferenceImageResponse =
+          await uploadResponse.json();
+        sourceFigurePath = uploadData.stored_path;
+      } else if (referenceImage) {
         const formData = new FormData();
         formData.append('file', referenceImage);
         const uploadResponse = await fetch(
@@ -1921,14 +2004,26 @@ const AutodrawDialog = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          method_text: methodText,
+          method_text: isSourceInputMode ? null : methodText,
           provider,
           api_key: apiKey || null,
           base_url: baseUrl || null,
           image_model: imageModel || null,
+          image_size: imageSize,
+          sam_prompt: normalizedSamPrompt,
           svg_model: svgModel || null,
           sam_backend: 'api',
-          reference_image_path: referenceImagePath || null,
+          reference_image_path: isSourceInputMode
+            ? null
+            : referenceImagePath || null,
+          source_figure_path: isSourceInputMode
+            ? sourceFigurePath || null
+            : null,
+          source_processing_mode:
+            isSourceInputMode && sourceRunMode === 'direct-svg'
+              ? 'direct_svg'
+              : 'segmented',
+          start_stage: isSourceInputMode ? sourceStartStage : 1,
         }),
       });
 
@@ -1937,13 +2032,9 @@ const AutodrawDialog = () => {
       }
 
       const data: CreateJobResponse = await response.json();
-      activeHistoryEntryIdRef.current = createAutodrawHistorySessionId(
-        data.job_id
-      );
       syncJobState(data.job_id);
       setStatus(data.status as AutodrawStatus);
       rememberJobHistory({
-        historyId: activeHistoryEntryIdRef.current,
         jobId: data.job_id,
         status: data.status as AutodrawStatus,
       });
@@ -1962,7 +2053,7 @@ const AutodrawDialog = () => {
     appendLogs([
       '',
       `[resume] source_job_id=${jobId}`,
-      `[resume] resume_from_stage=${failedStage ?? 'auto'}`,
+      '[resume] resume_from_stage=auto',
     ]);
 
     try {
@@ -1984,16 +2075,12 @@ const AutodrawDialog = () => {
         throw new Error(await response.text());
       }
       const data: CreateJobResponse = await response.json();
-      activeHistoryEntryIdRef.current = createAutodrawHistorySessionId(
-        data.job_id
-      );
       syncJobState(data.job_id);
       setFailedStage(null);
-      setCurrentStage(1);
+      setCurrentStage(null);
       setStatus(data.status as AutodrawStatus);
       setIsWorkbenchDocked(false);
       rememberJobHistory({
-        historyId: activeHistoryEntryIdRef.current,
         jobId: data.job_id,
         status: data.status as AutodrawStatus,
       });
@@ -2001,6 +2088,65 @@ const AutodrawDialog = () => {
       await pollJob(data.job_id);
     } catch (error) {
       handleJobError(error);
+    }
+  };
+
+  const handleCancelJob = async () => {
+    if (
+      !jobId ||
+      (status !== 'queued' && status !== 'running' && status !== 'cancelling')
+    ) {
+      return;
+    }
+
+    try {
+      const base = normalizeBaseUrl(backendUrl);
+      const response = await fetch(`${base}/api/jobs/${jobId}/cancel`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      const data: JobResponse = await response.json();
+      rememberJobHistory({
+        historyId: activeHistoryEntryIdRef.current || undefined,
+        jobId: data.job_id,
+        jobType: data.request?.job_type || 'autodraw',
+        status: data.status as AutodrawStatus,
+        createdAt: data.created_at,
+        nextArtifacts: data.artifacts ?? [],
+        bundleUrl: data.bundle_url || null,
+        currentStage: data.current_stage,
+        failedStage: data.failed_stage,
+        minStartStage: data.min_start_stage,
+      });
+
+      if (data.status === 'cancelling') {
+        setErrorMessage('');
+        releaseForegroundJob();
+        watchJobUntilSettled(data.job_id);
+        return;
+      }
+
+      if (data.status === 'cancelled') {
+        setErrorMessage('');
+        releaseForegroundJob();
+        stopWatchingJob(data.job_id);
+        return;
+      }
+
+      setStatus(data.status as AutodrawStatus);
+      setCurrentStage(data.current_stage ?? null);
+      setFailedStage(data.failed_stage ?? null);
+      setArtifacts(data.artifacts ?? []);
+      setErrorMessage('');
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : t('dialog.autodraw.error.cancelFailed')
+      );
     }
   };
 
@@ -2062,10 +2208,20 @@ const AutodrawDialog = () => {
     setGalleryMessage('');
   };
 
+  const handleInputModeChange = (nextMode: AutodrawInputMode) => {
+    setInputMode(nextMode);
+    setErrorMessage('');
+  };
+
   const handleReferenceImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] || null;
     setReferenceSource(file ? 'upload' : null);
     setReferenceImage(file);
+  };
+
+  const handleSourceFigureChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    setSourceFigure(file);
   };
 
   const handleBundleFileChange = async (
@@ -2108,10 +2264,15 @@ const AutodrawDialog = () => {
     if (!jobId) {
       return;
     }
-    await copyTextToClipboard(jobId);
     setJobIdCopied(true);
     if (copyTimerRef.current) {
       window.clearTimeout(copyTimerRef.current);
+    }
+    try {
+      await copyTextToClipboard(jobId);
+    } catch {
+      setJobIdCopied(false);
+      return;
     }
     copyTimerRef.current = window.setTimeout(() => {
       setJobIdCopied(false);
@@ -2142,9 +2303,103 @@ const AutodrawDialog = () => {
     await copyTextToClipboard(entry.jobId);
   };
 
-  const handleClearHistory = () => {
-    activeHistoryEntryIdRef.current = '';
-    setHistoryEntries([]);
+  const handleBundleDownload = async (entry: AutodrawHistoryEntry | null) => {
+    if (!entry?.jobId || entry.status !== 'succeeded') {
+      return;
+    }
+
+    try {
+      const bundleUrl = await resolveHistoryBundleUrl(entry);
+      await downloadBundleFile(entry.jobId, bundleUrl);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : t('dialog.autodraw.error.noBundle')
+      );
+    }
+  };
+
+  const replayJobFromStage = async (
+    entry: AutodrawHistoryEntry | null,
+    startStage: number
+  ) => {
+    if (
+      !entry?.jobId ||
+      entry.status === 'queued' ||
+      entry.status === 'running' ||
+      entry.status === 'cancelling'
+    ) {
+      return;
+    }
+
+    try {
+      const base = normalizeBaseUrl(backendUrl);
+      stopLogStreaming();
+      resetWorkbench();
+      setIsWorkbenchDocked(false);
+      setStatus('submitting');
+      setCurrentStage(startStage);
+      appendLogs([
+        '',
+        `[replay] source_job_id=${entry.jobId}`,
+        `[replay] start_stage=${startStage}`,
+      ]);
+
+      const response = await fetch(`${base}/api/jobs/${entry.jobId}/replay`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          start_stage: startStage,
+          image_model: imageModel || null,
+          svg_model: svgModel || null,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      const data: CreateJobResponse = await response.json();
+      syncJobState(data.job_id);
+      setFailedStage(null);
+      setStatus(data.status as AutodrawStatus);
+      rememberJobHistory({
+        jobId: data.job_id,
+        status: data.status as AutodrawStatus,
+      });
+      startLogStreaming(data.job_id);
+      await pollJob(data.job_id);
+    } catch (error) {
+      handleJobError(error);
+    }
+  };
+
+  const handleWorkspaceRebuild = async () => {
+    if (!currentJobHistoryEntry) {
+      return;
+    }
+    await replayJobFromStage(currentJobHistoryEntry, currentJobMinReplayStage);
+  };
+
+  const handleWorkspaceReplay = async () => {
+    if (!currentJobHistoryEntry) {
+      return;
+    }
+    await replayJobFromStage(currentJobHistoryEntry, workspaceReplayStage);
+  };
+
+  const handleHistoryPreview = (entry: AutodrawHistoryEntry) => {
+    const previewState = createHistoryPreviewState(entry);
+    if (!previewState) {
+      return;
+    }
+    setAssetPreview(previewState);
+  };
+
+  const handleAssetPreview = (asset: AutodrawAssetItem) => {
+    openAssetPreview(asset);
   };
 
   const handleDockWorkbench = () => {
@@ -2161,47 +2416,16 @@ const AutodrawDialog = () => {
     });
   };
 
-  const getStatusBadgeClass = (nextStatus: AutodrawStatus) => {
-    switch (nextStatus) {
-      case 'succeeded':
-        return 'autodraw-badge--success';
-      case 'failed':
-        return 'autodraw-badge--error';
-      case 'running':
-      case 'submitting':
-      case 'importing':
-      case 'queued':
-        return 'autodraw-badge--processing';
-      default:
-        return 'autodraw-badge--idle';
-    }
-  };
-
-  const getHistoryStatusLabel = (nextStatus: AutodrawStatus | 'local') => {
-    if (nextStatus === 'local') {
-      return t('dialog.autodraw.historyLocal');
-    }
-    switch (nextStatus) {
-      case 'idle':
-        return t('dialog.autodraw.status.idle');
-      case 'queued':
-        return t('dialog.autodraw.status.queued');
-      case 'running':
-        return t('dialog.autodraw.status.running');
-      case 'submitting':
-        return t('dialog.autodraw.status.submitting');
-      case 'importing':
-        return t('dialog.autodraw.status.importing');
-      case 'succeeded':
-        return t('dialog.autodraw.status.succeeded');
-      default:
-        return t('dialog.autodraw.status.failed');
-    }
-  };
-
   const methodCharacterCount = useMemo(
     () => Array.from(methodText).length,
     [methodText]
+  );
+  const isSourceInputMode = inputMode === 'source';
+  const isDirectSvgSourceMode =
+    isSourceInputMode && sourceRunMode === 'direct-svg';
+  const normalizedSamPrompt = useMemo(
+    () => normalizeSamPromptValue(samPrompt),
+    [samPrompt]
   );
 
   const stagePreviewAssets = useMemo(() => {
@@ -2220,24 +2444,6 @@ const AutodrawDialog = () => {
     return previewMap;
   }, [assetItems, workbenchStages.length]);
 
-  const activityEntries = useMemo(
-    () =>
-      timelineItems.map((line, index) => ({
-        line,
-        tone: /error|failed|exception|traceback/i.test(line)
-          ? 'error'
-          : /running|queue|submit|import|sam|生成|解析|提取|重建|导入/i.test(
-              line
-            )
-          ? 'run'
-          : 'ok',
-        stamp:
-          line.match(/\b\d{2}:\d{2}:\d{2}\b/)?.[0] ||
-          (index === 0 && isJobBusy ? 'now' : '—'),
-      })),
-    [isJobBusy, timelineItems]
-  );
-
   const backendLabel = useMemo(() => {
     const normalized = normalizeBaseUrl(backendUrl).trim();
     if (!normalized) {
@@ -2250,9 +2456,52 @@ const AutodrawDialog = () => {
     }
   }, [backendUrl]);
 
-  const historyPreviewEntries = useMemo(
-    () => historyEntries.slice(0, 12),
-    [historyEntries]
+  const currentJobMinReplayStage = useMemo(() => {
+    if (!currentJobHistoryEntry) {
+      return 1;
+    }
+    return getAutodrawHistoryMinReplayStage(currentJobHistoryEntry);
+  }, [currentJobHistoryEntry]);
+
+  const canOperateCurrentJob = Boolean(
+    currentJobHistoryEntry &&
+      (currentJobHistoryEntry.status === 'succeeded' ||
+        currentJobHistoryEntry.status === 'failed' ||
+        currentJobHistoryEntry.status === 'cancelled')
+  );
+
+  const canDownloadCurrentBundle = Boolean(
+    currentJobHistoryEntry &&
+      currentJobHistoryEntry.status === 'succeeded' &&
+      currentJobHistoryEntry.jobId
+  );
+
+  useEffect(() => {
+    if (!currentJobHistoryEntry) {
+      setWorkspaceReplayStage(1);
+      return;
+    }
+
+    setWorkspaceReplayStage((current) => {
+      const preferredStage = getAutodrawHistoryDefaultReplayStage(
+        currentJobHistoryEntry
+      );
+      if (current < currentJobMinReplayStage || current > 4) {
+        return preferredStage;
+      }
+      return current;
+    });
+  }, [currentJobHistoryEntry, currentJobMinReplayStage]);
+
+  const replayableWorkspaceStages = useMemo(
+    () =>
+      workbenchStages
+        .slice(currentJobMinReplayStage - 1, 4)
+        .map((stage, index) => ({
+          ...stage,
+          value: currentJobMinReplayStage + index,
+        })),
+    [currentJobMinReplayStage, workbenchStages]
   );
 
   const handleMethodTextKeyDown = (
@@ -2293,14 +2542,19 @@ const AutodrawDialog = () => {
 
     if (asset?.previewable) {
       return (
-        <div className="autodraw-stage-thumb autodraw-stage-thumb--image">
+        <button
+          type="button"
+          className="autodraw-stage-thumb autodraw-stage-thumb--image autodraw-stage-thumb--preview"
+          onClick={() => openAssetPreview(asset)}
+          aria-label={`${t('dialog.autodraw.openPreview')}: ${asset.name}`}
+        >
           <img
             src={asset.url}
             alt={asset.name}
             loading="lazy"
             className="autodraw-stage-thumb__image"
           />
-        </div>
+        </button>
       );
     }
 
@@ -2387,7 +2641,10 @@ const AutodrawDialog = () => {
       return 'figure bitmap';
     }
     if (index === 2) {
-      return `${assetShelfItems.length} assets`;
+      const iconCount = assetShelfItems.filter(
+        (item) => item.stageIndex === 2 && !item.isPlaceholder
+      ).length;
+      return `${iconCount || assetShelfItems.length} assets`;
     }
     if (index === 3) {
       return 'final.svg';
@@ -2399,7 +2656,9 @@ const AutodrawDialog = () => {
   };
 
   const getStageChipLabel = (index: number) => {
-    const isFailed = status === 'failed' && index === activeWorkbenchStep;
+    const isFailed =
+      (status === 'failed' || status === 'cancelled') &&
+      index === activeWorkbenchStep;
     const isComplete = index < activeWorkbenchStep || status === 'succeeded';
     const isActive =
       !isFailed &&
@@ -2408,7 +2667,9 @@ const AutodrawDialog = () => {
       status !== 'idle';
 
     if (isFailed) {
-      return t('dialog.autodraw.status.failed');
+      return status === 'cancelled'
+        ? t('dialog.autodraw.status.cancelled')
+        : t('dialog.autodraw.status.failed');
     }
     if (isComplete) {
       return t('dialog.autodraw.status.succeeded');
@@ -2430,7 +2691,11 @@ const AutodrawDialog = () => {
         <section className="autodraw-dock">
           <div className="autodraw-dock__head">
             <div className="autodraw-dock__copy">
-              <span className={`autodraw-badge ${getStatusBadgeClass(status)}`}>
+              <span
+                className={`autodraw-badge ${getAutodrawStatusBadgeClass(
+                  status
+                )}`}
+              >
                 {statusLabel}
               </span>
               <h3 className="autodraw-dock__title">
@@ -2522,7 +2787,7 @@ const AutodrawDialog = () => {
               <span
                 className={classNames(
                   'autodraw-chip',
-                  `autodraw-chip--${getStatusBadgeClass(status).replace(
+                  `autodraw-chip--${getAutodrawStatusBadgeClass(status).replace(
                     'autodraw-badge--',
                     ''
                   )}`
@@ -2600,26 +2865,170 @@ const AutodrawDialog = () => {
                   {t('dialog.autodraw.basicInfo')}
                   <span>· input</span>
                 </div>
-                <span className="autodraw-anno autodraw-anno--small">{`${methodCharacterCount} chars`}</span>
+                {!isSourceInputMode && (
+                  <span className="autodraw-anno autodraw-anno--small">
+                    {`${methodCharacterCount} chars`}
+                  </span>
+                )}
               </div>
+
+              <div className="autodraw-dialog__field">
+                <span className="autodraw-dialog__label">
+                  {t('dialog.autodraw.inputMode')}
+                </span>
+                <div className="autodraw-mode-switch">
+                  <button
+                    type="button"
+                    onClick={() => handleInputModeChange('generate')}
+                    disabled={isJobBusy}
+                    aria-pressed={inputMode === 'generate'}
+                    className={classNames('autodraw-mode-switch__button', {
+                      'autodraw-mode-switch__button--active':
+                        inputMode === 'generate',
+                    })}
+                  >
+                    {t('dialog.autodraw.modeGenerate')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleInputModeChange('source')}
+                    disabled={isJobBusy}
+                    aria-pressed={inputMode === 'source'}
+                    className={classNames('autodraw-mode-switch__button', {
+                      'autodraw-mode-switch__button--active':
+                        inputMode === 'source',
+                    })}
+                  >
+                    {t('dialog.autodraw.modeSourceFigure')}
+                  </button>
+                </div>
+                <p className="autodraw-dialog__hint">
+                  {isSourceInputMode
+                    ? t('dialog.autodraw.modeSourceHint')
+                    : t('dialog.autodraw.modeGenerateHint')}
+                </p>
+              </div>
+
+              {isSourceInputMode ? (
+                <div className="autodraw-inline-card autodraw-inline-card--stack">
+                  <div>
+                    <div className="autodraw-dialog__label">
+                      {t('dialog.autodraw.sourceFigure')}
+                    </div>
+                    <p className="autodraw-dialog__hint">
+                      {t('dialog.autodraw.sourceFigureHint')}
+                    </p>
+                  </div>
+                  <div className="autodraw-file-input">
+                    <input
+                      type="file"
+                      id="source-figure"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={handleSourceFigureChange}
+                      className="autodraw-file-input__hidden"
+                    />
+                    <label
+                      htmlFor="source-figure"
+                      className="autodraw-file-input__label"
+                    >
+                      {sourceFigure?.name || t('dialog.autodraw.chooseFile')}
+                    </label>
+                  </div>
+                  <div className="autodraw-dialog__field autodraw-dialog__field--compact">
+                    <span className="autodraw-dialog__label">
+                      {t('dialog.autodraw.sourceRunMode')}
+                    </span>
+                    <div className="autodraw-mode-switch">
+                      <button
+                        type="button"
+                        onClick={() => setSourceRunMode('segmented')}
+                        disabled={isJobBusy}
+                        aria-pressed={sourceRunMode === 'segmented'}
+                        className={classNames('autodraw-mode-switch__button', {
+                          'autodraw-mode-switch__button--active':
+                            sourceRunMode === 'segmented',
+                        })}
+                      >
+                        {t('dialog.autodraw.sourceRunSegmented')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSourceRunMode('direct-svg')}
+                        disabled={isJobBusy}
+                        aria-pressed={sourceRunMode === 'direct-svg'}
+                        className={classNames('autodraw-mode-switch__button', {
+                          'autodraw-mode-switch__button--active':
+                            sourceRunMode === 'direct-svg',
+                        })}
+                      >
+                        {t('dialog.autodraw.sourceRunDirectSvg')}
+                      </button>
+                    </div>
+                    <p className="autodraw-dialog__hint">
+                      {sourceRunMode === 'direct-svg'
+                        ? t('dialog.autodraw.sourceRunDirectSvgHint')
+                        : t('dialog.autodraw.sourceRunSegmentedHint')}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <label className="autodraw-dialog__field">
+                  <span className="autodraw-field-label">
+                    <span className="autodraw-dialog__label">
+                      {t('dialog.autodraw.methodText')}
+                    </span>
+                    <span className="autodraw-anno autodraw-anno--small">
+                      Ctrl+Enter 提交
+                    </span>
+                  </span>
+                  <textarea
+                    rows={7}
+                    value={methodText}
+                    onChange={(event) => setMethodText(event.target.value)}
+                    onKeyDown={handleMethodTextKeyDown}
+                    placeholder={t('dialog.autodraw.placeholder')}
+                    className="autodraw-input autodraw-input--method"
+                  />
+                </label>
+              )}
+
+              <label className="autodraw-dialog__field">
+                <span className="autodraw-dialog__label">
+                  {t('dialog.autodraw.imageSize')}
+                </span>
+                <select
+                  value={imageSize}
+                  onChange={(event) =>
+                    setImageSize(event.target.value as AutodrawImageSize)
+                  }
+                  disabled={isSourceInputMode}
+                  className="autodraw-input"
+                >
+                  <option value="2K">2K</option>
+                  <option value="4K">4K</option>
+                </select>
+                <p className="autodraw-dialog__hint">
+                  {t('dialog.autodraw.imageSizeHint')}
+                </p>
+              </label>
 
               <label className="autodraw-dialog__field">
                 <span className="autodraw-field-label">
                   <span className="autodraw-dialog__label">
-                    {t('dialog.autodraw.methodText')}
-                  </span>
-                  <span className="autodraw-anno autodraw-anno--small">
-                    Ctrl+Enter 提交
+                    {t('dialog.autodraw.samPrompt')}
                   </span>
                 </span>
-                <textarea
-                  rows={7}
-                  value={methodText}
-                  onChange={(event) => setMethodText(event.target.value)}
-                  onKeyDown={handleMethodTextKeyDown}
-                  placeholder={t('dialog.autodraw.placeholder')}
-                  className="autodraw-input autodraw-input--method"
+                <input
+                  value={samPrompt}
+                  onChange={(event) => setSamPrompt(event.target.value)}
+                  disabled={isDirectSvgSourceMode}
+                  className="autodraw-input"
                 />
+                <p className="autodraw-dialog__hint">
+                  {isDirectSvgSourceMode
+                    ? t('dialog.autodraw.samPromptHintDirectSvg')
+                    : t('dialog.autodraw.samPromptHint')}
+                </p>
               </label>
 
               <div className="autodraw-btn-row">
@@ -2634,6 +3043,21 @@ const AutodrawDialog = () => {
                   </svg>
                   {t('dialog.autodraw.generate')}
                 </button>
+                {jobId &&
+                  (status === 'queued' ||
+                    status === 'running' ||
+                    status === 'cancelling') && (
+                    <button
+                      type="button"
+                      onClick={handleCancelJob}
+                      disabled={status === 'cancelling'}
+                      className="autodraw-button autodraw-button--danger"
+                    >
+                      {status === 'cancelling'
+                        ? t('dialog.autodraw.cancelling')
+                        : t('dialog.autodraw.cancel')}
+                    </button>
+                  )}
                 {jobId && (
                   <button
                     type="button"
@@ -2661,139 +3085,158 @@ const AutodrawDialog = () => {
                 {t('dialog.close')}
               </button>
 
-              <div
-                className="autodraw-divider"
-                data-label={t('dialog.autodraw.referenceGallery')}
-              />
-
-              <div className="autodraw-sec-head">
-                <div className="autodraw-sec-title">
-                  {t('dialog.autodraw.resources')}
-                  <span>· style refs</span>
-                </div>
-                <span className="autodraw-anno autodraw-anno--small">
-                  {referenceSource === 'upload'
-                    ? t('dialog.autodraw.manualReference')
-                    : t('dialog.autodraw.referenceGallery')}
-                </span>
-              </div>
-
-              <div className="autodraw-mini-label">
-                {t('dialog.autodraw.referenceGallery')}
-              </div>
-
-              <div className="autodraw-folder-tab">
-                <span className="autodraw-folder-tab__dot" />
-                {galleryDirectoryName ||
-                  selectedGalleryItem?.name ||
-                  referenceImage?.name ||
-                  'gallery'}
-              </div>
-
-              <div className="autodraw-gallery-actions">
-                <button
-                  type="button"
-                  className="autodraw-mini-btn"
-                  onClick={() => void handleChooseReferenceGallery()}
-                >
-                  {t('dialog.autodraw.galleryChooseFolder')}
-                </button>
-                {galleryDirectoryName && (
-                  <>
-                    <button
-                      type="button"
-                      className="autodraw-mini-btn"
-                      onClick={() => void handleRefreshReferenceGallery()}
-                    >
-                      {t('dialog.autodraw.galleryRefresh')}
-                    </button>
-                    <button
-                      type="button"
-                      className="autodraw-mini-btn"
-                      onClick={() => void handleClearReferenceGallery()}
-                    >
-                      {t('dialog.autodraw.galleryDisconnect')}
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {galleryState === 'loading' ? (
-                <div className="autodraw-gallery-empty">
-                  {t('dialog.autodraw.galleryLoading')}
-                </div>
-              ) : galleryState === 'unsupported' ? (
-                <div className="autodraw-gallery-empty">
-                  {t('dialog.autodraw.galleryUnsupported')}
-                </div>
-              ) : galleryState === 'needs-permission' ? (
-                <div className="autodraw-gallery-empty">
-                  {galleryMessage || t('dialog.autodraw.galleryPermissionHint')}
-                </div>
-              ) : galleryItems.length > 0 ? (
-                <div className="autodraw-gallery-grid">
-                  {galleryItems.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => handleReferenceGalleryPick(item)}
-                      className={classNames('autodraw-gallery-card', {
-                        'autodraw-gallery-card--active':
-                          selectedGalleryItemId === item.id &&
-                          referenceSource === 'gallery',
-                      })}
-                    >
-                      <div className="autodraw-gallery-card__image-wrap">
-                        <img
-                          src={item.previewUrl}
-                          alt={item.name}
-                          loading="lazy"
-                          className="autodraw-gallery-card__image"
-                        />
-                      </div>
-                      <span className="autodraw-gallery-card__label">
-                        {item.name}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="autodraw-gallery-empty">
-                  {galleryMessage || t('dialog.autodraw.galleryEmpty')}
-                </div>
-              )}
-
-              <div className="autodraw-inline-card">
-                <div>
-                  <div className="autodraw-dialog__label">
-                    {t('dialog.autodraw.manualReference')}
-                  </div>
-                  <p className="autodraw-dialog__hint">
-                    {t('dialog.autodraw.manualReferenceHint')}
-                  </p>
-                </div>
-                <div className="autodraw-file-input">
-                  <input
-                    type="file"
-                    id="ref-image"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={handleReferenceImageChange}
-                    className="autodraw-file-input__hidden"
+              {!isSourceInputMode && (
+                <>
+                  <div
+                    className="autodraw-divider"
+                    data-label={t('dialog.autodraw.referenceGallery')}
                   />
-                  <label
-                    htmlFor="ref-image"
-                    className="autodraw-file-input__label"
-                  >
-                    {referenceSource === 'upload' && referenceImage
-                      ? referenceImage.name
-                      : t('dialog.autodraw.chooseFile')}
-                  </label>
-                </div>
-              </div>
 
-              <p className="autodraw-dialog__hint">
-                {t('dialog.autodraw.referenceHint')}
-              </p>
+                  <div className="autodraw-sec-head">
+                    <div className="autodraw-sec-title">
+                      {t('dialog.autodraw.resources')}
+                      <span>· style refs</span>
+                    </div>
+                    <span className="autodraw-anno autodraw-anno--small">
+                      {referenceSource === 'upload'
+                        ? t('dialog.autodraw.manualReference')
+                        : t('dialog.autodraw.referenceGallery')}
+                    </span>
+                  </div>
+
+                  <div className="autodraw-mini-label">
+                    {t('dialog.autodraw.referenceGallery')}
+                  </div>
+
+                  <div className="autodraw-folder-tab">
+                    <span className="autodraw-folder-tab__dot" />
+                    {galleryDirectoryName ||
+                      selectedGalleryItem?.name ||
+                      referenceImage?.name ||
+                      'gallery'}
+                  </div>
+
+                  <div className="autodraw-gallery-actions">
+                    <button
+                      type="button"
+                      className="autodraw-mini-btn"
+                      onClick={() => void handleChooseReferenceGallery()}
+                    >
+                      {t('dialog.autodraw.galleryChooseFolder')}
+                    </button>
+                    {galleryDirectoryName && (
+                      <>
+                        <button
+                          type="button"
+                          className="autodraw-mini-btn"
+                          onClick={() => void handleRefreshReferenceGallery()}
+                        >
+                          {t('dialog.autodraw.galleryRefresh')}
+                        </button>
+                        <button
+                          type="button"
+                          className="autodraw-mini-btn"
+                          onClick={() => void handleClearReferenceGallery()}
+                        >
+                          {t('dialog.autodraw.galleryDisconnect')}
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {galleryState === 'loading' ? (
+                    <div className="autodraw-gallery-empty">
+                      {t('dialog.autodraw.galleryLoading')}
+                    </div>
+                  ) : galleryState === 'unsupported' ? (
+                    <div className="autodraw-gallery-empty">
+                      {t('dialog.autodraw.galleryUnsupported')}
+                    </div>
+                  ) : galleryState === 'needs-permission' ? (
+                    <div className="autodraw-gallery-empty">
+                      {galleryMessage ||
+                        t('dialog.autodraw.galleryPermissionHint')}
+                    </div>
+                  ) : galleryItems.length > 0 ? (
+                    <div className="autodraw-gallery-grid">
+                      {galleryItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className={classNames('autodraw-gallery-card', {
+                            'autodraw-gallery-card--active':
+                              selectedGalleryItemId === item.id &&
+                              referenceSource === 'gallery',
+                          })}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleReferenceGalleryPick(item)}
+                            className="autodraw-gallery-card__select"
+                          >
+                            <div className="autodraw-gallery-card__image-wrap">
+                              <img
+                                src={item.previewUrl}
+                                alt={item.name}
+                                loading="lazy"
+                                className="autodraw-gallery-card__image"
+                              />
+                            </div>
+                            <span className="autodraw-gallery-card__label">
+                              {item.name}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            className="autodraw-gallery-card__preview-btn"
+                            onClick={() => openGalleryPreview(item)}
+                            aria-label={`${t('dialog.autodraw.openPreview')}: ${
+                              item.name
+                            }`}
+                          >
+                            +
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="autodraw-gallery-empty">
+                      {galleryMessage || t('dialog.autodraw.galleryEmpty')}
+                    </div>
+                  )}
+
+                  <div className="autodraw-inline-card">
+                    <div>
+                      <div className="autodraw-dialog__label">
+                        {t('dialog.autodraw.manualReference')}
+                      </div>
+                      <p className="autodraw-dialog__hint">
+                        {t('dialog.autodraw.manualReferenceHint')}
+                      </p>
+                    </div>
+                    <div className="autodraw-file-input">
+                      <input
+                        type="file"
+                        id="ref-image"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={handleReferenceImageChange}
+                        className="autodraw-file-input__hidden"
+                      />
+                      <label
+                        htmlFor="ref-image"
+                        className="autodraw-file-input__label"
+                      >
+                        {referenceSource === 'upload' && referenceImage
+                          ? referenceImage.name
+                          : t('dialog.autodraw.chooseFile')}
+                      </label>
+                    </div>
+                  </div>
+
+                  <p className="autodraw-dialog__hint">
+                    {t('dialog.autodraw.referenceHint')}
+                  </p>
+                </>
+              )}
 
               <div className="autodraw-divider" data-label="导入 / 接续" />
 
@@ -2999,10 +3442,9 @@ const AutodrawDialog = () => {
                   <span
                     className={classNames(
                       'autodraw-chip',
-                      `autodraw-chip--${getStatusBadgeClass(status).replace(
-                        'autodraw-badge--',
-                        ''
-                      )}`
+                      `autodraw-chip--${getAutodrawStatusBadgeClass(
+                        status
+                      ).replace('autodraw-badge--', '')}`
                     )}
                   >
                     <span className="autodraw-chip__pulse" />
@@ -3075,7 +3517,8 @@ const AutodrawDialog = () => {
                 <div className="autodraw-pipeline-stages">
                   {workbenchStages.map((stage, index) => {
                     const isFailed =
-                      status === 'failed' && index === activeWorkbenchStep;
+                      (status === 'failed' || status === 'cancelled') &&
+                      index === activeWorkbenchStep;
                     const isComplete =
                       index < activeWorkbenchStep || status === 'succeeded';
                     const isActive =
@@ -3158,9 +3601,7 @@ const AutodrawDialog = () => {
                       <button
                         type="button"
                         className="autodraw-output-canvas__focus"
-                        onClick={() =>
-                          setAssetPreview({ asset: spotlightAsset })
-                        }
+                        onClick={() => openAssetPreview(spotlightAsset)}
                         aria-label={`${t('dialog.autodraw.openPreview')}: ${
                           spotlightAsset.name
                         }`}
@@ -3181,7 +3622,6 @@ const AutodrawDialog = () => {
                         </div>
                       </div>
                     )}
-
                   </div>
 
                   {(hasImportedPreview || isJobBusy) && (
@@ -3225,8 +3665,62 @@ const AutodrawDialog = () => {
                       {t('dialog.autodraw.assetRoom')}
                       <span>· asset room</span>
                     </div>
-                    <div className="autodraw-panel-head__meta">
-                      {`${assetShelfItems.length} items`}
+                    <div className="autodraw-panel-head__aside">
+                      <div className="autodraw-panel-head__meta">
+                        {`${assetShelfItems.length} items`}
+                      </div>
+                      {currentJobHistoryEntry && (
+                        <div className="autodraw-asset-toolbar">
+                          <button
+                            type="button"
+                            className="autodraw-mini-btn"
+                            onClick={() =>
+                              void handleBundleDownload(currentJobHistoryEntry)
+                            }
+                            disabled={!canDownloadCurrentBundle}
+                          >
+                            {t('dialog.autodraw.downloadBundle')}
+                          </button>
+                          <button
+                            type="button"
+                            className="autodraw-mini-btn"
+                            onClick={() => void handleWorkspaceRebuild()}
+                            disabled={!canOperateCurrentJob}
+                          >
+                            {t('dialog.autodraw.rebuildJob')}
+                          </button>
+                          <label className="autodraw-asset-toolbar__field">
+                            <span className="autodraw-sr-only">
+                              {t('dialog.autodraw.replayStageLabel')}
+                            </span>
+                            <select
+                              value={workspaceReplayStage}
+                              onChange={(event) =>
+                                setWorkspaceReplayStage(
+                                  Number(event.target.value)
+                                )
+                              }
+                              className="autodraw-input autodraw-input--sm autodraw-asset-toolbar__select"
+                              aria-label={t('dialog.autodraw.replayStageLabel')}
+                              disabled={!canOperateCurrentJob}
+                            >
+                              {replayableWorkspaceStages.map((stage) => (
+                                <option key={stage.key} value={stage.value}>
+                                  {`${stage.stepNumber} · ${stage.label}`}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <button
+                            type="button"
+                            className="autodraw-mini-btn"
+                            onClick={() => void handleWorkspaceReplay()}
+                            disabled={!canOperateCurrentJob}
+                          >
+                            {t('dialog.autodraw.replayFromStage')}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -3234,28 +3728,31 @@ const AutodrawDialog = () => {
                     <div className="autodraw-asset-room">
                       {assetShelfItems.map((item) =>
                         item.asset ? (
-                          <button
+                          <article
                             key={item.id}
-                            type="button"
-                            onClick={() =>
-                              setAssetPreview({ asset: item.asset! })
-                            }
                             className={classNames('autodraw-asset-card', {
-                              'autodraw-asset-card--icon':
-                                item.asset.kind === 'icon',
+                              'autodraw-asset-card--icon': item.kind === 'icon',
+                              'autodraw-asset-card--figure':
+                                item.kind === 'figure',
                             })}
-                            aria-label={`${t('dialog.autodraw.openPreview')}: ${
-                              item.asset.name
-                            }`}
                           >
-                            <div className="autodraw-asset-card__thumb">
-                              <img
-                                src={item.asset.url}
-                                alt={item.asset.name}
-                                loading="lazy"
-                                className="autodraw-asset-card__image"
-                              />
-                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleAssetPreview(item.asset!)}
+                              className="autodraw-asset-card__preview"
+                              aria-label={`${t(
+                                'dialog.autodraw.openPreview'
+                              )}: ${item.asset.name}`}
+                            >
+                              <div className="autodraw-asset-card__thumb">
+                                <img
+                                  src={item.asset.url}
+                                  alt={item.asset.name}
+                                  loading="lazy"
+                                  className="autodraw-asset-card__image"
+                                />
+                              </div>
+                            </button>
                             <div className="autodraw-asset-card__meta">
                               <strong className="autodraw-asset-card__title">
                                 {item.title}
@@ -3264,14 +3761,16 @@ const AutodrawDialog = () => {
                                 {item.subtitle}
                               </span>
                             </div>
-                          </button>
+                          </article>
                         ) : (
                           <div
                             key={item.id}
-                            className={classNames(
-                              'autodraw-asset-card',
-                              'autodraw-asset-card--placeholder'
-                            )}
+                            className={classNames('autodraw-asset-card', {
+                              'autodraw-asset-card--placeholder': true,
+                              'autodraw-asset-card--icon': item.kind === 'icon',
+                              'autodraw-asset-card--figure':
+                                item.kind === 'figure',
+                            })}
                           >
                             <div className="autodraw-asset-card__thumb">
                               <span className="autodraw-asset-card__placeholder">
@@ -3303,194 +3802,28 @@ const AutodrawDialog = () => {
             </main>
 
             <aside className="autodraw-col autodraw-col--right">
-              <section className="autodraw-side-card">
-                <div className="autodraw-sec-head autodraw-sec-head--tight">
-                  <div className="autodraw-sec-title">
-                    {t('dialog.autodraw.activity')}
-                    <span>· activity</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setLogs([])}
-                    className="autodraw-link-btn autodraw-link-btn--inline"
-                  >
-                    {t('dialog.autodraw.clearLogs')}
-                  </button>
-                </div>
-
-                <div className="autodraw-log-tabs">
-                  <button
-                    type="button"
-                    className={classNames('autodraw-log-tab', {
-                      'autodraw-log-tab--active': activityTab === 'timeline',
-                    })}
-                    onClick={() => setActivityTab('timeline')}
-                  >
-                    {t('dialog.autodraw.timeline')}
-                  </button>
-                  <button
-                    type="button"
-                    className={classNames('autodraw-log-tab', {
-                      'autodraw-log-tab--active': activityTab === 'logs',
-                    })}
-                    onClick={() => setActivityTab('logs')}
-                  >
-                    {t('dialog.autodraw.rawLogs')}
-                  </button>
-                </div>
-
-                {activityTab === 'timeline' ? (
-                  <div className="autodraw-log-feed">
-                    {activityEntries.length > 0 ? (
-                      activityEntries.map((entry, index) => (
-                        <div
-                          key={`${entry.line}-${index}`}
-                          className={classNames(
-                            'autodraw-log-line',
-                            `autodraw-log-line--${entry.tone}`
-                          )}
-                        >
-                          <span className="autodraw-log-line__time">
-                            {entry.stamp}
-                          </span>
-                          <span className="autodraw-log-line__marker" />
-                          <span className="autodraw-log-line__text">
-                            {entry.line}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="autodraw-gallery-empty">
-                        {t('dialog.autodraw.emptyLogs')}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="autodraw-dialog__logs-container">
-                    <div className="autodraw-logs-header">
-                      <div className="autodraw-logs-filters">
-                        <input
-                          type="text"
-                          value={logFilter}
-                          onChange={(event) => setLogFilter(event.target.value)}
-                          placeholder={t('dialog.autodraw.filterLogs')}
-                          className="autodraw-input autodraw-input--sm"
-                        />
-                        <label className="autodraw-checkbox-label">
-                          <input
-                            type="checkbox"
-                            checked={autoScroll}
-                            onChange={(event) =>
-                              setAutoScroll(event.target.checked)
-                            }
-                          />
-                          <span>{t('dialog.autodraw.autoScroll')}</span>
-                        </label>
-                      </div>
-                      <div className="autodraw-dialog__log-count">{`${filteredLogs.length} lines`}</div>
-                    </div>
-                    <pre ref={logPanelRef} className="autodraw-dialog__logs">
-                      {filteredLogs.length > 0
-                        ? filteredLogs.join('\n')
-                        : t('dialog.autodraw.emptyLogs')}
-                    </pre>
-                  </div>
-                )}
-              </section>
-
-              <section className="autodraw-side-card">
-                <div className="autodraw-sec-head autodraw-sec-head--tight">
-                  <div className="autodraw-sec-title">
-                    {t('dialog.autodraw.history')}
-                    <span>· runs</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="autodraw-link-btn autodraw-link-btn--inline"
-                    onClick={handleClearHistory}
-                  >
-                    {t('dialog.autodraw.clearHistory')}
-                  </button>
-                </div>
-
-                <span className="autodraw-anno autodraw-anno--small autodraw-history-note">
-                  {`最近 ${historyPreviewEntries.length} 条`}
-                </span>
-
-                {historyPreviewEntries.length > 0 ? (
-                  <div className="autodraw-history-list">
-                    {historyPreviewEntries.map((entry) => (
-                      <article key={entry.id} className="autodraw-history-card">
-                        <div className="autodraw-history-card__row">
-                          <div className="autodraw-history-card__preview">
-                            {entry.previewUrl ? (
-                              <img
-                                src={entry.previewUrl}
-                                alt={entry.title}
-                                loading="lazy"
-                                className="autodraw-asset-card__image"
-                              />
-                            ) : (
-                              <span className="autodraw-asset-card__placeholder">
-                                {entry.type === 'job'
-                                  ? t('dialog.autodraw.historyJob')
-                                  : t('dialog.autodraw.historyLocal')}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="autodraw-history-card__meta">
-                            <div className="autodraw-history-card__id">
-                              {entry.title}
-                            </div>
-                            <div className="autodraw-history-card__subtitle">
-                              {entry.createdAt
-                                ? new Date(entry.createdAt).toLocaleString()
-                                : ''}
-                            </div>
-                            <div className="autodraw-history-card__status-row">
-                              <span
-                                className={`autodraw-badge ${getStatusBadgeClass(
-                                  entry.status === 'local'
-                                    ? 'succeeded'
-                                    : entry.status
-                                )}`}
-                              >
-                                {getHistoryStatusLabel(entry.status)}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="autodraw-history-card__actions">
-                            {entry.jobId && (
-                              <>
-                                <button
-                                  type="button"
-                                  className="autodraw-mini-btn"
-                                  onClick={() => void handleHistoryLoad(entry)}
-                                >
-                                  {t('dialog.autodraw.viewFlow')}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="autodraw-mini-btn"
-                                  onClick={() => void handleHistoryCopy(entry)}
-                                >
-                                  {t('dialog.autodraw.copyJobId')}
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="autodraw-gallery-empty">
-                    {t('dialog.autodraw.noHistory')}
-                  </div>
-                )}
-              </section>
+              <AutodrawActivityPanel
+                isBusy={isJobBusy}
+                isReady={deferredPanelsReady}
+                logs={deferredLogs}
+                onClearLogs={() => setLogs([])}
+                t={t}
+              />
+              <AutodrawHistoryPanel
+                currentJobId={jobId}
+                entries={deferredHistoryPreviewEntries}
+                isReady={deferredPanelsReady}
+                onClearHistory={clearHistory}
+                onDeleteHistoryEntry={deleteHistoryEntry}
+                onHistoryCopy={handleHistoryCopy}
+                onHistoryLoad={handleHistoryLoad}
+                onHistoryPreview={handleHistoryPreview}
+                onHistoryReplay={(entry, startStage) =>
+                  replayJobFromStage(entry, startStage)
+                }
+                t={t}
+                workbenchStages={workbenchStages}
+              />
             </aside>
           </div>
         </div>
@@ -3504,16 +3837,19 @@ const AutodrawDialog = () => {
           onClick={() => setAssetPreview(null)}
         >
           <div
-            className="autodraw-asset-lightbox__panel"
+            className={classNames('autodraw-asset-lightbox__panel', {
+              'autodraw-asset-lightbox__panel--icon':
+                assetPreview.mode === 'icon',
+            })}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="autodraw-asset-lightbox__head">
               <div>
                 <h3 className="autodraw-dialog__panel-title">
-                  {assetPreview.asset.name}
+                  {assetPreview.title}
                 </h3>
                 <p className="autodraw-dialog__panel-copy">
-                  {assetPreview.asset.path}
+                  {assetPreview.subtitle}
                 </p>
               </div>
               <button
@@ -3524,11 +3860,19 @@ const AutodrawDialog = () => {
                 {t('dialog.close')}
               </button>
             </div>
-            <div className="autodraw-asset-lightbox__viewport">
+            <div
+              className={classNames('autodraw-asset-lightbox__viewport', {
+                'autodraw-asset-lightbox__viewport--icon':
+                  assetPreview.mode === 'icon',
+              })}
+            >
               <img
-                src={assetPreview.asset.url}
-                alt={assetPreview.asset.name}
-                className="autodraw-asset-lightbox__image"
+                src={assetPreview.url}
+                alt={assetPreview.title}
+                className={classNames('autodraw-asset-lightbox__image', {
+                  'autodraw-asset-lightbox__image--icon':
+                    assetPreview.mode === 'icon',
+                })}
               />
             </div>
           </div>

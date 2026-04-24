@@ -1,6 +1,7 @@
 const mockGetSelectedElements = jest.fn();
 const mockSetNode = jest.fn();
 const mockSetFontFamily = jest.fn();
+const mockFindPath = jest.fn();
 
 const patchNodeAtPath = (
   children: Record<string, unknown>[],
@@ -32,15 +33,35 @@ jest.mock('@plait/core', () => ({
   isNullOrUndefined: (value: unknown) => value === null || value === undefined,
   Path: {},
   PlaitBoard: {
-    findPath: jest.fn(),
+    findPath: (...args: unknown[]) => mockFindPath(...args),
   },
   PlaitElement: {},
+  RectangleClient: {
+    getRectangleByPoints: (points: Array<[number, number]>) => {
+      const xs = points.map((point) => point[0]);
+      const ys = points.map((point) => point[1]);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+      return {
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY,
+      };
+    },
+  },
   Transforms: {
     setNode: (...args: unknown[]) => mockSetNode(...args),
   },
 }));
 
 jest.mock('@plait/draw', () => ({
+  BasicShapes: {
+    rectangle: 'rectangle',
+    roundRectangle: 'roundRectangle',
+  },
   getMemorizeKey: jest.fn(),
   isDrawElementsIncludeText: (elements: Array<Record<string, unknown>>) =>
     elements.some((element) => Boolean(element.text)),
@@ -82,6 +103,7 @@ jest.mock('../utils/property', () => ({
 
 import {
   applyFontSchemeToCanvas,
+  setRectangleCornerRadius,
   setTextFontFamily,
 } from './property';
 
@@ -90,6 +112,7 @@ describe('property font family transforms', () => {
     mockGetSelectedElements.mockReset();
     mockSetNode.mockReset();
     mockSetFontFamily.mockReset();
+    mockFindPath.mockReset();
     mockSetNode.mockImplementation(
       (
         board: { children: Record<string, unknown>[] },
@@ -98,6 +121,12 @@ describe('property font family transforms', () => {
       ) => {
         patchNodeAtPath(board.children, path, patch);
       }
+    );
+    mockFindPath.mockImplementation(
+      (
+        board: { children: Record<string, unknown>[] },
+        element: Record<string, unknown>
+      ) => [board.children.indexOf(element)]
     );
   });
 
@@ -292,5 +321,162 @@ describe('property font family transforms', () => {
 
     expect(fragmentAnnotation.sceneImportMetadata.style.fontFamily).toContain('Georgia');
     expect(decodeURIComponent(fragmentAnnotation.url)).toContain('Georgia');
+  });
+});
+
+describe('setRectangleCornerRadius', () => {
+  beforeEach(() => {
+    mockGetSelectedElements.mockReset();
+    mockSetNode.mockReset();
+    mockFindPath.mockReset();
+    mockSetNode.mockImplementation(
+      (
+        board: { children: Record<string, unknown>[] },
+        patch: Record<string, unknown>,
+        path: number[]
+      ) => {
+        patchNodeAtPath(board.children, path, patch);
+      }
+    );
+    mockFindPath.mockImplementation(
+      (
+        board: { children: Record<string, unknown>[] },
+        element: Record<string, unknown>
+      ) => [board.children.indexOf(element)]
+    );
+  });
+
+  it('为 rectangle 设置正数圆角后应转成 roundRectangle', () => {
+    const rectangle = {
+      id: 'rect-1',
+      type: 'geometry',
+      shape: 'rectangle',
+      points: [
+        [0, 0],
+        [120, 60],
+      ],
+    } as any;
+    const board = {
+      children: [rectangle],
+    } as any;
+
+    mockGetSelectedElements.mockReturnValue([rectangle]);
+
+    setRectangleCornerRadius(board, 18);
+
+    expect(rectangle.shape).toBe('roundRectangle');
+    expect(rectangle.radius).toBe(18);
+  });
+
+  it('为 roundRectangle 设置 0 后应转回 rectangle', () => {
+    const rectangle = {
+      id: 'rect-2',
+      type: 'geometry',
+      shape: 'roundRectangle',
+      radius: 16,
+      points: [
+        [0, 0],
+        [120, 60],
+      ],
+    } as any;
+    const board = {
+      children: [rectangle],
+    } as any;
+
+    mockGetSelectedElements.mockReturnValue([rectangle]);
+
+    setRectangleCornerRadius(board, 0);
+
+    expect(rectangle.shape).toBe('rectangle');
+    expect(rectangle.radius).toBe(0);
+  });
+
+  it('圆角应按短边的一半进行钳制', () => {
+    const rectangle = {
+      id: 'rect-3',
+      type: 'geometry',
+      shape: 'rectangle',
+      points: [
+        [0, 0],
+        [80, 20],
+      ],
+    } as any;
+    const board = {
+      children: [rectangle],
+    } as any;
+
+    mockGetSelectedElements.mockReturnValue([rectangle]);
+
+    setRectangleCornerRadius(board, 50);
+
+    expect(rectangle.shape).toBe('roundRectangle');
+    expect(rectangle.radius).toBe(10);
+  });
+
+  it('多选多个矩形类图元时应统一应用并按各自尺寸钳制', () => {
+    const rectangle = {
+      id: 'rect-4',
+      type: 'geometry',
+      shape: 'rectangle',
+      points: [
+        [0, 0],
+        [120, 60],
+      ],
+    } as any;
+    const roundRectangle = {
+      id: 'rect-5',
+      type: 'geometry',
+      shape: 'roundRectangle',
+      radius: 8,
+      points: [
+        [0, 0],
+        [40, 24],
+      ],
+    } as any;
+    const board = {
+      children: [rectangle, roundRectangle],
+    } as any;
+
+    mockGetSelectedElements.mockReturnValue([rectangle, roundRectangle]);
+
+    setRectangleCornerRadius(board, 20);
+
+    expect(rectangle.shape).toBe('roundRectangle');
+    expect(rectangle.radius).toBe(20);
+    expect(roundRectangle.shape).toBe('roundRectangle');
+    expect(roundRectangle.radius).toBe(12);
+  });
+
+  it('混入非矩形图元时只处理矩形类目标', () => {
+    const rectangle = {
+      id: 'rect-6',
+      type: 'geometry',
+      shape: 'rectangle',
+      points: [
+        [0, 0],
+        [100, 60],
+      ],
+    } as any;
+    const ellipse = {
+      id: 'ellipse-1',
+      type: 'geometry',
+      shape: 'ellipse',
+      points: [
+        [0, 0],
+        [100, 60],
+      ],
+    } as any;
+    const board = {
+      children: [rectangle, ellipse],
+    } as any;
+
+    mockGetSelectedElements.mockReturnValue([rectangle, ellipse]);
+
+    setRectangleCornerRadius(board, 14);
+
+    expect(rectangle.shape).toBe('roundRectangle');
+    expect(rectangle.radius).toBe(14);
+    expect(ellipse.shape).toBe('ellipse');
+    expect(ellipse.radius).toBeUndefined();
   });
 });

@@ -22,16 +22,16 @@ describe('font option matching', () => {
       {
         label: '默认无衬线',
         value:
-          '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
+          '"Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
       },
       {
         label: '宋体',
-        value: '"Songti SC", "STSong", "Noto Serif CJK SC", serif',
+        value: '"Noto Serif SC", "Songti SC", "STSong", serif',
       },
     ]);
 
     const normalized = normalizeFontFamilyStack(
-      '"Songti SC", "STSong", "Noto Serif CJK SC", serif'
+      '"Noto Serif SC", "Songti SC", "STSong", serif'
     );
 
     const resolved = resolveFontFamilyOption(normalized);

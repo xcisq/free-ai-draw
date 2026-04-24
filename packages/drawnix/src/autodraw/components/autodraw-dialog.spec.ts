@@ -1,6 +1,7 @@
 import {
   buildAutodrawAssetShelfItems,
   buildAssemblyBatches,
+  createAutodrawJobHistoryId,
   getAutodrawAssetShelfAssets,
   getAutodrawSpotlightAsset,
   getAutodrawVisibleAssetItems,
@@ -8,6 +9,7 @@ import {
   getWorkbenchProgressRatio,
   getWorkbenchStepForStatus,
   mergeAutodrawArtifacts,
+  orderAutodrawHistoryEntries,
   toAutodrawAssetItems,
   upsertAutodrawHistory,
 } from './autodraw-dialog.utils';
@@ -19,8 +21,10 @@ describe('autodraw-dialog helpers', () => {
     expect(getWorkbenchStepForStatus('running', 2, null)).toBe(1);
     expect(getWorkbenchStepForStatus('running', 3, null)).toBe(2);
     expect(getWorkbenchStepForStatus('running', 5, null)).toBe(3);
+    expect(getWorkbenchStepForStatus('cancelling', 3, null)).toBe(2);
     expect(getWorkbenchStepForStatus('importing', 5, null)).toBe(4);
     expect(getWorkbenchStepForStatus('failed', 3, 4)).toBe(3);
+    expect(getWorkbenchStepForStatus('cancelled', 3, 4)).toBe(3);
   });
 
   it('preserves source order when building assembly batches', () => {
@@ -120,7 +124,7 @@ describe('autodraw-dialog helpers', () => {
     ).toEqual(['figure.png', 'icon_AF01_nobg.png', 'final.svg']);
     expect(
       getAutodrawAssetShelfAssets(assets).map((asset) => asset.name)
-    ).toEqual(['icon_AF01_nobg.png']);
+    ).toEqual(['figure.png', 'icon_AF01_nobg.png', 'final.svg']);
     expect(
       getAutodrawSpotlightAsset(assets, {
         preferredStep: 2,
@@ -183,8 +187,11 @@ describe('autodraw-dialog helpers', () => {
     expect(shelf.map((item) => item.title)).toEqual([
       'icon_AF01_nobg.png',
       'icon_AF02_nobg.png',
+      'final.svg',
     ]);
-    expect(shelf.every((item) => item.asset?.kind === 'icon')).toBe(true);
+    expect(
+      shelf.map((item) => item.asset?.kind || item.kind)
+    ).toEqual(['icon', 'icon', 'final_svg']);
   });
 
   it('lets logs and artifacts correct the effective workbench step', () => {
@@ -250,6 +257,7 @@ describe('autodraw-dialog helpers', () => {
     });
 
     expect(shelf.map((item) => item.title)).toEqual([
+      'figure.png',
       'icons/*_nobg.png',
     ]);
     expect(shelf.filter((item) => item.isPlaceholder)).toHaveLength(1);
@@ -280,6 +288,77 @@ describe('autodraw-dialog helpers', () => {
     expect(entries).toHaveLength(1);
     expect(entries[0].status).toBe('succeeded');
     expect(entries[0].createdAt).toBe('2026-04-16T11:00:00.000Z');
+  });
+
+  it('uses stable job ids for history dedupe and keeps the current run pinned first', () => {
+    const dedupedEntries = upsertAutodrawHistory(
+      [
+        {
+          id: createAutodrawJobHistoryId('job-current'),
+          type: 'job',
+          title: 'job-current',
+          subtitle: 'Generated job',
+          status: 'running',
+          createdAt: '2026-04-18T09:00:00.000Z',
+          updatedAt: '2026-04-18T09:00:00.000Z',
+          jobId: 'job-current',
+        },
+        {
+          id: 'bundle:bundle.zip:1',
+          type: 'bundle',
+          title: 'bundle.zip',
+          subtitle: 'Local ZIP',
+          status: 'local',
+          createdAt: '2026-04-18T08:00:00.000Z',
+          updatedAt: '2026-04-18T08:00:00.000Z',
+        },
+      ],
+      {
+        id: 'job:job-current:legacy',
+        type: 'job',
+        title: 'job-current',
+        subtitle: 'Generated job',
+        status: 'succeeded',
+        createdAt: '2026-04-18T09:00:00.000Z',
+        updatedAt: '2026-04-18T11:00:00.000Z',
+        jobId: 'job-current',
+      }
+    );
+
+    expect(
+      dedupedEntries.filter((entry) => entry.jobId === 'job-current')
+    ).toHaveLength(1);
+    expect(dedupedEntries[0]).toEqual(
+      expect.objectContaining({
+        id: createAutodrawJobHistoryId('job-current'),
+        status: 'succeeded',
+        updatedAt: '2026-04-18T11:00:00.000Z',
+      })
+    );
+
+    const orderedEntries = orderAutodrawHistoryEntries(
+      [
+        ...dedupedEntries,
+        {
+          id: createAutodrawJobHistoryId('job-older'),
+          type: 'job',
+          title: 'job-older',
+          subtitle: 'Generated job',
+          status: 'succeeded',
+          createdAt: '2026-04-18T10:00:00.000Z',
+          updatedAt: '2026-04-18T10:00:00.000Z',
+          jobId: 'job-older',
+        },
+      ],
+      'job-current',
+      12
+    );
+
+    expect(orderedEntries.map((entry) => entry.id)).toEqual([
+      createAutodrawJobHistoryId('job-current'),
+      createAutodrawJobHistoryId('job-older'),
+      'bundle:bundle.zip:1',
+    ]);
   });
 
   it('merges probed artifacts without duplicating persisted ones', () => {

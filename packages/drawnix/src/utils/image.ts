@@ -1,5 +1,5 @@
 import { getSelectedElements, PlaitBoard, toSvgData } from '@plait/core';
-import { base64ToBlob, boardToImage, download } from './common';
+import { download, exportBoardToRasterBlob } from './common';
 import { fileOpen } from '../data/filesystem';
 import { IMAGE_MIME_TYPES } from '../constants';
 import { insertImage } from '../data/image';
@@ -27,17 +27,21 @@ export const saveAsSvg = (board: PlaitBoard) => {
 export const saveAsImage = (board: PlaitBoard, isTransparent: boolean) => {
   const selectedElements = getSelectedElements(board);
   const backgroundColor = getBackgroundColor(board) || 'white';
-  boardToImage(board, {
+  const format = isTransparent ? 'png' : 'jpeg';
+  const ext = isTransparent ? 'png' : 'jpg';
+
+  return exportBoardToRasterBlob(board, {
     elements: selectedElements.length > 0 ? selectedElements : undefined,
     fillStyle: isTransparent ? 'transparent' : backgroundColor,
-  }).then((image) => {
-    if (image) {
-      const ext = isTransparent ? 'png' : 'jpg';
-      const pngImage = base64ToBlob(image);
+    format,
+  })
+    .then((image) => {
       const imageName = `drawnix-${new Date().getTime()}.${ext}`;
-      download(pngImage, imageName);
-    }
-  });
+      download(image, imageName);
+    })
+    .catch((error) => {
+      console.error('Error exporting image:', error);
+    });
 };
 
 export const addImage = async (board: PlaitBoard) => {

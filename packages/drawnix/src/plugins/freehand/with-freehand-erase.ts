@@ -12,6 +12,15 @@ import { Freehand, FreehandShape } from './type';
 import { CoreTransforms } from '@plait/core';
 import { LaserPointer } from '../../utils/laser-pointer';
 import { isTwoFingerMode } from '@plait-board/react-board';
+import {
+  appendImageEraseStroke,
+  findImageElementById,
+  getSingleSelectedRasterImageElement,
+} from '../../utils/image-element';
+import {
+  buildImageEraseStroke,
+  getImageEraseViewBoxRadius,
+} from '../../utils/image-erase';
 
 export const withFreehandErase = (board: PlaitBoard) => {
   const { pointerDown, pointerMove, pointerUp, globalPointerUp, touchStart } =
@@ -20,6 +29,9 @@ export const withFreehandErase = (board: PlaitBoard) => {
   const laserPointer = new LaserPointer();
 
   let isErasing = false;
+  let imageEraseTargetId: string | null = null;
+  let imageErasePoints: Point[] = [];
+  let imageEraseRadius = 0;
   const elementsToDelete = new Set<string>();
 
   const checkAndMarkFreehandElementsForDeletion = (point: Point) => {
@@ -57,8 +69,26 @@ export const withFreehandErase = (board: PlaitBoard) => {
 
   const complete = () => {
     if (isErasing) {
-      deleteMarkedElements();
+      if (imageEraseTargetId) {
+        const imageElement = findImageElementById(board, imageEraseTargetId);
+        if (imageElement) {
+          const stroke = buildImageEraseStroke(
+            board,
+            imageElement,
+            imageErasePoints,
+            imageEraseRadius
+          );
+          if (stroke) {
+            appendImageEraseStroke(board, imageEraseTargetId, stroke);
+          }
+        }
+      } else {
+        deleteMarkedElements();
+      }
       isErasing = false;
+      imageEraseTargetId = null;
+      imageErasePoints = [];
+      imageEraseRadius = 0;
       elementsToDelete.clear();
       laserPointer.destroy();
     }
@@ -82,8 +112,18 @@ export const withFreehandErase = (board: PlaitBoard) => {
     if (isEraserPointer && isDrawingMode(board)) {
       isErasing = true;
       elementsToDelete.clear();
-      const currentPoint: Point = [event.x, event.y];
-      checkAndMarkFreehandElementsForDeletion(currentPoint);
+      const screenPoint: Point = [event.x, event.y];
+      const selectedImage = getSingleSelectedRasterImageElement(board);
+      if (selectedImage) {
+        imageEraseTargetId = selectedImage.id;
+        imageErasePoints = [
+          toViewBoxPoint(board, toHostPoint(board, screenPoint[0], screenPoint[1])),
+        ];
+        imageEraseRadius = getImageEraseViewBoxRadius(board, screenPoint);
+      } else {
+        const currentPoint: Point = [event.x, event.y];
+        checkAndMarkFreehandElementsForDeletion(currentPoint);
+      }
       laserPointer.init(board);
       return;
     }
@@ -94,6 +134,13 @@ export const withFreehandErase = (board: PlaitBoard) => {
   board.pointerMove = (event: PointerEvent) => {
     if (isErasing && !isTwoFingerMode(board)) {
       throttleRAF(board, 'with-freehand-erase', () => {
+        if (imageEraseTargetId) {
+          imageErasePoints.push(
+            toViewBoxPoint(board, toHostPoint(board, event.x, event.y))
+          );
+          return;
+        }
+
         const currentPoint: Point = [event.x, event.y];
         checkAndMarkFreehandElementsForDeletion(currentPoint);
       });

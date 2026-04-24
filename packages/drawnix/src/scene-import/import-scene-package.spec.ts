@@ -109,4 +109,47 @@ describe('importScenePackage', () => {
     expect(title.textStyle.fontFamily).toContain('Georgia');
     expect(title.textProperties['font-family']).toContain('Georgia');
   });
+
+  it('keeps source fontSize/rotation for text fidelity during scene import', async () => {
+    const archive = zipSync({
+      'scene.json': encodeUtf8(
+        JSON.stringify({
+          type: 'drawnix-scene',
+          version: '1.0.0',
+          assets: [],
+          elements: [
+            {
+              id: 'caption',
+              kind: 'text',
+              text: 'Caption',
+              layout: {
+                x: 10,
+                y: 20,
+                width: 140,
+                height: 30,
+                anchor: 'start',
+                baseline: 'alphabetic',
+                rotation: 15,
+                wrapMode: 'none',
+              },
+              style: {
+                fontFamily: 'Arial',
+                fontSize: 12,
+                fill: '#111111',
+              },
+            },
+          ],
+        })
+      ),
+    });
+
+    const file = new File([archive], 'scene.zip', { type: 'application/zip' });
+    const result = await importScenePackage(file);
+    const caption = result.elements[0] as any;
+
+    expect(caption.textStyle.fontSize).toBe(12);
+    expect(caption.textStyle['font-size']).toBe('12');
+    expect(caption.textProperties['font-size']).toBe('12');
+    expect(caption.angle).toBe(15);
+  });
 });

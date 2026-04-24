@@ -26,6 +26,7 @@ import {
 import './popup-toolbar.scss';
 import {
   ArrowLineHandle,
+  BasicShapes,
   getStrokeColorByElement as getStrokeColorByDrawElement,
   getStrokeStyleByElement,
   isClosedCustomGeometry,
@@ -55,6 +56,7 @@ import {
 import { ArrowAnimationButton } from './arrow-animation-button';
 import { AIImageEditButton } from './ai-image-edit-button';
 import { ReplaceImageButton } from './replace-image-button';
+import { PopupRectangleRadiusControl } from './rectangle-radius-control';
 
 export const PopupToolbar = () => {
   const board = useBoard();
@@ -91,6 +93,9 @@ export const PopupToolbar = () => {
     hasFontColor?: boolean;
     hasStroke?: boolean;
     hasStrokeStyle?: boolean;
+    hasCornerRadius?: boolean;
+    cornerRadius?: number;
+    cornerRadiusMax?: number;
     marks?: Omit<CustomText, 'text'>;
     // Line state
     isLine?: boolean;
@@ -117,6 +122,10 @@ export const PopupToolbar = () => {
     const hasStrokeStyle =
       selectedElements.some((value) => hasStrokeStyleProperty(board, value)) &&
       !PlaitBoard.hasBeenTextEditing(board);
+    const hasCornerRadius =
+      selectedElements.length > 0 &&
+      selectedElements.every((value) => hasRectangleCornerRadiusProperty(value)) &&
+      !PlaitBoard.hasBeenTextEditing(board);
     const isLine = selectedElements.every((value) =>
       PlaitDrawElement.isArrowLine(value)
     );
@@ -134,6 +143,13 @@ export const PopupToolbar = () => {
       hasFontFamily,
       hasStroke,
       hasStrokeStyle,
+      hasCornerRadius,
+      cornerRadius: hasCornerRadius
+        ? getCurrentRectangleCornerRadius(selectedElements)
+        : undefined,
+      cornerRadiusMax: hasCornerRadius
+        ? getRectangleCornerRadiusLimit(selectedElements)
+        : undefined,
       hasText,
       isLine,
       animation,
@@ -276,6 +292,14 @@ export const PopupToolbar = () => {
                 ></label>
               </PopupFillButton>
             )}
+            {state.hasCornerRadius && (
+              <PopupRectangleRadiusControl
+                board={board}
+                currentRadius={state.cornerRadius}
+                maxRadius={state.cornerRadiusMax || 0}
+                title={t('popupToolbar.cornerRadius')}
+              />
+            )}
             {state.hasText && (
               <PopupLinkButton
                 board={board}
@@ -415,6 +439,54 @@ export const getColorPropertyValue = (color: string) => {
   } else {
     return color;
   }
+};
+
+const isRectangleCornerRadiusShape = (shape?: string) => {
+  return (
+    shape === BasicShapes.rectangle || shape === BasicShapes.roundRectangle
+  );
+};
+
+const getRectangleElementRadiusLimit = (element: PlaitElement) => {
+  const points = (element as { points?: [number, number][] }).points;
+  if (!Array.isArray(points) || points.length === 0) {
+    return 0;
+  }
+  const rectangle = RectangleClient.getRectangleByPoints(points);
+  const width = Math.abs(rectangle.width || 0);
+  const height = Math.abs(rectangle.height || 0);
+  const limit = Math.min(width, height) / 2;
+  return Number.isFinite(limit) && limit > 0 ? limit : 0;
+};
+
+const getRectangleElementCornerRadius = (element: PlaitElement) => {
+  const value = (element as { radius?: number | string }).radius;
+  const radius = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(radius) && radius > 0 ? radius : 0;
+};
+
+const getCurrentRectangleCornerRadius = (selectedElements: PlaitElement[]) => {
+  const target = selectedElements.find((element) =>
+    hasRectangleCornerRadiusProperty(element)
+  );
+  return target ? getRectangleElementCornerRadius(target) : 0;
+};
+
+const getRectangleCornerRadiusLimit = (selectedElements: PlaitElement[]) => {
+  const limits = selectedElements
+    .filter((element) => hasRectangleCornerRadiusProperty(element))
+    .map((element) => getRectangleElementRadiusLimit(element))
+    .filter((value) => value > 0);
+  return limits.length > 0 ? Math.min(...limits) : 0;
+};
+
+const hasRectangleCornerRadiusProperty = (element: PlaitElement) => {
+  return (
+    PlaitDrawElement.isShapeElement(element) &&
+    !PlaitDrawElement.isText(element) &&
+    !PlaitDrawElement.isImage(element) &&
+    isRectangleCornerRadiusShape((element as { shape?: string }).shape)
+  );
 };
 
 const getFontSizeFromMarks = (marks?: Omit<CustomText, 'text'>) => {
