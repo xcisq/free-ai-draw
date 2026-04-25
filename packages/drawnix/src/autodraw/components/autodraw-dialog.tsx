@@ -2071,6 +2071,7 @@ const AutodrawDialog = () => {
           resume_from_stage: 'auto',
           image_model: imageModel || null,
           svg_model: svgModel || null,
+          remove_background: removeBackground,
         }),
       });
       if (!response.ok) {
@@ -2357,6 +2358,7 @@ const AutodrawDialog = () => {
           start_stage: startStage,
           image_model: imageModel || null,
           svg_model: svgModel || null,
+          remove_background: removeBackground,
         }),
       });
       if (!response.ok) {

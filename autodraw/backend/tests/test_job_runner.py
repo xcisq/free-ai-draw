@@ -279,6 +279,88 @@ class JobRunnerStorageTest(unittest.TestCase):
             if replay_record is not None:
                 shutil.rmtree(replay_record.job_dir, ignore_errors=True)
 
+    def test_replay_job_can_override_remove_background_flag(self) -> None:
+        request = CreateJobRequest(
+            job_type="autodraw",
+            method_text="replay override remove background",
+            remove_background=True,
+        )
+        source_record = create_job(request, autostart=False)
+
+        replay_record = None
+        try:
+            source_record.status = "succeeded"
+            source_record.current_stage = 5
+            source_record.last_success_stage = 5
+
+            (source_record.job_dir / "figure.png").write_text("figure", encoding="utf-8")
+            (source_record.job_dir / "samed.png").write_text("samed", encoding="utf-8")
+            (source_record.job_dir / "boxlib.json").write_text("{}", encoding="utf-8")
+            icons_dir = source_record.job_dir / "icons"
+            icons_dir.mkdir(parents=True, exist_ok=True)
+            (icons_dir / "icon_AF01_nobg.png").write_text("icon", encoding="utf-8")
+
+            with mock.patch(
+                "autodraw.backend.app.services.job_runner._EXECUTOR.submit"
+            ):
+                replay_record = create_replay_job(
+                    source_record.job_id,
+                    ReplayJobRequest(start_stage=4, remove_background=False),
+                )
+
+            self.assertFalse(replay_record.request_payload["remove_background"])
+        finally:
+            with _LOCK:
+                _JOBS.pop(source_record.job_id, None)
+                if replay_record is not None:
+                    _JOBS.pop(replay_record.job_id, None)
+            shutil.rmtree(source_record.job_dir, ignore_errors=True)
+            if replay_record is not None:
+                shutil.rmtree(replay_record.job_dir, ignore_errors=True)
+
+    def test_resume_job_can_override_remove_background_flag(self) -> None:
+        request = CreateJobRequest(
+            job_type="autodraw",
+            source_figure_path="/tmp/source-figure.png",
+            remove_background=True,
+        )
+        source_record = create_job(request, autostart=False)
+
+        resumed_record = None
+        try:
+            source_record.status = "failed"
+            source_record.failed_stage = 4
+            source_record.current_stage = 4
+            source_record.last_success_stage = 3
+
+            (source_record.job_dir / "figure.png").write_text("figure", encoding="utf-8")
+            (source_record.job_dir / "samed.png").write_text("samed", encoding="utf-8")
+            (source_record.job_dir / "boxlib.json").write_text("{}", encoding="utf-8")
+            icons_dir = source_record.job_dir / "icons"
+            icons_dir.mkdir(parents=True, exist_ok=True)
+            (icons_dir / "icon_AF01.png").write_text("icon", encoding="utf-8")
+
+            with mock.patch(
+                "autodraw.backend.app.services.job_runner._EXECUTOR.submit"
+            ):
+                resumed_record = create_resume_job(
+                    source_record.job_id,
+                    ResumeJobRequest(
+                        resume_from_stage="auto",
+                        remove_background=False,
+                    ),
+                )
+
+            self.assertFalse(resumed_record.request_payload["remove_background"])
+        finally:
+            with _LOCK:
+                _JOBS.pop(source_record.job_id, None)
+                if resumed_record is not None:
+                    _JOBS.pop(resumed_record.job_id, None)
+            shutil.rmtree(source_record.job_dir, ignore_errors=True)
+            if resumed_record is not None:
+                shutil.rmtree(resumed_record.job_dir, ignore_errors=True)
+
     def test_replay_job_rejects_stage_one_for_source_figure_jobs(self) -> None:
         request = CreateJobRequest(
             job_type="autodraw",

@@ -159,6 +159,7 @@ def create_resume_job(job_id: str, request: ResumeJobRequest) -> JobRecord:
         start_stage=resume_from_stage,
         image_model=request.image_model,
         svg_model=request.svg_model,
+        remove_background=request.remove_background,
     )
 
 
@@ -178,6 +179,7 @@ def create_replay_job(job_id: str, request: ReplayJobRequest) -> JobRecord:
         start_stage=int(request.start_stage),
         image_model=request.image_model,
         svg_model=request.svg_model,
+        remove_background=request.remove_background,
     )
 
 
@@ -715,6 +717,7 @@ def _spawn_replay_job(
     start_stage: int,
     image_model: str | None = None,
     svg_model: str | None = None,
+    remove_background: bool | None = None,
 ) -> JobRecord:
     _validate_replay_source(source_record, start_stage)
 
@@ -726,6 +729,8 @@ def _spawn_replay_job(
         payload["image_model"] = image_model
     if svg_model is not None:
         payload["svg_model"] = svg_model
+    if remove_background is not None:
+        payload["remove_background"] = remove_background
 
     replay_request = CreateJobRequest.model_validate(payload)
     record = create_job(replay_request, autostart=False)
