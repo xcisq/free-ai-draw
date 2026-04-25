@@ -81,6 +81,8 @@ from urllib.parse import urlparse
 
 import requests
 from PIL import Image, ImageDraw, ImageFont
+
+from ..services.background_removal_service import remove_background_image
 try:
     import torch
     from torchvision import transforms
@@ -2933,6 +2935,7 @@ def crop_and_remove_background(
     boxlib_path: str,
     output_dir: str,
     rmbg_model_path: Optional[str] = None,
+    background_removal_provider: Optional[str] = None,
 ) -> list[dict]:
     """
     根据 boxlib.json 裁切图片并使用 RMBG2 去背景
@@ -2957,8 +2960,6 @@ def crop_and_remove_background(
         print("警告: 没有检测到有效的 box")
         return []
 
-    remover = BriaRMBG2Remover(model_path=rmbg_model_path, output_dir=icons_dir)
-
     icon_infos = []
     for box_info in boxes:
         box_id = box_info["id"]
@@ -2972,7 +2973,14 @@ def crop_and_remove_background(
         crop_path = icons_dir / f"icon_{label_clean}.png"
         cropped.save(crop_path)
 
-        nobg_path = remover.remove_background(cropped, f"icon_{label_clean}")
+        nobg_path = str(
+            remove_background_image(
+                source_path=crop_path,
+                output_path=icons_dir / f"icon_{label_clean}_nobg.png",
+                provider=background_removal_provider,
+                rmbg_model_path=rmbg_model_path,
+            )
+        )
 
         icon_infos.append({
             "id": box_id,
@@ -2986,8 +2994,7 @@ def crop_and_remove_background(
 
         print(f"  {label}: 裁切并去背景完成 -> {nobg_path}")
 
-    del remover
-    if torch.cuda.is_available():
+    if torch is not None and torch.cuda.is_available():
         torch.cuda.empty_cache()
 
     return icon_infos
@@ -3895,6 +3902,7 @@ def method_to_svg(
     sam_api_key: Optional[str] = None,
     sam_max_masks: int = 32,
     rmbg_model_path: Optional[str] = None,
+    background_removal_provider: Optional[str] = None,
     stop_after: int = 5,
     placeholder_mode: PlaceholderMode = "label",
     optimize_iterations: int = 2,
@@ -3920,6 +3928,7 @@ def method_to_svg(
         sam_api_key: SAM3 API Key（api 模式使用）
         sam_max_masks: SAM3 API 最大 masks 数（api 模式使用）
         rmbg_model_path: RMBG 模型路径
+        background_removal_provider: 去背景 provider（local/remote/auto）
         stop_after: 执行到指定步骤后停止
         placeholder_mode: 占位符模式
             - "none": 无特殊样式
@@ -4065,12 +4074,14 @@ def method_to_svg(
             print("步骤三跳过：当前为无图标回退模式")
         else:
             try:
-                _ensure_rmbg2_access_ready(rmbg_model_path)
+                if (background_removal_provider or os.environ.get("BACKGROUND_REMOVAL_PROVIDER") or "local").strip().lower() != "remote":
+                    _ensure_rmbg2_access_ready(rmbg_model_path)
                 icon_infos = crop_and_remove_background(
                     image_path=str(figure_path),
                     boxlib_path=str(boxlib_path),
                     output_dir=str(output_dir),
                     rmbg_model_path=rmbg_model_path,
+                    background_removal_provider=background_removal_provider,
                 )
             except Exception as exc:
                 raise PipelineStageError(3, str(exc)) from exc

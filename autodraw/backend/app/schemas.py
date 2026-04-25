@@ -22,6 +22,7 @@ ResumeStage = Literal["auto", 1, 2, 3, 4, 5]
 ReplayStage = Literal[1, 2, 3, 4, 5]
 JobType = Literal["autodraw", "image-edit"]
 SourceProcessingMode = Literal["segmented", "direct_svg"]
+BackgroundRemovalProvider = Literal["local", "remote", "auto"]
 
 
 class CreateJobRequest(BaseModel):
@@ -40,6 +41,7 @@ class CreateJobRequest(BaseModel):
     sam_api_key: Optional[str] = None
     sam_max_masks: int = Field(32, ge=1)
     rmbg_model_path: Optional[str] = None
+    background_removal_provider: Optional[BackgroundRemovalProvider] = None
     stop_after: int = Field(5, ge=1, le=5)
     placeholder_mode: PlaceholderMode = "label"
     optimize_iterations: int = Field(0, ge=0)

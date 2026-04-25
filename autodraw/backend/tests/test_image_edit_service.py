@@ -376,5 +376,69 @@ class RunImageEditTest(unittest.TestCase):
             self.assertIn("[image-edit] route=qingyun-gemini-native", log_text)
 
 
+    def test_run_image_edit_uses_remote_background_removal_provider(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            source_path = tmp_path / "input.png"
+            log_path = tmp_path / "run.log"
+            log_path.write_text("", encoding="utf-8")
+
+            Image.new("RGBA", (12, 8), "#ffffff").save(source_path, format="PNG")
+
+            raw_result_path = tmp_path / "result.png"
+            Image.new("RGBA", (12, 8), "#224466").save(raw_result_path, format="PNG")
+            image_base64 = base64.b64encode(raw_result_path.read_bytes()).decode("utf-8")
+
+            class FakeImages:
+                def edit(self, **_: object) -> object:
+                    return types.SimpleNamespace(
+                        data=[types.SimpleNamespace(b64_json=image_base64)]
+                    )
+
+            class FakeOpenAI:
+                def __init__(self, **_: object) -> None:
+                    self.images = FakeImages()
+
+            fake_openai_module = types.SimpleNamespace(OpenAI=FakeOpenAI)
+
+            def fake_remove_background_image(**kwargs: object) -> Path:
+                output_path = kwargs["output_path"]
+                self.assertEqual(kwargs["provider"], "remote")
+                Image.new("RGBA", (12, 8), (34, 68, 102, 0)).save(
+                    output_path, format="PNG"
+                )
+                return output_path
+
+            request = CreateJobRequest(
+                job_type="image-edit",
+                prompt="remove the background remotely",
+                source_image_path=str(source_path),
+                provider="local",
+                api_key="test-key",
+                base_url="http://127.0.0.1:9999/v1",
+                image_model="gpt-image-1.5",
+                remove_background=True,
+                background_removal_provider="remote",
+            )
+
+            with mock.patch.dict(sys.modules, {"openai": fake_openai_module}):
+                with mock.patch(
+                    "autodraw.backend.app.services.image_edit_service.remove_background_image",
+                    side_effect=fake_remove_background_image,
+                ) as remove_background_mock:
+                    run_image_edit(
+                        request=request,
+                        output_dir=tmp_path,
+                        log_path=log_path,
+                    )
+
+            remove_background_mock.assert_called_once()
+            self.assertEqual(
+                remove_background_mock.call_args.kwargs["provider"], "remote"
+            )
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("[image-edit] remove_background=true", log_text)
+
+
 if __name__ == "__main__":
     unittest.main()

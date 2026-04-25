@@ -168,6 +168,7 @@ def _write_processed_output(
         remove_background_image(
             source_path=edited_output_path,
             output_path=edited_output_path,
+            provider=request.background_removal_provider,
             rmbg_model_path=request.rmbg_model_path,
             log=log,
         )
