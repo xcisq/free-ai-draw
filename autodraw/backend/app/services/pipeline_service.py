@@ -123,6 +123,7 @@ def run_pipeline(
                     sam_api_key=request.sam_api_key,
                     sam_max_masks=request.sam_max_masks,
                     rmbg_model_path=request.rmbg_model_path,
+                    background_removal_provider=request.background_removal_provider,
                     remove_background=remove_background,
                     stop_after=request.stop_after,
                     placeholder_mode=request.placeholder_mode,

@@ -137,6 +137,28 @@ def _require_local_ml_stack(feature_name: str) -> None:
         )
 
 
+def _resolve_background_removal_provider(
+    provider: BackgroundRemovalProvider | str | None,
+) -> BackgroundRemovalProvider:
+    candidates = [provider, os.environ.get("BACKGROUND_REMOVAL_PROVIDER")]
+    for candidate in candidates:
+        if not isinstance(candidate, str):
+            continue
+        normalized = candidate.strip().lower()
+        if normalized in {"local", "remote", "auto"}:
+            return normalized  # type: ignore[return-value]
+    return "local"
+
+
+def _resolve_effective_background_removal_provider(
+    provider: BackgroundRemovalProvider | str | None,
+) -> Literal["local", "remote"]:
+    resolved_provider = _resolve_background_removal_provider(provider)
+    if resolved_provider == "auto":
+        return "local"
+    return resolved_provider
+
+
 def _load_local_env() -> None:
     module_dir = Path(__file__).resolve().parent
     env_candidates = [
@@ -228,6 +250,7 @@ PROVIDER_CONFIGS = {
 
 ProviderType = Literal["openrouter", "bianxie", "qingyun", "gemini", "local"]
 PlaceholderMode = Literal["none", "box", "label"]
+BackgroundRemovalProvider = Literal["local", "remote", "auto"]
 GEMINI_DEFAULT_IMAGE_SIZE = "4K"
 IMAGE_SIZE_CHOICES = ("1K", "2K", "4K")
 BOXLIB_NO_ICON_MODE_KEY = "no_icon_mode"
@@ -2965,6 +2988,7 @@ def crop_and_remove_background(
     output_dir: str,
     rmbg_model_path: Optional[str] = None,
     remove_background: bool = True,
+    background_removal_provider: BackgroundRemovalProvider | str | None = None,
 ) -> list[dict]:
     """
     根据 boxlib.json 裁切图片并使用 RMBG2 去背景
@@ -2982,6 +3006,13 @@ def crop_and_remove_background(
     output_dir = Path(output_dir)
     icons_dir = output_dir / "icons"
     icons_dir.mkdir(parents=True, exist_ok=True)
+    effective_background_removal_provider = (
+        _resolve_effective_background_removal_provider(background_removal_provider)
+        if remove_background
+        else "local"
+    )
+    if remove_background:
+        print(f"去背景 provider: {effective_background_removal_provider}")
 
     image = Image.open(image_path)
     with open(boxlib_path, 'r', encoding='utf-8') as f:
@@ -3007,9 +3038,27 @@ def crop_and_remove_background(
         cropped.save(crop_path)
 
         if remove_background:
-            remover = BriaRMBG2Remover(model_path=rmbg_model_path, output_dir=icons_dir)
-            nobg_path = remover.remove_background(cropped, f"icon_{label_clean}")
-            del remover
+            if effective_background_removal_provider == "remote":
+                from autodraw.backend.app.services.background_removal_service import (
+                    remove_background_image,
+                )
+
+                nobg_output_path = icons_dir / f"icon_{label_clean}_nobg.png"
+                remove_background_image(
+                    source_path=crop_path,
+                    output_path=nobg_output_path,
+                    provider="remote",
+                    rmbg_model_path=rmbg_model_path,
+                    log=print,
+                )
+                nobg_path = str(nobg_output_path)
+            else:
+                remover = BriaRMBG2Remover(
+                    model_path=rmbg_model_path,
+                    output_dir=icons_dir,
+                )
+                nobg_path = remover.remove_background(cropped, f"icon_{label_clean}")
+                del remover
         else:
             nobg_path = str(crop_path)
 
@@ -3028,7 +3077,12 @@ def crop_and_remove_background(
         else:
             print(f"  {label}: 仅裁切，保留背景 -> {nobg_path}")
 
-    if remove_background and torch is not None and torch.cuda.is_available():
+    if (
+        remove_background
+        and effective_background_removal_provider == "local"
+        and torch is not None
+        and torch.cuda.is_available()
+    ):
         torch.cuda.empty_cache()
 
     return icon_infos
@@ -3936,6 +3990,7 @@ def method_to_svg(
     sam_api_key: Optional[str] = None,
     sam_max_masks: int = 32,
     rmbg_model_path: Optional[str] = None,
+    background_removal_provider: BackgroundRemovalProvider | str | None = None,
     remove_background: bool = True,
     stop_after: int = 5,
     placeholder_mode: PlaceholderMode = "label",
@@ -3962,6 +4017,7 @@ def method_to_svg(
         sam_api_key: SAM3 API Key（api 模式使用）
         sam_max_masks: SAM3 API 最大 masks 数（api 模式使用）
         rmbg_model_path: RMBG 模型路径
+        background_removal_provider: 去背景 provider（local/remote/auto）
         remove_background: 步骤三是否执行去背景
         stop_after: 执行到指定步骤后停止
         placeholder_mode: 占位符模式
@@ -4006,6 +4062,13 @@ def method_to_svg(
     print(f"起始步骤: {start_stage}")
     print(f"执行到步骤: {stop_after}")
     print(f"步骤三去背景: {'开启' if remove_background else '关闭'}")
+    effective_background_removal_provider = (
+        _resolve_effective_background_removal_provider(background_removal_provider)
+        if remove_background
+        else "local"
+    )
+    if remove_background:
+        print(f"步骤三去背景 provider: {effective_background_removal_provider}")
     print(f"占位符模式: {placeholder_mode}")
     print(f"优化迭代次数: {optimize_iterations}")
     print(f"Box合并阈值: {merge_threshold}")
@@ -4109,7 +4172,7 @@ def method_to_svg(
             print("步骤三跳过：当前为无图标回退模式")
         else:
             try:
-                if remove_background:
+                if remove_background and effective_background_removal_provider == "local":
                     _ensure_rmbg2_access_ready(rmbg_model_path)
                 icon_infos = crop_and_remove_background(
                     image_path=str(figure_path),
@@ -4117,6 +4180,7 @@ def method_to_svg(
                     output_dir=str(output_dir),
                     rmbg_model_path=rmbg_model_path,
                     remove_background=remove_background,
+                    background_removal_provider=effective_background_removal_provider,
                 )
             except Exception as exc:
                 raise PipelineStageError(3, str(exc)) from exc
@@ -4416,6 +4480,12 @@ if __name__ == "__main__":
 
     # RMBG 参数
     parser.add_argument("--rmbg_model_path", default=None, help="RMBG 模型本地路径（可选）")
+    parser.add_argument(
+        "--background_removal_provider",
+        choices=["local", "remote", "auto"],
+        default=None,
+        help="去背景 provider：local(本地 RMBG)/remote(fal.ai)/auto(默认 local)",
+    )
 
     # 流程控制参数
     parser.add_argument(
@@ -4484,6 +4554,7 @@ if __name__ == "__main__":
         sam_api_key=args.sam_api_key,
         sam_max_masks=args.sam_max_masks,
         rmbg_model_path=args.rmbg_model_path,
+        background_removal_provider=args.background_removal_provider,
         stop_after=args.stop_after,
         placeholder_mode=args.placeholder_mode,
         optimize_iterations=args.optimize_iterations,

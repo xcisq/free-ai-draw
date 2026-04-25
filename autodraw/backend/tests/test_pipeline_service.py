@@ -186,6 +186,105 @@ class RunPipelineSourceFigureTest(unittest.TestCase):
                     log_path=log_path,
                 )
 
+    def test_autodraw_passes_background_removal_provider(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            output_dir = tmp_path / "job-output"
+            log_path = output_dir / "run.log"
+
+            request = CreateJobRequest(
+                job_type="autodraw",
+                method_text="remote background removal",
+                provider="local",
+                api_key="test-key",
+                base_url="http://127.0.0.1:9999/v1",
+                background_removal_provider="remote",
+            )
+
+            def fake_method_to_svg(**kwargs: object) -> dict[str, object]:
+                self.assertEqual(kwargs["background_removal_provider"], "remote")
+                return {
+                    "figure_path": str(Path(str(kwargs["output_dir"])) / "figure.png")
+                }
+
+            with mock.patch(
+                "autodraw.backend.app.services.pipeline_service.autofigure2.method_to_svg",
+                side_effect=fake_method_to_svg,
+            ):
+                run_pipeline(
+                    request=request,
+                    output_dir=output_dir,
+                    log_path=log_path,
+                )
+
+    def test_autodraw_remote_background_removal_skips_local_rmbg(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            output_dir = tmp_path / "job-output"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            Image.new("RGB", (24, 16), "#ddeeff").save(
+                output_dir / "figure.png", format="PNG"
+            )
+            Image.new("RGB", (24, 16), "#ffffff").save(
+                output_dir / "samed.png", format="PNG"
+            )
+            (output_dir / "boxlib.json").write_text(
+                json.dumps(
+                    {
+                        "boxes": [
+                            {
+                                "id": 0,
+                                "label": "<AF>01",
+                                "x1": 2,
+                                "y1": 3,
+                                "x2": 14,
+                                "y2": 11,
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            calls: list[dict[str, object]] = []
+
+            def fake_remove_background_image(**kwargs: object) -> Path:
+                calls.append(kwargs)
+                output_path = Path(str(kwargs["output_path"]))
+                Image.new("RGBA", (12, 8), (0, 0, 0, 0)).save(
+                    output_path, format="PNG"
+                )
+                return output_path
+
+            with mock.patch(
+                "autodraw.backend.app.pipeline.autofigure2._ensure_rmbg2_access_ready",
+                side_effect=AssertionError("local RMBG should not be checked"),
+            ), mock.patch(
+                "autodraw.backend.app.services.background_removal_service.remove_background_image",
+                side_effect=fake_remove_background_image,
+            ):
+                result = autofigure2.method_to_svg(
+                    method_text="remote background removal",
+                    output_dir=str(output_dir),
+                    api_key="test-key",
+                    provider="local",
+                    base_url="http://127.0.0.1:9999/v1",
+                    start_stage=3,
+                    stop_after=3,
+                    remove_background=True,
+                    background_removal_provider="remote",
+                )
+
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(calls[0]["provider"], "remote")
+            self.assertTrue(
+                (output_dir / "icons" / "icon_AF01_nobg.png").is_file()
+            )
+            self.assertEqual(
+                result["icon_infos"][0]["nobg_path"],
+                str(output_dir / "icons" / "icon_AF01_nobg.png"),
+            )
+
 
 class TeeStreamEncodingTest(unittest.TestCase):
     def test_configures_ascii_standard_streams_to_utf8(self) -> None:
