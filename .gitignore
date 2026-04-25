@@ -48,6 +48,7 @@ apps/web/.env.local
 # python
 __pycache__/
 *.pyc
+/.tmp-pptx/
 
 # autodraw local runtime outputs (do not commit)
 autodraw/backend/.env
