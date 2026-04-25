@@ -4,10 +4,9 @@
 # - Remote LLM / remote image API calls
 # - Remote SAM / Roboflow style HTTP integrations
 # - Basic image handling and scene validation
-# - Local RMBG-2.0 background removal in local development (installed separately)
+# - Local RMBG-2.0 background removal for step 3 / image-edit
 #
 # Not included:
-# - torch / torchvision / transformers
 # - timm / kornia / other local inference stacks
 
 fastapi>=0.110,<1.0
@@ -23,3 +22,7 @@ inference-sdk>=0.37
 fal-client>=0.7,<1.0
 
 Pillow>=10.0,<12.0
+cairosvg>=2.7,<3.0
+svglib>=1.5,<2.0
+reportlab>=4.0,<5.0
+

@@ -176,6 +176,7 @@ type AutodrawPersistedDraft = {
   imageSize?: AutodrawImageSize;
   inputMode?: AutodrawInputMode;
   sourceRunMode?: AutodrawSourceRunMode;
+  removeBackground?: boolean;
   samPrompt?: string;
   svgModel?: string;
   jobId?: string;
@@ -609,6 +610,9 @@ const AutodrawDialog = () => {
   const [sourceRunMode, setSourceRunMode] = useState<AutodrawSourceRunMode>(
     normalizeAutodrawSourceRunMode(persistedDraftRef.current.sourceRunMode)
   );
+  const [removeBackground, setRemoveBackground] = useState(
+    persistedDraftRef.current.removeBackground !== false
+  );
   const [methodText, setMethodText] = useState(
     persistedDraftRef.current.methodText || ''
   );
@@ -866,6 +870,7 @@ const AutodrawDialog = () => {
       backendUrl,
       inputMode,
       sourceRunMode,
+      removeBackground,
       methodText,
       provider,
       baseUrl,
@@ -899,6 +904,7 @@ const AutodrawDialog = () => {
     backendUrl,
     inputMode,
     sourceRunMode,
+    removeBackground,
     methodText,
     provider,
     baseUrl,
@@ -2006,6 +2012,7 @@ const AutodrawDialog = () => {
           image_model: imageModel || null,
           image_size: imageSize,
           sam_prompt: normalizedSamPrompt,
+          remove_background: removeBackground,
           svg_model: svgModel || null,
           sam_backend: 'api',
           reference_image_path: isSourceInputMode
@@ -3025,6 +3032,45 @@ const AutodrawDialog = () => {
                     : t('dialog.autodraw.samPromptHint')}
                 </p>
               </label>
+
+              <div className="autodraw-dialog__field">
+                <span className="autodraw-dialog__label">
+                  {t('dialog.autodraw.backgroundRemoval')}
+                </span>
+                <div className="autodraw-mode-switch">
+                  <button
+                    type="button"
+                    onClick={() => setRemoveBackground(true)}
+                    disabled={isDirectSvgSourceMode || isJobBusy}
+                    aria-pressed={removeBackground}
+                    className={classNames('autodraw-mode-switch__button', {
+                      'autodraw-mode-switch__button--active':
+                        removeBackground,
+                    })}
+                  >
+                    {t('dialog.autodraw.backgroundRemovalOn')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRemoveBackground(false)}
+                    disabled={isDirectSvgSourceMode || isJobBusy}
+                    aria-pressed={!removeBackground}
+                    className={classNames('autodraw-mode-switch__button', {
+                      'autodraw-mode-switch__button--active':
+                        !removeBackground,
+                    })}
+                  >
+                    {t('dialog.autodraw.backgroundRemovalOff')}
+                  </button>
+                </div>
+                <p className="autodraw-dialog__hint">
+                  {isDirectSvgSourceMode
+                    ? t('dialog.autodraw.backgroundRemovalHintDirectSvg')
+                    : removeBackground
+                      ? t('dialog.autodraw.backgroundRemovalHint')
+                      : t('dialog.autodraw.backgroundRemovalHintSkip')}
+                </p>
+              </div>
 
               <div className="autodraw-btn-row">
                 <button

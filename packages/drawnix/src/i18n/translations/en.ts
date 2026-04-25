@@ -165,6 +165,15 @@ const enTranslations: Translations = {
     'Continue through SAM3 segmentation, asset extraction, and background removal for figures that need decomposed components.',
   'dialog.autodraw.sourceRunDirectSvgHint':
     'Skip segmentation and icon cleanup. The multimodal model rebuilds `final.svg` directly and imports it into the canvas.',
+  'dialog.autodraw.backgroundRemoval': 'Icon Background',
+  'dialog.autodraw.backgroundRemovalOn': 'Remove Background',
+  'dialog.autodraw.backgroundRemovalOff': 'Keep Background',
+  'dialog.autodraw.backgroundRemovalHint':
+    'Stage 3 crops each icon and removes its background for transparent component assets.',
+  'dialog.autodraw.backgroundRemovalHintSkip':
+    'Stage 3 only crops icons and skips background removal, so SVG rebuild reuses the original cutouts.',
+  'dialog.autodraw.backgroundRemovalHintDirectSvg':
+    'This route skips stage 3 entirely, so this control is ignored.',
   'dialog.autodraw.uploadZip': 'Import Local ZIP',
   'dialog.autodraw.bundleHint':
     'Upload a local bundle.zip to render it directly into the canvas without creating a backend job.',

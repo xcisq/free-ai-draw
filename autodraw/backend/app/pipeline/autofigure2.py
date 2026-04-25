@@ -81,8 +81,6 @@ from urllib.parse import urlparse
 
 import requests
 from PIL import Image, ImageDraw, ImageFont
-
-from ..services.background_removal_service import remove_background_image
 try:
     import torch
     from torchvision import transforms
@@ -2935,7 +2933,7 @@ def crop_and_remove_background(
     boxlib_path: str,
     output_dir: str,
     rmbg_model_path: Optional[str] = None,
-    background_removal_provider: Optional[str] = None,
+    remove_background: bool = True,
 ) -> list[dict]:
     """
     根据 boxlib.json 裁切图片并使用 RMBG2 去背景
@@ -2943,7 +2941,11 @@ def crop_and_remove_background(
     文件命名使用 label: icon_AF01.png, icon_AF01_nobg.png
     """
     print("\n" + "=" * 60)
-    print("步骤三：裁切 + RMBG2 去背景")
+    print(
+        "步骤三：裁切 + RMBG2 去背景"
+        if remove_background
+        else "步骤三：裁切图标（保留背景）"
+    )
     print("=" * 60)
 
     output_dir = Path(output_dir)
@@ -2973,14 +2975,12 @@ def crop_and_remove_background(
         crop_path = icons_dir / f"icon_{label_clean}.png"
         cropped.save(crop_path)
 
-        nobg_path = str(
-            remove_background_image(
-                source_path=crop_path,
-                output_path=icons_dir / f"icon_{label_clean}_nobg.png",
-                provider=background_removal_provider,
-                rmbg_model_path=rmbg_model_path,
-            )
-        )
+        if remove_background:
+            remover = BriaRMBG2Remover(model_path=rmbg_model_path, output_dir=icons_dir)
+            nobg_path = remover.remove_background(cropped, f"icon_{label_clean}")
+            del remover
+        else:
+            nobg_path = str(crop_path)
 
         icon_infos.append({
             "id": box_id,
@@ -2992,9 +2992,12 @@ def crop_and_remove_background(
             "nobg_path": nobg_path,
         })
 
-        print(f"  {label}: 裁切并去背景完成 -> {nobg_path}")
+        if remove_background:
+            print(f"  {label}: 裁切并去背景完成 -> {nobg_path}")
+        else:
+            print(f"  {label}: 仅裁切，保留背景 -> {nobg_path}")
 
-    if torch is not None and torch.cuda.is_available():
+    if remove_background and torch is not None and torch.cuda.is_available():
         torch.cuda.empty_cache()
 
     return icon_infos
@@ -3902,7 +3905,7 @@ def method_to_svg(
     sam_api_key: Optional[str] = None,
     sam_max_masks: int = 32,
     rmbg_model_path: Optional[str] = None,
-    background_removal_provider: Optional[str] = None,
+    remove_background: bool = True,
     stop_after: int = 5,
     placeholder_mode: PlaceholderMode = "label",
     optimize_iterations: int = 2,
@@ -3928,7 +3931,7 @@ def method_to_svg(
         sam_api_key: SAM3 API Key（api 模式使用）
         sam_max_masks: SAM3 API 最大 masks 数（api 模式使用）
         rmbg_model_path: RMBG 模型路径
-        background_removal_provider: 去背景 provider（local/remote/auto）
+        remove_background: 步骤三是否执行去背景
         stop_after: 执行到指定步骤后停止
         placeholder_mode: 占位符模式
             - "none": 无特殊样式
@@ -3971,6 +3974,7 @@ def method_to_svg(
         print(f"SAM3 API max_masks: {sam_max_masks}")
     print(f"起始步骤: {start_stage}")
     print(f"执行到步骤: {stop_after}")
+    print(f"步骤三去背景: {'开启' if remove_background else '关闭'}")
     print(f"占位符模式: {placeholder_mode}")
     print(f"优化迭代次数: {optimize_iterations}")
     print(f"Box合并阈值: {merge_threshold}")
@@ -4074,14 +4078,14 @@ def method_to_svg(
             print("步骤三跳过：当前为无图标回退模式")
         else:
             try:
-                if (background_removal_provider or os.environ.get("BACKGROUND_REMOVAL_PROVIDER") or "local").strip().lower() != "remote":
+                if remove_background:
                     _ensure_rmbg2_access_ready(rmbg_model_path)
                 icon_infos = crop_and_remove_background(
                     image_path=str(figure_path),
                     boxlib_path=str(boxlib_path),
                     output_dir=str(output_dir),
                     rmbg_model_path=rmbg_model_path,
-                    background_removal_provider=background_removal_provider,
+                    remove_background=remove_background,
                 )
             except Exception as exc:
                 raise PipelineStageError(3, str(exc)) from exc

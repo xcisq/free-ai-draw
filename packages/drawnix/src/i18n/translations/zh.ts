@@ -162,6 +162,15 @@ const zhTranslations: Translations = {
     '继续走 SAM3 分割、图标提取和去背景，适合需要拆解组件的图。',
   'dialog.autodraw.sourceRunDirectSvgHint':
     '跳过图标分割与去背景，直接让多模态模型重建 `final.svg` 并导入画板。',
+  'dialog.autodraw.backgroundRemoval': '图标背景',
+  'dialog.autodraw.backgroundRemovalOn': '去背景',
+  'dialog.autodraw.backgroundRemovalOff': '保留背景',
+  'dialog.autodraw.backgroundRemovalHint':
+    '步骤三会裁切图标并执行去背景，适合需要透明组件图的场景。',
+  'dialog.autodraw.backgroundRemovalHintSkip':
+    '步骤三只裁切图标，不执行去背景，后续 SVG 重建会直接复用裁切结果。',
+  'dialog.autodraw.backgroundRemovalHintDirectSvg':
+    '当前路线会跳过步骤三，所以这里不会参与处理。',
   'dialog.autodraw.uploadZip': '直接导入本地 ZIP',
   'dialog.autodraw.bundleHint':
     '上传本地 bundle.zip 后可直接在前端导入画板，不需要先创建后端任务。',

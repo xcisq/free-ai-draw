@@ -42,6 +42,12 @@ def run_pipeline(
         request.source_figure_path
     )
     resolved_sam_api_url = _resolve_sam_api_url(request.sam_api_url)
+    remove_background = request.remove_background
+    if (
+        request.job_type == "autodraw"
+        and "remove_background" not in request.model_fields_set
+    ):
+        remove_background = True
     output_dir.mkdir(parents=True, exist_ok=True)
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -100,7 +106,7 @@ def run_pipeline(
                     sam_api_key=request.sam_api_key,
                     sam_max_masks=request.sam_max_masks,
                     rmbg_model_path=request.rmbg_model_path,
-                    background_removal_provider=request.background_removal_provider,
+                    remove_background=remove_background,
                     stop_after=request.stop_after,
                     placeholder_mode=request.placeholder_mode,
                     optimize_iterations=request.optimize_iterations,

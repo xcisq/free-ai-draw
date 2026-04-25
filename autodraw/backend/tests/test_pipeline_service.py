@@ -113,6 +113,63 @@ class RunPipelineSourceFigureTest(unittest.TestCase):
             self.assertIn("[meta] source_processing_mode=direct_svg", log_text)
             self.assertIn("[meta] prepared_direct_svg_boxlib=", log_text)
 
+    def test_autodraw_defaults_to_background_removal_for_legacy_clients(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            output_dir = tmp_path / "job-output"
+            log_path = output_dir / "run.log"
+
+            request = CreateJobRequest(
+                job_type="autodraw",
+                method_text="legacy autodraw request",
+                provider="local",
+                api_key="test-key",
+                base_url="http://127.0.0.1:9999/v1",
+            )
+
+            def fake_method_to_svg(**kwargs: object) -> dict[str, object]:
+                self.assertTrue(kwargs["remove_background"])
+                return {"figure_path": str(Path(str(kwargs["output_dir"])) / "figure.png")}
+
+            with mock.patch(
+                "autodraw.backend.app.services.pipeline_service.autofigure2.method_to_svg",
+                side_effect=fake_method_to_svg,
+            ):
+                run_pipeline(
+                    request=request,
+                    output_dir=output_dir,
+                    log_path=log_path,
+                )
+
+    def test_autodraw_can_explicitly_skip_background_removal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            output_dir = tmp_path / "job-output"
+            log_path = output_dir / "run.log"
+
+            request = CreateJobRequest(
+                job_type="autodraw",
+                method_text="skip background removal",
+                provider="local",
+                api_key="test-key",
+                base_url="http://127.0.0.1:9999/v1",
+                remove_background=False,
+            )
+
+            def fake_method_to_svg(**kwargs: object) -> dict[str, object]:
+                self.assertFalse(kwargs["remove_background"])
+                return {"figure_path": str(Path(str(kwargs["output_dir"])) / "figure.png")}
+
+            with mock.patch(
+                "autodraw.backend.app.services.pipeline_service.autofigure2.method_to_svg",
+                side_effect=fake_method_to_svg,
+            ):
+                run_pipeline(
+                    request=request,
+                    output_dir=output_dir,
+                    log_path=log_path,
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -160,6 +160,12 @@ export interface Translations {
   'dialog.autodraw.sourceRunDirectSvg': string;
   'dialog.autodraw.sourceRunSegmentedHint': string;
   'dialog.autodraw.sourceRunDirectSvgHint': string;
+  'dialog.autodraw.backgroundRemoval': string;
+  'dialog.autodraw.backgroundRemovalOn': string;
+  'dialog.autodraw.backgroundRemovalOff': string;
+  'dialog.autodraw.backgroundRemovalHint': string;
+  'dialog.autodraw.backgroundRemovalHintSkip': string;
+  'dialog.autodraw.backgroundRemovalHintDirectSvg': string;
   'dialog.autodraw.uploadZip': string;
   'dialog.autodraw.bundleHint': string;
   'dialog.autodraw.existingJobId': string;
