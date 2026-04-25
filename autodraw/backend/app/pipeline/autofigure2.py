@@ -4367,7 +4367,7 @@ if __name__ == "__main__":
     parser.add_argument("--reference_image_path", default=None, help="参考图片路径（可选）")
 
     # SAM3 参数
-    parser.add_argument("--sam_prompt", default="icon,robot,animal,person,arrow", help="SAM3 文本提示，支持逗号分隔多个prompt（如 'icon,diagram,arrow'，默认: icon）")
+    parser.add_argument("--sam_prompt", default="icon,robot,animal,person,CurvedArrow", help="SAM3 文本提示，支持逗号分隔多个prompt（如 'icon,diagram,arrow'，默认: icon）")
     parser.add_argument("--min_score", type=float, default=0.0, help="SAM3 最低置信度阈值（默认: 0.0）")
     parser.add_argument(
         "--sam_backend",

@@ -206,7 +206,7 @@ const AUTODRAW_DEFERRED_INIT_DELAY =
 const AUTODRAW_DRAFT_PERSIST_DELAY =
   typeof process !== 'undefined' && process.env.NODE_ENV === 'test' ? 0 : 220;
 const DEFAULT_AUTODRAW_IMAGE_SIZE: AutodrawImageSize = '4K';
-const DEFAULT_AUTODRAW_SAM_PROMPT = 'icon,person,robot,animal,arrow';
+const DEFAULT_AUTODRAW_SAM_PROMPT = 'icon,person,robot,animal,CurvedArrow';
 const AUTODRAW_REALTIME_PROBE_DEFINITIONS = [
   {
     name: 'figure.png',

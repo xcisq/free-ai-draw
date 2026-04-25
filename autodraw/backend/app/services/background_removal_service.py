@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import mimetypes
 import os
 import shutil
 from pathlib import Path
@@ -11,7 +12,7 @@ from PIL import Image
 
 LogWriter = Callable[[str], None]
 BackgroundRemovalProvider = Literal["local", "remote", "auto"]
-DEFAULT_REMOTE_API_URL = "https://api.rembg.com/rmbg"
+DEFAULT_REMOTE_APPLICATION = "fal-ai/birefnet"
 DEFAULT_REMOTE_FORMAT = "png"
 REMOTE_API_TIMEOUT = 300
 
@@ -34,79 +35,149 @@ def resolve_background_removal_provider(
     return "local"
 
 
-def _resolve_remote_api_url(api_url: str | None) -> str:
-    value = api_url or os.environ.get("BACKGROUND_REMOVAL_API_URL") or DEFAULT_REMOTE_API_URL
-    return value.strip().rstrip("/")
-
-
 def _resolve_remote_api_key(api_key: str | None) -> str:
-    value = api_key or os.environ.get("BACKGROUND_REMOVAL_API_KEY") or os.environ.get("RMBG_API_KEY")
+    value = (
+        api_key
+        or os.environ.get("BACKGROUND_REMOVAL_API_KEY")
+        or os.environ.get("FAL_KEY")
+    )
     if not isinstance(value, str) or not value.strip():
         raise RuntimeError(
-            "远程去背景缺少 API Key，请配置 BACKGROUND_REMOVAL_API_KEY 或请求中显式传入。"
+            "远程去背景缺少 API Key，请配置 BACKGROUND_REMOVAL_API_KEY 或 FAL_KEY。"
         )
     return value.strip()
 
 
+def _resolve_remote_application() -> str:
+    value = os.environ.get("BACKGROUND_REMOVAL_FAL_MODEL") or DEFAULT_REMOTE_APPLICATION
+    return value.strip() or DEFAULT_REMOTE_APPLICATION
+
+
 def _resolve_remote_format(image_format: str | None) -> str:
-    value = (image_format or os.environ.get("BACKGROUND_REMOVAL_REMOTE_FORMAT") or DEFAULT_REMOTE_FORMAT).strip().lower()
-    if value not in {"png", "webp"}:
-        raise RuntimeError("远程去背景仅支持输出格式 png 或 webp。")
+    value = (
+        image_format
+        or os.environ.get("BACKGROUND_REMOVAL_REMOTE_FORMAT")
+        or DEFAULT_REMOTE_FORMAT
+    ).strip().lower()
+    if value not in {"png", "webp", "gif"}:
+        raise RuntimeError("远程去背景仅支持输出格式 png、webp 或 gif。")
     return value
 
 
-def _resolve_remote_form_fields() -> dict[str, str]:
-    fields: dict[str, str] = {}
-    mappings = {
-        "BACKGROUND_REMOVAL_REMOTE_WIDTH": "w",
-        "BACKGROUND_REMOVAL_REMOTE_HEIGHT": "h",
-        "BACKGROUND_REMOVAL_REMOTE_EXACT_RESIZE": "exact_resize",
-        "BACKGROUND_REMOVAL_REMOTE_MASK": "mask",
-        "BACKGROUND_REMOVAL_REMOTE_BG_COLOR": "bg_color",
-        "BACKGROUND_REMOVAL_REMOTE_ANGLE": "angle",
-        "BACKGROUND_REMOVAL_REMOTE_EXPAND": "expand",
+def _parse_bool_env(name: str) -> bool | None:
+    value = os.environ.get(name)
+    if not isinstance(value, str) or not value.strip():
+        return None
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise RuntimeError(f"环境变量 {name} 仅支持 true/false。")
+
+
+def _build_remote_arguments(image_url: str, image_format: str) -> dict[str, object]:
+    arguments: dict[str, object] = {
+        "image_url": image_url,
+        "output_format": image_format,
     }
-    for env_key, form_key in mappings.items():
-        value = os.environ.get(env_key)
-        if isinstance(value, str) and value.strip():
-            fields[form_key] = value.strip()
-    return fields
+
+    model_variant = os.environ.get("BACKGROUND_REMOVAL_FAL_MODEL_VARIANT")
+    if isinstance(model_variant, str) and model_variant.strip():
+        arguments["model"] = model_variant.strip()
+
+    operating_resolution = os.environ.get("BACKGROUND_REMOVAL_FAL_OPERATING_RESOLUTION")
+    if isinstance(operating_resolution, str) and operating_resolution.strip():
+        arguments["operating_resolution"] = operating_resolution.strip()
+
+    output_mask = _parse_bool_env("BACKGROUND_REMOVAL_FAL_OUTPUT_MASK")
+    if output_mask is not None:
+        arguments["output_mask"] = output_mask
+
+    refine_foreground = _parse_bool_env("BACKGROUND_REMOVAL_FAL_REFINE_FOREGROUND")
+    if refine_foreground is not None:
+        arguments["refine_foreground"] = refine_foreground
+
+    sync_mode = _parse_bool_env("BACKGROUND_REMOVAL_FAL_SYNC_MODE")
+    if sync_mode is not None:
+        arguments["sync_mode"] = sync_mode
+
+    return arguments
+
+
+def _extract_remote_output_url(result: object) -> str:
+    if not isinstance(result, dict):
+        raise RuntimeError("fal.ai 去背景返回格式异常：结果不是对象。")
+
+    image = result.get("image")
+    if isinstance(image, dict):
+        url = image.get("url")
+        if isinstance(url, str) and url.strip():
+            return url.strip()
+
+    images = result.get("images")
+    if isinstance(images, list) and images:
+        first = images[0]
+        if isinstance(first, dict):
+            url = first.get("url")
+            if isinstance(url, str) and url.strip():
+                return url.strip()
+
+    raise RuntimeError("fal.ai 去背景返回中缺少可下载的图片 URL。")
+
+
+def _download_remote_output(url: str, output_path: Path) -> Path:
+    response = requests.get(url, timeout=REMOTE_API_TIMEOUT)
+    try:
+        response.raise_for_status()
+    except Exception as exc:
+        detail = response.text.strip()
+        raise RuntimeError(
+            f"下载 fal.ai 去背景结果失败: status={response.status_code} detail={detail or 'unknown error'}"
+        ) from exc
+    output_path.write_bytes(response.content)
+    return output_path
 
 
 def _remove_background_remote(
     *,
     source_path: Path,
     output_path: Path,
-    api_url: str | None = None,
     api_key: str | None = None,
     image_format: str | None = None,
     log: LogWriter | None = None,
 ) -> Path:
-    resolved_url = _resolve_remote_api_url(api_url)
-    resolved_api_key = _resolve_remote_api_key(api_key)
-    resolved_format = _resolve_remote_format(image_format)
-    form_data = {"format": resolved_format, **_resolve_remote_form_fields()}
-
-    _write_log(log, f"[background-removal] provider=remote url={resolved_url}")
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with source_path.open("rb") as source_file:
-        response = requests.post(
-            resolved_url,
-            headers={"x-api-key": resolved_api_key},
-            files={"image": (source_path.name, source_file, "application/octet-stream")},
-            data=form_data,
-            timeout=REMOTE_API_TIMEOUT,
-        )
     try:
-        response.raise_for_status()
-    except Exception as exc:
-        detail = response.text.strip()
+        from fal_client import SyncClient
+    except ImportError as exc:
         raise RuntimeError(
-            f"远程去背景请求失败: status={response.status_code} detail={detail or 'unknown error'}"
+            "fal-client 未安装，无法使用 fal.ai 去背景；请执行 `pip install -r autodraw/requirements.txt`"
         ) from exc
 
-    output_path.write_bytes(response.content)
+    resolved_api_key = _resolve_remote_api_key(api_key)
+    resolved_format = _resolve_remote_format(image_format)
+    application = _resolve_remote_application()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    content_type = mimetypes.guess_type(source_path.name)[0] or 'application/octet-stream'
+    payload = source_path.read_bytes()
+    client = SyncClient(key=resolved_api_key, default_timeout=float(REMOTE_API_TIMEOUT))
+    remote_url = client.upload(payload, content_type, source_path.name)
+    arguments = _build_remote_arguments(remote_url, resolved_format)
+
+    _write_log(log, f"[background-removal] provider=remote application={application}")
+    result = client.subscribe(
+        application,
+        arguments=arguments,
+        with_logs=False,
+        start_timeout=float(REMOTE_API_TIMEOUT),
+        client_timeout=float(REMOTE_API_TIMEOUT),
+    )
+    if isinstance(result, dict) and "error" in result:
+        raise RuntimeError(f"fal.ai 去背景失败: {result.get('error')}")
+
+    output_url = _extract_remote_output_url(result)
+    _download_remote_output(output_url, output_path)
     _write_log(log, f"[background-removal] remote_done path={output_path.name}")
     return output_path
 
@@ -157,6 +228,9 @@ def remove_background_image(
     if resolved_provider == "auto":
         resolved_provider = "local"
 
+    if remote_api_url:
+        _write_log(log, "[background-removal] remote_api_url 已忽略，remote provider 现固定使用 fal.ai application")
+
     if log:
         log(f"[background-removal] started provider={resolved_provider}")
 
@@ -164,7 +238,6 @@ def remove_background_image(
         return _remove_background_remote(
             source_path=source_path,
             output_path=output_path,
-            api_url=remote_api_url,
             api_key=remote_api_key,
             image_format=remote_format,
             log=log,
