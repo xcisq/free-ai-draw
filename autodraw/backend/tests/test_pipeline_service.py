@@ -13,6 +13,7 @@ from unittest import mock
 from PIL import Image
 
 from autodraw.backend.app.console_encoding import configure_standard_streams
+from autodraw.backend.app.pipeline import autofigure2
 from autodraw.backend.app.schemas import CreateJobRequest
 from autodraw.backend.app.services.pipeline_service import run_pipeline
 
@@ -243,6 +244,59 @@ class TeeStreamEncodingTest(unittest.TestCase):
 
         self.assertIn(r"\u539f", ascii_text)
         self.assertIn("原图尺寸", utf8_text)
+
+    def test_segment_with_sam3_tolerates_ascii_stdout_logs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            image_path = tmp_path / "figure.png"
+            output_dir = tmp_path / "output"
+            Image.new("RGB", (40, 24), "#ddeeff").save(image_path, format="PNG")
+
+            ascii_buffer = io.BytesIO()
+            ascii_stdout = io.TextIOWrapper(ascii_buffer, encoding="ascii")
+
+            fake_response = {
+                "metadata": [
+                    {
+                        "box": [0.5, 0.5, 0.5, 0.5],
+                        "score": 0.95,
+                    }
+                ]
+            }
+
+            with mock.patch.object(sys, "stdout", ascii_stdout), mock.patch(
+                "autodraw.backend.app.pipeline.autofigure2._prepare_remote_sam3_upload",
+                return_value=(
+                    "https://example.com/input.png",
+                    {
+                        "original_width": 40,
+                        "original_height": 24,
+                        "sent_width": 40,
+                        "sent_height": 24,
+                        "payload_bytes": 1234,
+                        "transport": "mock",
+                    },
+                ),
+            ), mock.patch(
+                "autodraw.backend.app.pipeline.autofigure2._call_sam3_api",
+                return_value=fake_response,
+            ):
+                samed_path, boxlib_path, valid_boxes = autofigure2.segment_with_sam3(
+                    image_path=str(image_path),
+                    output_dir=str(output_dir),
+                    text_prompts="icon,person",
+                    sam_backend="fal",
+                    merge_threshold=0,
+                )
+
+            ascii_stdout.flush()
+            ascii_text = ascii_buffer.getvalue().decode("ascii")
+
+            self.assertTrue(Path(samed_path).is_file())
+            self.assertTrue(Path(boxlib_path).is_file())
+            self.assertEqual(len(valid_boxes), 2)
+            self.assertIn(r"\u6b65\u9aa4", ascii_text)
+            self.assertIn(r"\u539f\u56fe\u5c3a\u5bf8", ascii_text)
 
 
 if __name__ == "__main__":

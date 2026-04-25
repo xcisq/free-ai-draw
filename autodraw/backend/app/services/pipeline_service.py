@@ -61,8 +61,10 @@ def run_pipeline(
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
     with log_path.open("a", encoding="utf-8") as log_handle:
-        tee_stdout = TeeStream(sys.__stdout__, log_handle)
-        tee_stderr = TeeStream(sys.__stderr__, log_handle)
+        console_stdout = sys.stdout
+        console_stderr = sys.stderr
+        tee_stdout = TeeStream(console_stdout, log_handle)
+        tee_stderr = TeeStream(console_stderr, log_handle)
         with redirect_stdout(tee_stdout), redirect_stderr(tee_stderr):
             print(f"[meta] output_dir={output_dir}")
             print(f"[meta] provider={request.provider}")

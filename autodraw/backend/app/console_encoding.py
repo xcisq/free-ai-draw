@@ -45,3 +45,11 @@ def safe_stream_write(stream: Any, data: str) -> None:
     except UnicodeEncodeError:
         stream.write(_escape_for_stream(stream, data))
     safe_stream_flush(stream)
+
+
+def safe_print(*args: Any, sep: str = " ", end: str = "\n", file: Any = None, flush: bool = False) -> None:
+    stream = file if file is not None else sys.stdout
+    message = sep.join(str(arg) for arg in args) + end
+    safe_stream_write(stream, message)
+    if flush:
+        safe_stream_flush(stream)

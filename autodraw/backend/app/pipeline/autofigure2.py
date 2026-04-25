@@ -80,7 +80,7 @@ from typing import Optional, List, Dict, Any, Literal, Callable
 from urllib.parse import urlparse
 
 try:
-    from ..console_encoding import configure_standard_streams
+    from ..console_encoding import configure_standard_streams, safe_print
 except ImportError:
     def configure_standard_streams() -> None:
         for stream in (sys.stdout, sys.stderr, sys.__stdout__, sys.__stderr__):
@@ -91,8 +91,23 @@ except ImportError:
                 except Exception:
                     continue
 
+    def safe_print(*args: Any, sep: str = " ", end: str = "\n", file: Any = None, flush: bool = False) -> None:
+        stream = file if file is not None else sys.stdout
+        message = sep.join(str(arg) for arg in args) + end
+        try:
+            stream.write(message)
+        except UnicodeEncodeError:
+            escaped = message.encode("ascii", errors="backslashreplace").decode("ascii")
+            stream.write(escaped)
+        if flush:
+            try:
+                stream.flush()
+            except UnicodeEncodeError:
+                return
+
 
 configure_standard_streams()
+print = safe_print
 
 import requests
 from PIL import Image, ImageDraw, ImageFont
