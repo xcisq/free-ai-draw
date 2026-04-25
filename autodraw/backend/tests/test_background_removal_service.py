@@ -4,6 +4,7 @@ import sys
 import tempfile
 import types
 import unittest
+from io import BytesIO
 from pathlib import Path
 from unittest import mock
 
@@ -70,7 +71,7 @@ class BackgroundRemovalServiceTest(unittest.TestCase):
             tmp_path = Path(tmpdir)
             source_path = tmp_path / 'input.png'
             output_path = tmp_path / 'output.png'
-            Image.new('RGBA', (8, 6), '#88aaff').save(source_path, format='PNG')
+            Image.new('RGBA', (64, 48), '#88aaff').save(source_path, format='PNG')
 
             with mock.patch.dict(sys.modules, {'fal_client': fake_module}), mock.patch(
                 'autodraw.backend.app.services.background_removal_service.requests.get',
@@ -111,6 +112,39 @@ class BackgroundRemovalServiceTest(unittest.TestCase):
             get_mock.assert_called_once_with(
                 'https://files.example.com/background-removed.png',
                 timeout=300,
+            )
+
+    def test_remote_provider_resizes_tiny_input_before_upload(self) -> None:
+        fake_module = types.SimpleNamespace(SyncClient=_FakeSyncClient)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            source_path = tmp_path / 'tiny.png'
+            output_path = tmp_path / 'output.png'
+            log_messages: list[str] = []
+            Image.new('RGBA', (8, 6), '#88aaff').save(source_path, format='PNG')
+
+            with mock.patch.dict(sys.modules, {'fal_client': fake_module}), mock.patch(
+                'autodraw.backend.app.services.background_removal_service.requests.get',
+                return_value=_FakeResponse(b'png-binary'),
+            ):
+                remove_background_image(
+                    source_path=source_path,
+                    output_path=output_path,
+                    provider='remote',
+                    remote_api_key='test-fal-key',
+                    log=log_messages.append,
+                )
+
+            upload = _FakeSyncClient.instances[-1].upload_calls[0]
+            self.assertEqual(upload['content_type'], 'image/png')
+            self.assertEqual(upload['file_name'], 'tiny_remote.png')
+            with Image.open(BytesIO(upload['data'])) as uploaded:
+                self.assertGreaterEqual(uploaded.width, 32)
+                self.assertGreaterEqual(uploaded.height, 32)
+                self.assertEqual(uploaded.size, (43, 32))
+            self.assertIn(
+                '[background-removal] remote_input_resized 8x6->43x32',
+                log_messages,
             )
 
     def test_remote_provider_requires_result_url(self) -> None:

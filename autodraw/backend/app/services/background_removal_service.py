@@ -3,6 +3,7 @@ from __future__ import annotations
 import mimetypes
 import os
 import shutil
+from io import BytesIO
 from pathlib import Path
 from typing import Callable, Literal
 
@@ -15,6 +16,7 @@ BackgroundRemovalProvider = Literal["local", "remote", "auto"]
 DEFAULT_REMOTE_APPLICATION = "fal-ai/birefnet"
 DEFAULT_REMOTE_FORMAT = "png"
 REMOTE_API_TIMEOUT = 300
+REMOTE_MIN_IMAGE_SIDE = 32
 
 
 def _write_log(log: LogWriter | None, message: str) -> None:
@@ -139,6 +141,44 @@ def _download_remote_output(url: str, output_path: Path) -> Path:
     return output_path
 
 
+def _prepare_remote_upload_payload(
+    source_path: Path,
+    *,
+    log: LogWriter | None = None,
+) -> tuple[bytes, str, str]:
+    content_type = mimetypes.guess_type(source_path.name)[0] or 'application/octet-stream'
+    payload = source_path.read_bytes()
+
+    try:
+        with Image.open(source_path) as image:
+            width, height = image.size
+            if width >= REMOTE_MIN_IMAGE_SIDE and height >= REMOTE_MIN_IMAGE_SIDE:
+                return payload, content_type, source_path.name
+
+            scale = max(REMOTE_MIN_IMAGE_SIDE / width, REMOTE_MIN_IMAGE_SIDE / height)
+            resized_size = (
+                max(REMOTE_MIN_IMAGE_SIDE, round(width * scale)),
+                max(REMOTE_MIN_IMAGE_SIDE, round(height * scale)),
+            )
+            resample = getattr(Image.Resampling, "LANCZOS", Image.LANCZOS)
+            resized = image.convert("RGBA").resize(resized_size, resample)
+            buffer = BytesIO()
+            resized.save(buffer, format="PNG")
+            _write_log(
+                log,
+                "[background-removal] remote_input_resized "
+                f"{width}x{height}->{resized_size[0]}x{resized_size[1]}",
+            )
+            return buffer.getvalue(), "image/png", f"{source_path.stem}_remote.png"
+    except Exception as exc:
+        _write_log(
+            log,
+            f"[background-removal] remote_input_probe_failed={type(exc).__name__}",
+        )
+
+    return payload, content_type, source_path.name
+
+
 def _remove_background_remote(
     *,
     source_path: Path,
@@ -159,10 +199,12 @@ def _remove_background_remote(
     application = _resolve_remote_application()
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    content_type = mimetypes.guess_type(source_path.name)[0] or 'application/octet-stream'
-    payload = source_path.read_bytes()
+    payload, content_type, upload_name = _prepare_remote_upload_payload(
+        source_path,
+        log=log,
+    )
     client = SyncClient(key=resolved_api_key, default_timeout=float(REMOTE_API_TIMEOUT))
-    remote_url = client.upload(payload, content_type, source_path.name)
+    remote_url = client.upload(payload, content_type, upload_name)
     arguments = _build_remote_arguments(remote_url, resolved_format)
 
     _write_log(log, f"[background-removal] provider=remote application={application}")
