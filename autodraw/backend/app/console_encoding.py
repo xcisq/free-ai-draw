@@ -35,7 +35,7 @@ def _escape_for_stream(stream: Any, data: str) -> str:
 def safe_stream_flush(stream: Any) -> None:
     try:
         stream.flush()
-    except UnicodeEncodeError:
+    except Exception:
         return
 
 
@@ -43,7 +43,20 @@ def safe_stream_write(stream: Any, data: str) -> None:
     try:
         stream.write(data)
     except UnicodeEncodeError:
-        stream.write(_escape_for_stream(stream, data))
+        try:
+            stream.write(_escape_for_stream(stream, data))
+        except UnicodeEncodeError:
+            try:
+                ascii_safe = data.encode("ascii", errors="backslashreplace").decode(
+                    "ascii"
+                )
+                stream.write(ascii_safe)
+            except Exception:
+                return
+        except Exception:
+            return
+    except Exception:
+        return
     safe_stream_flush(stream)
 
 

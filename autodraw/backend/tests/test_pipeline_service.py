@@ -18,6 +18,16 @@ from autodraw.backend.app.schemas import CreateJobRequest
 from autodraw.backend.app.services.pipeline_service import run_pipeline
 
 
+class AlwaysFailingTextStream:
+    encoding = "ascii"
+
+    def write(self, data: str) -> int:
+        raise UnicodeEncodeError("ascii", data or "x", 0, 1, "forced failure")
+
+    def flush(self) -> None:
+        raise UnicodeEncodeError("ascii", "x", 0, 1, "forced failure")
+
+
 class RunPipelineSourceFigureTest(unittest.TestCase):
     def test_source_figure_is_prepared_as_png_before_stage_two(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -244,6 +254,60 @@ class TeeStreamEncodingTest(unittest.TestCase):
 
         self.assertIn(r"\u539f", ascii_text)
         self.assertIn("原图尺寸", utf8_text)
+
+    def test_teestream_continues_when_one_stream_rejects_all_writes(self) -> None:
+        from autodraw.backend.app.services.pipeline_service import TeeStream
+
+        utf8_buffer = io.BytesIO()
+        utf8_stream = io.TextIOWrapper(utf8_buffer, encoding="utf-8")
+
+        tee = TeeStream(AlwaysFailingTextStream(), utf8_stream)
+        tee.write("    对象 1: 原图尺寸\n")
+        tee.flush()
+        utf8_stream.flush()
+
+        self.assertEqual(
+            utf8_buffer.getvalue().decode("utf-8"),
+            "    对象 1: 原图尺寸\n",
+        )
+
+    def test_run_pipeline_continues_when_console_rejects_unicode_logs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            output_dir = tmp_path / "job-output"
+            log_path = output_dir / "run.log"
+
+            request = CreateJobRequest(
+                job_type="autodraw",
+                method_text="unicode console failure",
+                provider="local",
+                api_key="test-key",
+                base_url="http://127.0.0.1:9999/v1",
+            )
+
+            def fake_method_to_svg(**kwargs: object) -> dict[str, object]:
+                print("步骤二：SAM3 分割 + 灰色填充+黑色边框+序号标记")
+                print("    对象 1: 原图尺寸")
+                return {
+                    "figure_path": str(
+                        Path(str(kwargs["output_dir"])) / "figure.png"
+                    )
+                }
+
+            with mock.patch.object(sys, "stdout", AlwaysFailingTextStream()), mock.patch(
+                "autodraw.backend.app.services.pipeline_service.autofigure2.method_to_svg",
+                side_effect=fake_method_to_svg,
+            ):
+                result = run_pipeline(
+                    request=request,
+                    output_dir=output_dir,
+                    log_path=log_path,
+                )
+
+            self.assertEqual(result["figure_path"], str(output_dir / "figure.png"))
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("步骤二：SAM3 分割", log_text)
+            self.assertIn("对象 1", log_text)
 
     def test_segment_with_sam3_tolerates_ascii_stdout_logs(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

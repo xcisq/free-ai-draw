@@ -24,7 +24,10 @@ class TeeStream:
 
     @staticmethod
     def _safe_write(stream: Any, data: str) -> None:
-        safe_stream_write(stream, data)
+        try:
+            safe_stream_write(stream, data)
+        except Exception:
+            return
 
     def write(self, data: str) -> int:
         for stream in self._streams:
@@ -33,7 +36,10 @@ class TeeStream:
 
     def flush(self) -> None:
         for stream in self._streams:
-            safe_stream_flush(stream)
+            try:
+                safe_stream_flush(stream)
+            except Exception:
+                continue
 
     def isatty(self) -> bool:
         return False
