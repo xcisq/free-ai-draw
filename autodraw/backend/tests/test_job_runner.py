@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import io
 import shutil
+import tempfile
 import unittest
 from unittest import mock
 
@@ -443,6 +445,35 @@ class JobRunnerStorageTest(unittest.TestCase):
                 "[cancel] Job cancelled by user before 步骤二：SAM3 分割",
                 log_text,
             )
+        finally:
+            with _LOCK:
+                _JOBS.pop(record.job_id, None)
+            shutil.rmtree(record.job_dir, ignore_errors=True)
+
+
+class JobRunnerEncodingTest(unittest.TestCase):
+    def test_run_job_tolerates_ascii_stderr_for_unicode_exception(self) -> None:
+        request = CreateJobRequest(
+            job_type="autodraw",
+            method_text="unicode stderr failure",
+        )
+        record = create_job(request, autostart=False)
+
+        ascii_buffer = io.BytesIO()
+        ascii_stderr = io.TextIOWrapper(ascii_buffer, encoding="ascii")
+
+        try:
+            with mock.patch(
+                "autodraw.backend.app.services.job_runner.run_pipeline",
+                side_effect=RuntimeError("原图尺寸 编码错误"),
+            ), mock.patch("sys.stderr", ascii_stderr):
+                _run_job(record.job_id)
+
+            ascii_stderr.flush()
+            stderr_text = ascii_buffer.getvalue().decode("ascii")
+            self.assertIn(r"\u539f", stderr_text)
+            self.assertEqual(record.status, "failed")
+            self.assertIn("原图尺寸 编码错误", record.log_path.read_text(encoding="utf-8"))
         finally:
             with _LOCK:
                 _JOBS.pop(record.job_id, None)

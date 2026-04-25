@@ -108,6 +108,18 @@ def _append_job_log(record: JobRecord, message: str) -> None:
         log_handle.flush()
 
 
+def _safe_console_write(stream: Any, message: str) -> None:
+    try:
+        stream.write(message)
+    except UnicodeEncodeError:
+        encoding = getattr(stream, "encoding", None) or "utf-8"
+        safe_message = message.encode(encoding, errors="backslashreplace").decode(
+            encoding, errors="ignore"
+        )
+        stream.write(safe_message)
+    stream.flush()
+
+
 def create_job(request: CreateJobRequest, *, autostart: bool = True) -> JobRecord:
     now = datetime.utcnow()
     job_id = f"{now.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
@@ -519,7 +531,7 @@ def _run_job(job_id: str) -> None:
         with record.log_path.open("a", encoding="utf-8") as log_handle:
             log_handle.write(f"\n[error] {exc}\n")
             log_handle.flush()
-        print(f"[job:{record.job_id}] error: {exc}", file=sys.stderr, flush=True)
+        _safe_console_write(sys.stderr, f"[job:{record.job_id}] error: {exc}\n")
         record.error_message = str(exc)
         if isinstance(exc, PipelineStageError):
             record.failed_stage = exc.stage
