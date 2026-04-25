@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from ..console_encoding import safe_stream_write
 from ..config import settings
 from ..schemas import (
     ArtifactInfo,
@@ -109,15 +110,7 @@ def _append_job_log(record: JobRecord, message: str) -> None:
 
 
 def _safe_console_write(stream: Any, message: str) -> None:
-    try:
-        stream.write(message)
-    except UnicodeEncodeError:
-        encoding = getattr(stream, "encoding", None) or "utf-8"
-        safe_message = message.encode(encoding, errors="backslashreplace").decode(
-            encoding, errors="ignore"
-        )
-        stream.write(safe_message)
-    stream.flush()
+    safe_stream_write(stream, message)
 
 
 def create_job(request: CreateJobRequest, *, autostart: bool = True) -> JobRecord:

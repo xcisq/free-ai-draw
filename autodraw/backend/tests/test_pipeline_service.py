@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -9,6 +10,7 @@ from unittest import mock
 
 from PIL import Image
 
+from autodraw.backend.app.console_encoding import configure_standard_streams
 from autodraw.backend.app.schemas import CreateJobRequest
 from autodraw.backend.app.services.pipeline_service import run_pipeline
 
@@ -173,6 +175,26 @@ class RunPipelineSourceFigureTest(unittest.TestCase):
 
 
 class TeeStreamEncodingTest(unittest.TestCase):
+    def test_configures_ascii_standard_streams_to_utf8(self) -> None:
+        stdout_buffer = io.BytesIO()
+        stderr_buffer = io.BytesIO()
+        ascii_stdout = io.TextIOWrapper(stdout_buffer, encoding="ascii")
+        ascii_stderr = io.TextIOWrapper(stderr_buffer, encoding="ascii")
+
+        with mock.patch.object(sys, "stdout", ascii_stdout), mock.patch.object(
+            sys, "stderr", ascii_stderr
+        ), mock.patch.object(sys, "__stdout__", ascii_stdout), mock.patch.object(
+            sys, "__stderr__", ascii_stderr
+        ):
+            configure_standard_streams()
+            sys.stdout.write("对象\n")
+            sys.stderr.write("错误\n")
+            sys.stdout.flush()
+            sys.stderr.flush()
+
+        self.assertEqual(stdout_buffer.getvalue().decode("utf-8"), "对象\n")
+        self.assertEqual(stderr_buffer.getvalue().decode("utf-8"), "错误\n")
+
     def test_ascii_stdout_falls_back_without_crashing(self) -> None:
         from autodraw.backend.app.services.pipeline_service import TeeStream
 

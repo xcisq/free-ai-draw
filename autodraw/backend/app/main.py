@@ -3,6 +3,10 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .console_encoding import configure_standard_streams
+
+configure_standard_streams()
+
 from .config import settings
 from .routers.health import router as health_router
 from .routers.jobs import router as jobs_router

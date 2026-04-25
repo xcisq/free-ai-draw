@@ -8,6 +8,11 @@ from typing import Any, Callable
 
 from PIL import Image
 
+from ..console_encoding import (
+    configure_standard_streams,
+    safe_stream_flush,
+    safe_stream_write,
+)
 from ..config import settings
 from ..pipeline import autofigure2
 from ..schemas import CreateJobRequest
@@ -19,15 +24,7 @@ class TeeStream:
 
     @staticmethod
     def _safe_write(stream: Any, data: str) -> None:
-        try:
-            stream.write(data)
-        except UnicodeEncodeError:
-            encoding = getattr(stream, 'encoding', None) or 'utf-8'
-            safe_data = data.encode(encoding, errors='backslashreplace').decode(
-                encoding, errors='ignore'
-            )
-            stream.write(safe_data)
-        stream.flush()
+        safe_stream_write(stream, data)
 
     def write(self, data: str) -> int:
         for stream in self._streams:
@@ -36,7 +33,7 @@ class TeeStream:
 
     def flush(self) -> None:
         for stream in self._streams:
-            stream.flush()
+            safe_stream_flush(stream)
 
     def isatty(self) -> bool:
         return False
@@ -48,6 +45,7 @@ def run_pipeline(
     log_path: Path,
     cancellation_check: Callable[[int, str], None] | None = None,
 ) -> dict[str, Any]:
+    configure_standard_streams()
     resolved_reference_path = _resolve_reference_path(request.reference_image_path)
     resolved_source_figure_path = _resolve_source_figure_path(
         request.source_figure_path
