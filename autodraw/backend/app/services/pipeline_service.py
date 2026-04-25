@@ -17,10 +17,21 @@ class TeeStream:
     def __init__(self, *streams: Any) -> None:
         self._streams = streams
 
+    @staticmethod
+    def _safe_write(stream: Any, data: str) -> None:
+        try:
+            stream.write(data)
+        except UnicodeEncodeError:
+            encoding = getattr(stream, 'encoding', None) or 'utf-8'
+            safe_data = data.encode(encoding, errors='backslashreplace').decode(
+                encoding, errors='ignore'
+            )
+            stream.write(safe_data)
+        stream.flush()
+
     def write(self, data: str) -> int:
         for stream in self._streams:
-            stream.write(data)
-            stream.flush()
+            self._safe_write(stream, data)
         return len(data)
 
     def flush(self) -> None:

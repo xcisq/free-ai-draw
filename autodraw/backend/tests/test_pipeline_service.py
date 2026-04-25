@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import tempfile
 import unittest
@@ -169,6 +170,27 @@ class RunPipelineSourceFigureTest(unittest.TestCase):
                     output_dir=output_dir,
                     log_path=log_path,
                 )
+
+
+class TeeStreamEncodingTest(unittest.TestCase):
+    def test_ascii_stdout_falls_back_without_crashing(self) -> None:
+        from autodraw.backend.app.services.pipeline_service import TeeStream
+
+        ascii_buffer = io.BytesIO()
+        ascii_stream = io.TextIOWrapper(ascii_buffer, encoding="ascii")
+        utf8_buffer = io.BytesIO()
+        utf8_stream = io.TextIOWrapper(utf8_buffer, encoding="utf-8")
+
+        tee = TeeStream(ascii_stream, utf8_stream)
+        tee.write("原图尺寸: 1376 x 768\n")
+        ascii_stream.flush()
+        utf8_stream.flush()
+
+        ascii_text = ascii_buffer.getvalue().decode("ascii")
+        utf8_text = utf8_buffer.getvalue().decode("utf-8")
+
+        self.assertIn(r"\u539f", ascii_text)
+        self.assertIn("原图尺寸", utf8_text)
 
 
 if __name__ == "__main__":
