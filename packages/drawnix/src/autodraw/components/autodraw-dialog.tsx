@@ -187,14 +187,9 @@ type AutodrawPersistedDraft = {
 };
 
 const readDefaultBackendUrl = () => {
-  if (
-    typeof process !== 'undefined' &&
-    typeof process.env?.VITE_AUTODRAW_BACKEND_URL === 'string'
-  ) {
-    const envValue = process.env.VITE_AUTODRAW_BACKEND_URL.trim();
-    if (envValue) {
-      return envValue;
-    }
+  const envValue = import.meta.env.VITE_AUTODRAW_BACKEND_URL?.trim();
+  if (envValue) {
+    return envValue;
   }
   return 'http://127.0.0.1:8001';
 };
