@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import io
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -194,6 +196,34 @@ class TeeStreamEncodingTest(unittest.TestCase):
 
         self.assertEqual(stdout_buffer.getvalue().decode("utf-8"), "对象\n")
         self.assertEqual(stderr_buffer.getvalue().decode("utf-8"), "错误\n")
+
+    def test_autofigure2_import_configures_ascii_stdout(self) -> None:
+        env = os.environ.copy()
+        env.update({
+            "LC_ALL": "C",
+            "LANG": "C",
+            "PYTHONUTF8": "0",
+            "PYTHONIOENCODING": "ascii",
+        })
+        code = (
+            "import sys; "
+            "before=sys.stdout.encoding; "
+            "import autodraw.backend.app.pipeline.autofigure2; "
+            "print(before); "
+            "print(sys.stdout.encoding); "
+            "print('对象')"
+        )
+
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            check=True,
+            capture_output=True,
+            env=env,
+            text=True,
+        )
+
+        lines = result.stdout.strip().splitlines()
+        self.assertEqual(lines, ["ascii", "utf-8", "对象"])
 
     def test_ascii_stdout_falls_back_without_crashing(self) -> None:
         from autodraw.backend.app.services.pipeline_service import TeeStream

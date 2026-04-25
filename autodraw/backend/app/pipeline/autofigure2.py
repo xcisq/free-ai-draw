@@ -79,8 +79,24 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any, Literal, Callable
 from urllib.parse import urlparse
 
+try:
+    from ..console_encoding import configure_standard_streams
+except ImportError:
+    def configure_standard_streams() -> None:
+        for stream in (sys.stdout, sys.stderr, sys.__stdout__, sys.__stderr__):
+            reconfigure = getattr(stream, "reconfigure", None)
+            if reconfigure is not None:
+                try:
+                    reconfigure(encoding="utf-8", errors="backslashreplace")
+                except Exception:
+                    continue
+
+
+configure_standard_streams()
+
 import requests
 from PIL import Image, ImageDraw, ImageFont
+
 try:
     import torch
     from torchvision import transforms
