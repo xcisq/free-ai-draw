@@ -159,6 +159,14 @@ def _resolve_effective_background_removal_provider(
     return resolved_provider
 
 
+def _get_remote_background_removal_image():
+    try:
+        from ..services.background_removal_service import remove_background_image
+    except ImportError:
+        from backend.app.services.background_removal_service import remove_background_image
+    return remove_background_image
+
+
 def _load_local_env() -> None:
     module_dir = Path(__file__).resolve().parent
     env_candidates = [
@@ -3039,12 +3047,8 @@ def crop_and_remove_background(
 
         if remove_background:
             if effective_background_removal_provider == "remote":
-                from autodraw.backend.app.services.background_removal_service import (
-                    remove_background_image,
-                )
-
                 nobg_output_path = icons_dir / f"icon_{label_clean}_nobg.png"
-                remove_background_image(
+                _get_remote_background_removal_image()(
                     source_path=crop_path,
                     output_path=nobg_output_path,
                     provider="remote",

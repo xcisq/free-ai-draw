@@ -260,8 +260,8 @@ class RunPipelineSourceFigureTest(unittest.TestCase):
                 "autodraw.backend.app.pipeline.autofigure2._ensure_rmbg2_access_ready",
                 side_effect=AssertionError("local RMBG should not be checked"),
             ), mock.patch(
-                "autodraw.backend.app.services.background_removal_service.remove_background_image",
-                side_effect=fake_remove_background_image,
+                "autodraw.backend.app.pipeline.autofigure2._get_remote_background_removal_image",
+                return_value=fake_remove_background_image,
             ):
                 result = autofigure2.method_to_svg(
                     method_text="remote background removal",
@@ -284,6 +284,26 @@ class RunPipelineSourceFigureTest(unittest.TestCase):
                 result["icon_infos"][0]["nobg_path"],
                 str(output_dir / "icons" / "icon_AF01_nobg.png"),
             )
+
+    def test_autodraw_remote_background_removal_imports_from_backend_package(self) -> None:
+        repo_root = Path(__file__).resolve().parents[3]
+        script = (
+            "from backend.app.pipeline import autofigure2; "
+            "fn = autofigure2._get_remote_background_removal_image(); "
+            "print(fn.__module__)"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=repo_root / "autodraw",
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(
+            result.stdout.strip(),
+            "backend.app.services.background_removal_service",
+        )
 
 
 class TeeStreamEncodingTest(unittest.TestCase):
