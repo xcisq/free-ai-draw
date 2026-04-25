@@ -1,12 +1,12 @@
-# AutoDraw API-only runtime requirements
+# AutoDraw runtime requirements
 # Scope:
 # - FastAPI backend
 # - Remote LLM / remote image API calls
 # - Remote SAM / Roboflow style HTTP integrations
 # - Basic image handling and scene validation
+# - Local RMBG-2.0 background removal for step 3 / image-edit
 #
 # Not included:
-# - torch / torchvision / transformers
 # - timm / kornia / other local inference stacks
 
 fastapi>=0.110,<1.0
@@ -22,3 +22,6 @@ inference-sdk>=0.37
 fal-client>=0.7,<1.0
 
 Pillow>=10.0,<12.0
+torch>=2.6,<2.7
+torchvision>=0.21,<0.22
+transformers>=4.48,<5.0

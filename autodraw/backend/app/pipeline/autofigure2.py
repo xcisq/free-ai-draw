@@ -102,7 +102,7 @@ def _require_local_ml_stack(feature_name: str) -> None:
     if missing:
         raise RuntimeError(
             f"{feature_name} 需要本地推理依赖: {', '.join(missing)}。"
-            "当前 requirements.txt 已按纯 API 模式精简，如需本地模型能力请单独安装这些包。"
+            "当前运行环境未安装这些包，请确认部署环境已包含对应依赖。"
         )
 
 
