@@ -62,8 +62,8 @@ const SECTION_NAV: SectionNavItem[] = [
   {
     id: 'export',
     index: '06',
-    title: '保存与导出',
-    note: 'JSON、SVG、PNG',
+    title: '保存、导出与导入',
+    note: '.drawnix、bundle.zip、图片',
   },
   {
     id: 'faq',
@@ -133,6 +133,13 @@ const TEXT_CHECKS = [
   '再看导入映射：确认字段有没有被兜底覆盖、最小字号钳制或二次缩放。',
   '最后看画板渲染：确认 Drawnix 真正消费了这些文本字段，而不是只把字段写进数据。',
   '如果 native text 保真不足，复杂描边字、emoji 和装饰符号可以考虑走 svg-fragment-text。',
+];
+
+const DRAWNIX_IMPORT_EXPORT_STEPS = [
+  '保存 .drawnix：用于继续编辑当前画板，保留画板快照、元素、视口和主题等前端状态。',
+  '重新导入 .drawnix：适合你已经在 Drawnix 里改过图，之后想从同一份可编辑工程继续接着画。',
+  '导出 SVG / PNG / JPG：适合交付论文、汇报和文档；其中论文图优先选 SVG，需要位图时再导出 PNG 或 JPG。',
+  '导入 bundle.zip / final.svg：适合 AutoDraw 产物接续，不等价于 .drawnix 工程文件；前者偏整包接续，后者偏单图预览或导入。',
 ];
 
 function scrollToSection(id: SectionId) {
@@ -220,7 +227,7 @@ export default function DocsPage({
         <h1>XAI Board 使用手册</h1>
         <p>
           给第一次上手的课题组成员。先学会画板，再用 AutoDraw 把方法描述、
-          原始图或 bundle.zip 落到画布里。
+          原始图、bundle.zip 或 `.drawnix` 工程落到画布里。
         </p>
         <div className={styles.heroActions}>
           <button
@@ -283,7 +290,7 @@ export default function DocsPage({
               <StepCard
                 index="3"
                 title="保存或导出"
-                body="保存 JSON 继续编辑，导出 SVG、PNG 或 JPG 用于论文和汇报。"
+                body="保存 `.drawnix` 继续编辑，导出 SVG、PNG 或 JPG 用于论文和汇报。"
               />
             </div>
           </ManualSection>
@@ -361,12 +368,12 @@ export default function DocsPage({
             </div>
           </ManualSection>
 
-          <ManualSection id="export" index="06" title="保存与导出">
+          <ManualSection id="export" index="06" title="保存、导出与导入">
             <div className={styles.stepGrid}>
               <StepCard
                 index="A"
-                title="保存 JSON"
-                body="用于继续编辑，保留 Drawnix 图元、视口和主题信息。快捷键是 Cmd/Ctrl + S。"
+                title="保存 .drawnix"
+                body="用于继续编辑当前画板，保留 Drawnix 图元、视口、主题和工程快照。快捷键是 Cmd/Ctrl + S。"
               />
               <StepCard
                 index="B"
@@ -375,9 +382,30 @@ export default function DocsPage({
               />
               <StepCard
                 index="C"
-                title="清除画布"
-                body="清除前会弹确认框。这个操作会删除当前画布内容，不会删除后端任务历史。"
+                title="导入旧工程 / 接续 AutoDraw"
+                body="已有 `.drawnix` 时直接重新导入继续编辑；已有 bundle.zip 或 final.svg 时走 AutoDraw / 资源接续链路。"
               />
+            </div>
+            <div className={styles.callout}>
+              <strong>怎么选文件格式</strong>
+              <p>
+                `.drawnix` 是 Drawnix 自己的可编辑工程文件，适合“我以后还要回来继续改”。
+                `bundle.zip` 和 `final.svg` 更偏 AutoDraw 产物接续，适合“我现在要把一份生成结果继续落板”。
+              </p>
+            </div>
+            <ul className={styles.checkList}>
+              {DRAWNIX_IMPORT_EXPORT_STEPS.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+            <div className={styles.notePanel}>
+              <span>.drawnix vs bundle.zip</span>
+              <p>
+                如果你想保留当前 Drawnix 里的修改、视口和排版状态，优先保存
+                `.drawnix`。如果你要重新消费 AutoDraw 后端产物，优先保留
+                `bundle.zip`，这样 scene-import 和 svg-import fallback
+                两条链路都还能复现。
+              </p>
             </div>
           </ManualSection>
 

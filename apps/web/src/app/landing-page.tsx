@@ -91,18 +91,18 @@ const PIPELINE: PipelineStep[] = [
 
 const GALLERY_ITEMS: GalleryItem[] = [
   {
-    id: '20260419_175141_82c68205',
-    title: '科研柴犬讲注意力',
-    subtitle: 'Transformer Attention Mechanism',
-    note: 'autodraw jobs · 2026-04-19 · final.svg',
-    src: '/autodraw-gallery/transformer-attention-dog.svg',
+    id: '20260425_174014_b592ffa4',
+    title: 'AI Model-Assisted Labeling',
+    subtitle: 'Project Goal · Boost Human Accuracy',
+    note: 'autodraw jobs · 2026-04-25 · final.svg',
+    src: '/autodraw-gallery/ai-model-assisted-labeling.svg',
   },
   {
-    id: '20260417_145016_5fe1a303',
-    title: 'Agent 时代的软件工程转向',
-    subtitle: 'From Writing Code to Designing Systems',
-    note: 'autodraw jobs · 2026-04-17 · final.svg',
-    src: '/autodraw-gallery/agent-system-shift.svg',
+    id: '20260426_043654_f4f0311b',
+    title: 'Video + Live Cards Logic',
+    subtitle: 'Three Card Types · Strong / Weak Judge',
+    note: 'autodraw jobs · 2026-04-26 · final.svg',
+    src: '/autodraw-gallery/video-live-cards-logic.svg',
   },
   {
     id: '20260417_020059_4401350f',
