@@ -2,11 +2,13 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 
 type LandingPageProps = {
   onEnterBoard: () => void;
+  onOpenDocs: () => void;
 };
 
 type LandingCanvasProps = {
   dark: boolean;
   onEnterBoard: () => void;
+  onOpenDocs: () => void;
 };
 
 type Feature = {
@@ -126,7 +128,10 @@ function scrollToSection(id: string) {
   target.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function handleFeatureAction(featureId: Feature['id'], onEnterBoard: () => void) {
+function handleFeatureAction(
+  featureId: Feature['id'],
+  onEnterBoard: () => void
+) {
   if (featureId === 'gallery') {
     scrollToSection('gallery');
     return;
@@ -138,10 +143,17 @@ function handleFeatureAction(featureId: Feature['id'], onEnterBoard: () => void)
   onEnterBoard();
 }
 
-export default function LandingPage({ onEnterBoard }: LandingPageProps) {
+export default function LandingPage({
+  onEnterBoard,
+  onOpenDocs,
+}: LandingPageProps) {
   return (
     <>
-      <V1Sketchbook dark={false} onEnterBoard={onEnterBoard} />
+      <V1Sketchbook
+        dark={false}
+        onEnterBoard={onEnterBoard}
+        onOpenDocs={onOpenDocs}
+      />
       <style>{`
         html {
           scroll-behavior: smooth;
@@ -156,7 +168,7 @@ export default function LandingPage({ onEnterBoard }: LandingPageProps) {
   );
 }
 
-function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
+function V1Sketchbook({ dark, onEnterBoard, onOpenDocs }: LandingCanvasProps) {
   const bg = dark ? '#0f1115' : '#f7f8fb';
   const paper = dark ? '#161923' : '#ffffff';
   const ink = dark ? '#e7e9ee' : '#111827';
@@ -166,7 +178,8 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
   const accent = dark ? '#9ca3ff' : '#2563eb';
   const sans =
     '"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Arial,sans-serif';
-  const serif = '"Songti SC","STSong","Noto Serif CJK SC","Times New Roman",serif';
+  const serif =
+    '"Songti SC","STSong","Noto Serif CJK SC","Times New Roman",serif';
   const [hover, setHover] = useState<Feature['id'] | null>(null);
   const [previewItem, setPreviewItem] = useState<GalleryItem | null>(null);
 
@@ -185,7 +198,11 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
     return () => window.removeEventListener('keydown', handleKeydown);
   }, [previewItem]);
 
-  const linkStyle: CSSProperties = { color: ink, textDecoration: 'none', opacity: 0.72 };
+  const linkStyle: CSSProperties = {
+    color: ink,
+    textDecoration: 'none',
+    opacity: 0.72,
+  };
   const ghostBtn: CSSProperties = {
     height: 34,
     padding: '0 14px',
@@ -238,7 +255,8 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
           backgroundImage: `linear-gradient(${hair} 1px, transparent 1px), linear-gradient(90deg, ${hair} 1px, transparent 1px)`,
           backgroundSize: '48px 48px',
           opacity: dark ? 0.18 : 0.35,
-          maskImage: 'radial-gradient(ellipse at 50% 30%, black 30%, transparent 75%)',
+          maskImage:
+            'radial-gradient(ellipse at 50% 30%, black 30%, transparent 75%)',
           WebkitMaskImage:
             'radial-gradient(ellipse at 50% 30%, black 30%, transparent 75%)',
         }}
@@ -259,10 +277,20 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <XaiMark size={22} color={ink} />
-          <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>XAI Board</div>
+          <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>
+            XAI Board
+          </div>
           <Anno style={{ marginLeft: 10 }}>XAI 课题组 · 绘图工作台</Anno>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: sub }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            fontSize: 13,
+            color: sub,
+          }}
+        >
           <a style={linkStyle} href="#features">
             功能
           </a>
@@ -272,7 +300,14 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
           <a style={linkStyle} href="#gallery">
             画廊
           </a>
-          <button type="button" style={ghostBtn} onClick={() => scrollToSection('features')}>
+          <button type="button" style={ghostBtn} onClick={onOpenDocs}>
+            使用手册
+          </button>
+          <button
+            type="button"
+            style={ghostBtn}
+            onClick={() => scrollToSection('features')}
+          >
             查看功能
           </button>
           <button type="button" style={primaryBtn} onClick={onEnterBoard}>
@@ -302,8 +337,20 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
           }}
         >
           把想法
-          <span style={{ position: 'relative', display: 'inline-block', margin: '0 10px' }}>
-            <span style={{ fontFamily: serif, fontStyle: 'italic', fontWeight: 500 }}>
+          <span
+            style={{
+              position: 'relative',
+              display: 'inline-block',
+              margin: '0 10px',
+            }}
+          >
+            <span
+              style={{
+                fontFamily: serif,
+                fontStyle: 'italic',
+                fontWeight: 500,
+              }}
+            >
               画出来
             </span>
             <svg
@@ -327,7 +374,8 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
                 style={{
                   strokeDasharray: 400,
                   strokeDashoffset: 400,
-                  animation: 'xai-sketch-draw 1.4s cubic-bezier(.4,.2,.2,1) .4s forwards',
+                  animation:
+                    'xai-sketch-draw 1.4s cubic-bezier(.4,.2,.2,1) .4s forwards',
                 }}
               />
             </svg>
@@ -347,20 +395,49 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
           </span>
           。
         </h1>
-        <p style={{ marginTop: 28, maxWidth: 640, fontSize: 17, lineHeight: 1.65, color: sub }}>
-          XAI Board 是课题组的日常绘图工作台。白板、思维导图、流程图、手绘，全部一体化。
+        <p
+          style={{
+            marginTop: 28,
+            maxWidth: 640,
+            fontSize: 17,
+            lineHeight: 1.65,
+            color: sub,
+          }}
+        >
+          XAI Board
+          是课题组的日常绘图工作台。白板、思维导图、流程图、手绘，全部一体化。
           <br />
-          新内置的 <b style={{ color: ink }}>AutoDraw</b> 让你从一段文本直接产出可编辑的矢量图元。
+          新内置的 <b style={{ color: ink }}>AutoDraw</b>{' '}
+          让你从一段文本直接产出可编辑的矢量图元。
           <br />
           <Anno>文本 → 扩散 → SAM3 → 抠图 → SVG → 画布</Anno>
         </p>
-        <div style={{ display: 'flex', gap: 12, marginTop: 36, alignItems: 'center' }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 12,
+            marginTop: 36,
+            alignItems: 'center',
+          }}
+        >
           <button
             type="button"
-            style={{ ...primaryBtn, height: 46, padding: '0 22px', fontSize: 15 }}
+            style={{
+              ...primaryBtn,
+              height: 46,
+              padding: '0 22px',
+              fontSize: 15,
+            }}
             onClick={onEnterBoard}
           >
             打开空白画布 →
+          </button>
+          <button
+            type="button"
+            style={{ ...ghostBtn, height: 46, padding: '0 22px', fontSize: 14 }}
+            onClick={onOpenDocs}
+          >
+            阅读手册
           </button>
           <button
             type="button"
@@ -407,16 +484,39 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
         >
           <div>
             <Anno>01 · Modules</Anno>
-            <h2 style={{ margin: '6px 0 0', fontSize: 28, fontWeight: 600, letterSpacing: '-0.01em' }}>
+            <h2
+              style={{
+                margin: '6px 0 0',
+                fontSize: 28,
+                fontWeight: 600,
+                letterSpacing: '-0.01em',
+              }}
+            >
               四种工作方式，
-              <span style={{ fontFamily: serif, fontStyle: 'italic', color: sub }}>同一块画布</span>
+              <span
+                style={{ fontFamily: serif, fontStyle: 'italic', color: sub }}
+              >
+                同一块画布
+              </span>
             </h2>
           </div>
           <Anno>hover 查看示例 →</Anno>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16 }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(12, 1fr)',
+            gap: 16,
+          }}
+        >
           {FEATURES.map((feature, index) => {
-            const span = feature.featured ? 6 : index === 0 ? 6 : index === 2 ? 5 : 7;
+            const span = feature.featured
+              ? 6
+              : index === 0
+              ? 6
+              : index === 2
+              ? 5
+              : 7;
             const isHover = hover === feature.id;
             return (
               <button
@@ -430,11 +530,14 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
                   background: paper,
                   border: `1px solid ${isHover ? ink : hair}`,
                   borderRadius: 14,
-                  padding: feature.featured ? '28px 28px 24px' : '22px 22px 20px',
+                  padding: feature.featured
+                    ? '28px 28px 24px'
+                    : '22px 22px 20px',
                   minHeight: feature.featured ? 280 : 200,
                   position: 'relative',
                   cursor: 'pointer',
-                  transition: 'border-color .25s, transform .25s, box-shadow .25s',
+                  transition:
+                    'border-color .25s, transform .25s, box-shadow .25s',
                   transform: isHover ? 'translateY(-3px)' : 'translateY(0)',
                   boxShadow: isHover
                     ? dark
@@ -445,23 +548,60 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
                   textAlign: 'left',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: ink }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      color: ink,
+                    }}
+                  >
                     <SketchIcon kind={feature.id} size={22} color={ink} />
                     <Anno>
                       {String(index + 1).padStart(2, '0')} / {feature.meta}
                     </Anno>
                   </div>
-                  {feature.featured ? <Anno style={{ color: accent }}>★ NEW</Anno> : null}
+                  {feature.featured ? (
+                    <Anno style={{ color: accent }}>★ NEW</Anno>
+                  ) : null}
                 </div>
                 <div style={{ marginTop: feature.featured ? 18 : 14 }}>
-                  <div style={{ fontSize: feature.featured ? 28 : 22, fontWeight: 600, letterSpacing: '-0.01em' }}>
+                  <div
+                    style={{
+                      fontSize: feature.featured ? 28 : 22,
+                      fontWeight: 600,
+                      letterSpacing: '-0.01em',
+                    }}
+                  >
                     {feature.zh}
                   </div>
-                  <div style={{ fontFamily: serif, fontStyle: 'italic', color: sub, fontSize: 13, marginTop: 4 }}>
+                  <div
+                    style={{
+                      fontFamily: serif,
+                      fontStyle: 'italic',
+                      color: sub,
+                      fontSize: 13,
+                      marginTop: 4,
+                    }}
+                  >
                     {feature.en}
                   </div>
-                  <p style={{ marginTop: 14, fontSize: 14, lineHeight: 1.65, color: sub, maxWidth: 480 }}>
+                  <p
+                    style={{
+                      marginTop: 14,
+                      fontSize: 14,
+                      lineHeight: 1.65,
+                      color: sub,
+                      maxWidth: 480,
+                    }}
+                  >
                     {feature.desc}
                   </p>
                 </div>
@@ -486,7 +626,9 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
                         isLast={stepIndex === PIPELINE.length - 1}
                         color={sub}
                       >
-                        <span style={{ color: ink, fontWeight: 500 }}>{step.label}</span>
+                        <span style={{ color: ink, fontWeight: 500 }}>
+                          {step.label}
+                        </span>
                       </FragmentWithArrow>
                     ))}
                   </div>
@@ -506,7 +648,11 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
                   }}
                 >
                   {feature.cta}
-                  <SketchIcon kind="arrow" size={18} color={isHover ? accent : sub} />
+                  <SketchIcon
+                    kind="arrow"
+                    size={18}
+                    color={isHover ? accent : sub}
+                  />
                 </div>
               </button>
             );
@@ -534,11 +680,22 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
         >
           <div>
             <Anno>02 · AutoDraw Pipeline</Anno>
-            <h2 style={{ margin: '6px 0 0', fontSize: 28, fontWeight: 600, letterSpacing: '-0.01em' }}>
+            <h2
+              style={{
+                margin: '6px 0 0',
+                fontSize: 28,
+                fontWeight: 600,
+                letterSpacing: '-0.01em',
+              }}
+            >
               从一段
-              <span style={{ fontFamily: serif, fontStyle: 'italic' }}>总结文本</span>
+              <span style={{ fontFamily: serif, fontStyle: 'italic' }}>
+                总结文本
+              </span>
               ，到一组可编辑
-              <span style={{ fontFamily: serif, fontStyle: 'italic' }}>矢量图元</span>
+              <span style={{ fontFamily: serif, fontStyle: 'italic' }}>
+                矢量图元
+              </span>
             </h2>
           </div>
           <button type="button" style={ghostBtn} onClick={onEnterBoard}>
@@ -563,7 +720,14 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
             }}
           >
             {PIPELINE.map((step, index) => (
-              <div key={step.id} style={{ position: 'relative', textAlign: 'center', padding: '0 8px' }}>
+              <div
+                key={step.id}
+                style={{
+                  position: 'relative',
+                  textAlign: 'center',
+                  padding: '0 8px',
+                }}
+              >
                 <div
                   style={{
                     width: 52,
@@ -585,11 +749,29 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
                 >
                   {index + 1}
                 </div>
-                <div style={{ marginTop: 12, fontSize: 14, fontWeight: 600, color: ink }}>{step.label}</div>
-                <Anno style={{ display: 'block', marginTop: 4 }}>{step.note}</Anno>
+                <div
+                  style={{
+                    marginTop: 12,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: ink,
+                  }}
+                >
+                  {step.label}
+                </div>
+                <Anno style={{ display: 'block', marginTop: 4 }}>
+                  {step.note}
+                </Anno>
                 {index < PIPELINE.length - 1 ? (
                   <svg
-                    style={{ position: 'absolute', top: 18, left: '75%', width: '50%', height: 20, color: sub }}
+                    style={{
+                      position: 'absolute',
+                      top: 18,
+                      left: '75%',
+                      width: '50%',
+                      height: 20,
+                      color: sub,
+                    }}
                     viewBox="0 0 100 20"
                     preserveAspectRatio="none"
                   >
@@ -624,8 +806,17 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
               }}
             >
               <Anno>input.txt</Anno>
-              <div style={{ marginTop: 8, fontFamily: serif, fontSize: 14, lineHeight: 1.65, color: ink }}>
-                "一只戴着眼镜的科研柴犬，正在白板前讲解 transformer 注意力机制，画风简洁、线条干净。"
+              <div
+                style={{
+                  marginTop: 8,
+                  fontFamily: serif,
+                  fontSize: 14,
+                  lineHeight: 1.65,
+                  color: ink,
+                }}
+              >
+                "一只戴着眼镜的科研柴犬，正在白板前讲解 transformer
+                注意力机制，画风简洁、线条干净。"
               </div>
             </div>
             <div style={{ color: sub, fontSize: 20 }}>⟶</div>
@@ -640,7 +831,14 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
               }}
             >
               <Anno>output · drawnix_scene.svg</Anno>
-              <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 10,
+                  marginTop: 12,
+                  flexWrap: 'wrap',
+                }}
+              >
                 {['head', 'glasses', 'board', 'arrow', 'text'].map((token) => (
                   <div
                     key={token}
@@ -658,11 +856,19 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
                   </div>
                 ))}
               </div>
-              <Anno style={{ display: 'block', marginTop: 12 }}>5 paths · 已置入画布 · 可编辑</Anno>
+              <Anno style={{ display: 'block', marginTop: 12 }}>
+                5 paths · 已置入画布 · 可编辑
+              </Anno>
             </div>
           </div>
           <SketchArrow
-            style={{ bottom: 24, right: 32, width: 180, height: 48, color: sub }}
+            style={{
+              bottom: 24,
+              right: 32,
+              width: 180,
+              height: 48,
+              color: sub,
+            }}
             d="M 10 36 C 40 24, 90 12, 170 14 M164 8 L172 14 L164 20"
             label="每一步都可以回看 / 重跑"
             labelX={16}
@@ -691,9 +897,18 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
         >
           <div>
             <Anno>03 · Gallery</Anno>
-            <h2 style={{ margin: '6px 0 0', fontSize: 28, fontWeight: 600, letterSpacing: '-0.01em' }}>
+            <h2
+              style={{
+                margin: '6px 0 0',
+                fontSize: 28,
+                fontWeight: 600,
+                letterSpacing: '-0.01em',
+              }}
+            >
               课题组最近画的
-              <span style={{ fontFamily: serif, fontStyle: 'italic' }}>一些图</span>
+              <span style={{ fontFamily: serif, fontStyle: 'italic' }}>
+                一些图
+              </span>
             </h2>
           </div>
           <Anno>来自 autodraw jobs · 4 张 final.svg</Anno>
@@ -764,7 +979,14 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
               >
                 {item.title}
               </div>
-              <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.6, color: sub }}>
+              <div
+                style={{
+                  marginTop: 6,
+                  fontSize: 12,
+                  lineHeight: 1.6,
+                  color: sub,
+                }}
+              >
                 {item.subtitle}
               </div>
               <div
@@ -777,7 +999,9 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
                 }}
               >
                 <Anno style={{ opacity: 0.72 }}>{item.note}</Anno>
-                <Anno style={{ color: accent, opacity: 0.9 }}>点击放大预览 ↗</Anno>
+                <Anno style={{ color: accent, opacity: 0.9 }}>
+                  点击放大预览 ↗
+                </Anno>
               </div>
             </button>
           ))}
@@ -850,10 +1074,24 @@ function V1Sketchbook({ dark, onEnterBoard }: LandingCanvasProps) {
             >
               <div>
                 <Anno>Preview · final.svg</Anno>
-                <h3 style={{ margin: '8px 0 0', fontSize: 24, lineHeight: 1.2, color: ink }}>
+                <h3
+                  style={{
+                    margin: '8px 0 0',
+                    fontSize: 24,
+                    lineHeight: 1.2,
+                    color: ink,
+                  }}
+                >
                   {previewItem.title}
                 </h3>
-                <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.6, color: sub }}>
+                <div
+                  style={{
+                    marginTop: 6,
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                    color: sub,
+                  }}
+                >
                   {previewItem.subtitle}
                 </div>
               </div>
@@ -938,7 +1176,12 @@ function SketchArrow({
 }: SketchArrowProps) {
   return (
     <svg
-      style={{ position: 'absolute', overflow: 'visible', pointerEvents: 'none', ...style }}
+      style={{
+        position: 'absolute',
+        overflow: 'visible',
+        pointerEvents: 'none',
+        ...style,
+      }}
       xmlns="http://www.w3.org/2000/svg"
     >
       <path
@@ -970,9 +1213,20 @@ function SketchArrow({
   );
 }
 
-function XaiMark({ size = 32, color = 'currentColor' }: { size?: number; color?: string }) {
+function XaiMark({
+  size = 32,
+  color = 'currentColor',
+}: {
+  size?: number;
+  color?: string;
+}) {
   return (
-    <svg width={size} height={size} viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 800 800"
+      xmlns="http://www.w3.org/2000/svg"
+    >
       <g transform="translate(0,800) scale(0.1,-0.1)" fill={color}>
         <path d="M2460 5913 c0 -5 397 -405 883 -891 l882 -882 57 57 58 58 -741 745 -740 745 438 5 438 5 3 83 3 82 -641 0 c-352 0 -640 -3 -640 -7z" />
         <path d="M4142 5853 c-35 -38 -151 -157 -260 -265 l-197 -198 55 -55 c30 -30 59 -55 65 -55 6 0 113 106 239 235 l228 235 211 0 212 0 -200 -202 c-110 -112 -274 -278 -365 -370 l-165 -168 60 -60 60 -61 83 88 c46 48 190 196 320 328 211 214 465 476 561 578 l35 37 -440 0 -440 0 -62 -67z" />
@@ -1028,7 +1282,10 @@ function SketchIcon({
   if (kind === 'freedraw') {
     return (
       <svg width={size} height={size} viewBox="0 0 28 28">
-        <path {...common} d="M4 20 C 7 18, 9 14, 12 13 S 17 15, 19 12 S 22 6, 24 5" />
+        <path
+          {...common}
+          d="M4 20 C 7 18, 9 14, 12 13 S 17 15, 19 12 S 22 6, 24 5"
+        />
         <path {...common} d="M20 8 l3 -3 l1 1 l-3 3 z" />
       </svg>
     );
@@ -1050,7 +1307,10 @@ function SketchIcon({
         <rect {...common} x="4" y="5" width="7" height="5" rx="1" />
         <rect {...common} x="17" y="5" width="7" height="5" rx="1" />
         <rect {...common} x="10.5" y="18" width="7" height="5" rx="1" />
-        <path {...common} d="M7.5 10 v4 c0 1 .5 1.5 1.5 1.5 h5 M20.5 10 v4 c0 1 -.5 1.5 -1.5 1.5 h-5" />
+        <path
+          {...common}
+          d="M7.5 10 v4 c0 1 .5 1.5 1.5 1.5 h5 M20.5 10 v4 c0 1 -.5 1.5 -1.5 1.5 h-5"
+        />
       </svg>
     );
   }

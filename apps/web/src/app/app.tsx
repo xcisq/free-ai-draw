@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import BoardShell from './board-shell';
+import DocsPage from './docs-page';
 import LandingPage from './landing-page';
-import { BOARD_VIEW_HASH, getAppViewFromHash, type AppView } from './app-view';
+import {
+  BOARD_VIEW_HASH,
+  DOCS_VIEW_HASH,
+  getAppViewFromHash,
+  type AppView,
+} from './app-view';
 import styles from './app.module.scss';
 
 const VIEW_TRANSITION_MS = 520;
@@ -47,8 +53,7 @@ export function App() {
   };
 
   const startViewTransition = (nextView: AppView) => {
-    const nextTransition =
-      nextView === 'board' ? 'to-board' : 'to-landing';
+    const nextTransition = nextView === 'board' ? 'to-board' : 'to-landing';
     const duration = getTransitionDuration();
 
     setTransition(nextTransition);
@@ -64,6 +69,11 @@ export function App() {
     }, duration);
   };
 
+  const showStaticView = (nextView: AppView) => {
+    finishTransition(nextView);
+    window.scrollTo({ top: 0 });
+  };
+
   useEffect(() => {
     const onHashChange = () => {
       const nextView = getAppViewFromHash(window.location.hash);
@@ -72,6 +82,14 @@ export function App() {
         return;
       }
       if (nextView === view && transition === null) {
+        return;
+      }
+      if (nextView !== 'board' && view !== 'board') {
+        showStaticView(nextView);
+        return;
+      }
+      if (nextView === 'docs') {
+        showStaticView('docs');
         return;
       }
       startViewTransition(nextView);
@@ -113,14 +131,38 @@ export function App() {
       return;
     }
     if (window.location.hash) {
-      window.history.pushState({}, '', window.location.pathname + window.location.search);
+      window.history.pushState(
+        {},
+        '',
+        window.location.pathname + window.location.search
+      );
     }
     window.scrollTo({ top: 0 });
-    startViewTransition('landing');
+    if (view === 'board') {
+      startViewTransition('landing');
+      return;
+    }
+    finishTransition('landing');
   };
 
-  const showLanding = view === 'landing' || transition !== null;
+  const openDocs = () => {
+    if (view === 'docs' || transition !== null) {
+      return;
+    }
+    suppressHashSyncRef.current = true;
+    window.location.hash = DOCS_VIEW_HASH;
+    window.scrollTo({ top: 0 });
+    finishTransition('docs');
+  };
+
+  const showLanding = view !== 'board' || transition !== null;
   const showBoard = view === 'board' || transition !== null;
+  const nonBoardView =
+    view === 'docs' && transition === 'to-board' ? (
+      <DocsPage onBackToLanding={openLanding} onEnterBoard={openBoard} />
+    ) : (
+      <LandingPage onEnterBoard={openBoard} onOpenDocs={openDocs} />
+    );
   const landingLayerClassName = [
     styles.viewLayer,
     styles.landingLayer,
@@ -152,19 +194,21 @@ export function App() {
     .join(' ');
 
   if (transition === null) {
-    return view === 'board' ? (
-      <BoardShell onBackToLanding={openLanding} />
-    ) : (
-      <LandingPage onEnterBoard={openBoard} />
-    );
+    if (view === 'board') {
+      return <BoardShell onBackToLanding={openLanding} />;
+    }
+    if (view === 'docs') {
+      return (
+        <DocsPage onBackToLanding={openLanding} onEnterBoard={openBoard} />
+      );
+    }
+    return <LandingPage onEnterBoard={openBoard} onOpenDocs={openDocs} />;
   }
 
   return (
     <div className={stageClassName}>
       {showLanding ? (
-        <div className={landingLayerClassName}>
-          <LandingPage onEnterBoard={openBoard} />
-        </div>
+        <div className={landingLayerClassName}>{nonBoardView}</div>
       ) : null}
       {showBoard ? (
         <div className={boardLayerClassName}>
