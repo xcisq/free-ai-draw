@@ -1139,6 +1139,38 @@ const AutodrawDialog = () => {
       }),
     [activeWorkbenchStep, assetItems, isJobBusy]
   );
+  const previewCanvasAsset = useMemo(() => {
+    if (!spotlightAsset) {
+      return null;
+    }
+    if (!isJobBusy || spotlightAsset.kind !== 'icon') {
+      return spotlightAsset;
+    }
+    return (
+      assetItems.find(
+        (asset) =>
+          asset.previewable &&
+          ['figure', 'final_svg', 'optimized_template_svg', 'template_svg'].includes(
+            asset.kind
+          )
+      ) || spotlightAsset
+    );
+  }, [assetItems, isJobBusy, spotlightAsset]);
+  const previewCanvasInsetAsset = useMemo(() => {
+    if (
+      !isJobBusy ||
+      !spotlightAsset?.previewable ||
+      !previewCanvasAsset ||
+      previewCanvasAsset.id === spotlightAsset.id
+    ) {
+      return null;
+    }
+    return spotlightAsset;
+  }, [isJobBusy, previewCanvasAsset, spotlightAsset]);
+  const previewCanvasStatusLabel =
+    status === 'importing'
+      ? t('dialog.autodraw.status.importing')
+      : t('dialog.autodraw.status.running');
 
   const progressRatio = useMemo(
     () =>
@@ -3640,21 +3672,69 @@ const AutodrawDialog = () => {
                   <div className="autodraw-output-canvas">
                     <div className="autodraw-output-canvas__mesh" />
 
-                    {spotlightAsset && spotlightAsset.previewable ? (
+                    {previewCanvasAsset && previewCanvasAsset.previewable ? (
                       <button
                         type="button"
-                        className="autodraw-output-canvas__focus"
-                        onClick={() => openAssetPreview(spotlightAsset)}
+                        className={classNames('autodraw-output-canvas__focus', {
+                          'autodraw-output-canvas__focus--busy': isJobBusy,
+                        })}
+                        onClick={() => openAssetPreview(previewCanvasAsset)}
                         aria-label={`${t('dialog.autodraw.openPreview')}: ${
-                          spotlightAsset.name
+                          previewCanvasAsset.name
                         }`}
                       >
-                        <img
-                          src={spotlightAsset.url}
-                          alt={spotlightAsset.name}
-                          loading="lazy"
-                          className="autodraw-output-canvas__image"
-                        />
+                        <div className="autodraw-output-canvas__sheet">
+                          <img
+                            src={previewCanvasAsset.url}
+                            alt={previewCanvasAsset.name}
+                            loading="lazy"
+                            className={classNames(
+                              'autodraw-output-canvas__image',
+                              {
+                                'autodraw-output-canvas__image--busy': isJobBusy,
+                              }
+                            )}
+                          />
+
+                          {isJobBusy ? (
+                            <>
+                              <div
+                                className="autodraw-output-canvas__draft"
+                                aria-hidden="true"
+                              />
+                              <div
+                                className="autodraw-output-canvas__scan"
+                                aria-hidden="true"
+                              />
+
+                              {previewCanvasInsetAsset ? (
+                                <div
+                                  className="autodraw-output-canvas__inset"
+                                  aria-hidden="true"
+                                >
+                                  <img
+                                    src={previewCanvasInsetAsset.url}
+                                    alt=""
+                                    loading="lazy"
+                                    className="autodraw-output-canvas__inset-image"
+                                  />
+                                </div>
+                              ) : null}
+
+                              <div className="autodraw-output-canvas__status">
+                                <span className="autodraw-output-canvas__status-chip">
+                                  {previewCanvasStatusLabel}
+                                </span>
+                                <strong className="autodraw-output-canvas__status-title">
+                                  {currentStageLabel}
+                                </strong>
+                                <span className="autodraw-output-canvas__status-copy">
+                                  {t('dialog.autodraw.runningStageHint')}
+                                </span>
+                              </div>
+                            </>
+                          ) : null}
+                        </div>
                       </button>
                     ) : (
                       <div className="autodraw-output-canvas__placeholder">

@@ -90,16 +90,34 @@ const filterAutodrawHistoryEntries = (entries: AutodrawHistoryEntry[]) =>
 const getHistoryPreviewAsset = (
   artifacts: AutodrawArtifact[],
   baseUrl: string,
-  status: AutodrawStatus
+  status: AutodrawStatus,
+  currentStage?: number | null
 ) => {
   const assetItems = toAutodrawAssetItems(artifacts, baseUrl);
+  const spotlightAsset = getAutodrawSpotlightAsset(assetItems);
+  const stablePreviewAsset =
+    assetItems.find((asset) =>
+      currentStage && currentStage >= 4
+        ? ['final_svg', 'optimized_template_svg', 'template_svg', 'figure'].includes(
+            asset.kind
+          )
+        : ['figure', 'final_svg', 'optimized_template_svg', 'template_svg'].includes(
+            asset.kind
+          )
+    ) || null;
+
   if (status === 'failed' || status === 'cancelled') {
-    return (
-      assetItems.find((asset) => asset.kind === 'figure') ||
-      getAutodrawSpotlightAsset(assetItems)
-    );
+    return assetItems.find((asset) => asset.kind === 'figure') || spotlightAsset;
   }
-  return getAutodrawSpotlightAsset(assetItems);
+
+  if (
+    (status === 'running' || status === 'importing' || status === 'queued') &&
+    spotlightAsset?.kind === 'icon'
+  ) {
+    return stablePreviewAsset || spotlightAsset;
+  }
+
+  return spotlightAsset;
 };
 
 const normalizePersistedHistoryEntry = (
@@ -379,7 +397,8 @@ export const useAutodrawHistory = ({
     const assetPreviewItem = getHistoryPreviewAsset(
       payload.nextArtifacts || [],
       backendUrl,
-      payload.status
+      payload.status,
+      payload.currentStage
     );
 
     setHistoryEntries((current) => {

@@ -1118,6 +1118,115 @@ describe('AutodrawDialog import semantics', () => {
     });
   });
 
+  it('shows a staged canvas preview instead of enlarging icon crops while extraction is running', async () => {
+    mockFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/jobs?limit=12&offset=0')) {
+        return Promise.resolve(createJsonResponse([]));
+      }
+      if (url.includes('/api/jobs/job-running-preview/logs?offset=0')) {
+        return Promise.resolve(
+          createJsonResponse({
+            job_id: 'job-running-preview',
+            offset: 0,
+            next_offset: 0,
+            completed: true,
+            lines: ['running'],
+          })
+        );
+      }
+      if (url.endsWith('/api/jobs/job-running-preview')) {
+        return Promise.resolve(
+          createJsonResponse({
+            job_id: 'job-running-preview',
+            status: 'running',
+            created_at: '2026-04-20T12:00:00.000Z',
+            current_stage: 3,
+            failed_stage: null,
+            artifacts: [
+              {
+                name: 'figure.png',
+                path: 'figure.png',
+                kind: 'figure',
+                size_bytes: 320,
+                download_url: '/api/jobs/job-running-preview/artifacts/figure.png',
+              },
+              {
+                name: 'icon_AF01_nobg.png',
+                path: 'icons/icon_AF01_nobg.png',
+                kind: 'icon',
+                size_bytes: 120,
+                download_url:
+                  '/api/jobs/job-running-preview/artifacts/icons/icon_AF01_nobg.png',
+              },
+            ],
+          })
+        );
+      }
+      return Promise.resolve(createJsonResponse([]));
+    });
+
+    const { container } = render(<AutodrawDialog />);
+
+    fireEvent.change(
+      screen.getByPlaceholderText('dialog.autodraw.existingJobPlaceholder'),
+      {
+        target: {
+          value: 'job-running-preview',
+        },
+      }
+    );
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: 'dialog.autodraw.loadJob' })
+      );
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'dialog.autodraw.cancel' })
+      ).toBeTruthy();
+    });
+
+    const previewCanvas = container.querySelector(
+      '.autodraw-output-canvas'
+    ) as HTMLElement | null;
+    expect(previewCanvas).toBeTruthy();
+    expect(
+      within(previewCanvas as HTMLElement).getByRole('button', {
+        name: 'dialog.autodraw.openPreview: figure.png',
+      })
+    ).toBeTruthy();
+    expect(
+      (previewCanvas as HTMLElement).querySelector(
+        '.autodraw-output-canvas__focus--busy'
+      )
+    ).toBeTruthy();
+    expect(
+      (previewCanvas as HTMLElement).querySelector(
+        '.autodraw-output-canvas__inset'
+      )
+    ).toBeTruthy();
+    expect(
+      within(previewCanvas as HTMLElement).getByText(
+        'dialog.autodraw.status.running'
+      )
+    ).toBeTruthy();
+    expect(
+      within(previewCanvas as HTMLElement).getByText(
+        'dialog.autodraw.stage.extractAssets'
+      )
+    ).toBeTruthy();
+
+    const historyPreviewImage = container.querySelector(
+      '.autodraw-history-card__preview .autodraw-asset-card__image'
+    ) as HTMLImageElement | null;
+    expect(historyPreviewImage).toBeTruthy();
+    expect(historyPreviewImage?.getAttribute('src')).toContain('figure.png');
+  });
+
   it('stops the background cancel watcher when the same job is foregrounded again', async () => {
     let jobFetchCount = 0;
     let currentStatus: 'running' | 'cancelling' = 'running';

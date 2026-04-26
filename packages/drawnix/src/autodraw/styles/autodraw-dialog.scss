@@ -1280,10 +1280,169 @@ textarea.autodraw-input {
   cursor: pointer;
 }
 
+.autodraw-output-canvas__focus--busy {
+  padding: 18px;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.autodraw-output-canvas__sheet {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), #f4f1eb 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(165, 144, 123, 0.16),
+    0 18px 36px rgba(139, 112, 86, 0.08);
+}
+
+.autodraw-output-canvas__sheet::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0) 34%,
+    rgba(231, 224, 213, 0.22) 100%
+  );
+  pointer-events: none;
+}
+
 .autodraw-output-canvas__image {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.autodraw-output-canvas__image--busy {
+  width: calc(100% - 44px);
+  height: calc(100% - 76px);
+  max-width: 560px;
+  max-height: 170px;
+  opacity: 0.38;
+  filter: saturate(0.82) contrast(0.92);
+}
+
+.autodraw-output-canvas__draft {
+  position: absolute;
+  inset: 24px 28px 76px;
+  border: 1px dashed rgba(102, 112, 133, 0.24);
+  border-radius: 18px;
+  background-image:
+    linear-gradient(
+      90deg,
+      rgba(119, 130, 153, 0.2) 0 82px,
+      transparent 82px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(119, 130, 153, 0.18) 0 168px,
+      transparent 168px
+    ),
+    radial-gradient(
+      circle at center,
+      rgba(92, 108, 135, 0.16) 0 10px,
+      transparent 10px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(92, 108, 135, 0.14) 0 118px,
+      transparent 118px
+    );
+  background-repeat: no-repeat;
+  background-size: 82px 2px, 168px 2px, 28px 28px, 118px 2px;
+  background-position:
+    28px 32px,
+    28px calc(100% - 42px),
+    calc(100% - 48px) calc(100% - 44px),
+    calc(100% - 148px) 44px;
+  pointer-events: none;
+}
+
+.autodraw-output-canvas__scan {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.04) 38%,
+    rgba(255, 255, 255, 0.46) 49%,
+    rgba(180, 199, 229, 0.18) 56%,
+    transparent 72%
+  );
+  transform: translateX(-120%);
+  animation: autodraw-canvas-scan 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.autodraw-output-canvas__inset {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: flex;
+  width: 76px;
+  height: 76px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border: 1px solid rgba(176, 154, 126, 0.26);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 16px 28px rgba(86, 68, 48, 0.12);
+  pointer-events: none;
+}
+
+.autodraw-output-canvas__inset-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.autodraw-output-canvas__status {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  left: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid rgba(191, 169, 139, 0.22);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 14px 24px rgba(99, 78, 58, 0.08);
+  text-align: left;
+}
+
+.autodraw-output-canvas__status-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #3554a5;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.autodraw-output-canvas__status-title {
+  color: var(--autodraw-ink);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.autodraw-output-canvas__status-copy {
+  color: var(--autodraw-soft-ink);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .autodraw-output-canvas__placeholder-note {
@@ -1324,6 +1483,20 @@ textarea.autodraw-input {
     var(--autodraw-assembly-brick-active) 0%,
     #b88862 100%
   );
+}
+
+@keyframes autodraw-canvas-scan {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  55% {
+    transform: translateX(18%);
+  }
+
+  100% {
+    transform: translateX(120%);
+  }
 }
 
 .autodraw-panel-foot {
@@ -2227,6 +2400,20 @@ textarea.autodraw-input {
   .autodraw-output-canvas {
     height: 220px;
   }
+
+  .autodraw-output-canvas__focus--busy {
+    padding: 14px;
+  }
+
+  .autodraw-output-canvas__draft {
+    inset: 18px 20px 72px;
+  }
+
+  .autodraw-output-canvas__status {
+    right: 14px;
+    bottom: 14px;
+    left: 14px;
+  }
 }
 
 @media screen and (max-width: 640px) {
@@ -2269,12 +2456,57 @@ textarea.autodraw-input {
   .autodraw-history-card__editor-actions {
     grid-template-columns: 1fr;
   }
+
+  .autodraw-output-canvas__focus--busy {
+    padding: 12px;
+  }
+
+  .autodraw-output-canvas__image--busy {
+    width: calc(100% - 28px);
+    height: calc(100% - 92px);
+  }
+
+  .autodraw-output-canvas__draft {
+    inset: 14px 14px 88px;
+    background-size: 64px 2px, 132px 2px, 22px 22px, 88px 2px;
+    background-position:
+      18px 24px,
+      18px calc(100% - 34px),
+      calc(100% - 36px) calc(100% - 36px),
+      calc(100% - 110px) 32px;
+  }
+
+  .autodraw-output-canvas__inset {
+    top: 14px;
+    right: 14px;
+    width: 60px;
+    height: 60px;
+    border-radius: 14px;
+  }
+
+  .autodraw-output-canvas__status {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    gap: 4px;
+    padding: 10px 12px;
+  }
+
+  .autodraw-output-canvas__status-title {
+    font-size: 14px;
+  }
+
+  .autodraw-output-canvas__status-copy {
+    font-size: 11px;
+    line-height: 1.45;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .autodraw-chip__pulse,
   .autodraw-log-line--run .autodraw-log-line__marker,
-  .autodraw-progress-bar__fill--running::after {
+  .autodraw-progress-bar__fill--running::after,
+  .autodraw-output-canvas__scan {
     animation: none !important;
   }
 
