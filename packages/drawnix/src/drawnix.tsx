@@ -51,6 +51,8 @@ import { withArrowAnimation } from './plugins/with-arrow-animation';
 import { withDefaultDrawStyle } from './plugins/with-default-draw-style';
 import { syncImageGenerationTasks } from './image-edit/image-generation-store';
 import { ImageGenerationRunner } from './image-edit/components/image-generation-runner';
+import { initialBoardAssemblyProgress } from './utils/board-assembly';
+import { BoardImportProgress } from './components/import/board-import-progress';
 
 export type DrawnixProps = {
   value: PlaitElement[];
@@ -97,6 +99,7 @@ export const Drawnix: React.FC<DrawnixProps> = ({
       isPencilMode: false,
       openDialogType: null,
       openCleanConfirm: false,
+      boardImportProgress: initialBoardAssemblyProgress,
       imageEditTargetId: null,
       imageGenerationTasks: {},
     };
@@ -192,6 +195,7 @@ export const Drawnix: React.FC<DrawnixProps> = ({
             <PopupToolbar></PopupToolbar>
             <LinkPopup></LinkPopup>
             <ClosePencilToolbar></ClosePencilToolbar>
+            <BoardImportProgress></BoardImportProgress>
             <TTDDialog container={containerRef.current}></TTDDialog>
             <CleanConfirm container={containerRef.current}></CleanConfirm>
             <ImageGenerationRunner board={board}></ImageGenerationRunner>

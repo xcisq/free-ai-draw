@@ -3,6 +3,11 @@ import { MIME_TYPES, VERSIONS } from '../constants';
 import { fileOpen, fileSave } from './filesystem';
 import { DrawnixExportedData, DrawnixExportedType } from './types';
 import { loadFromBlob, normalizeFile } from './blob';
+import {
+  createBoardSnapshot,
+  isValidDrawnixData,
+  serializeBoardSnapshot,
+} from './snapshot';
 
 export const getDefaultName = () => {
   const time = new Date().getTime();
@@ -26,34 +31,34 @@ export const saveAsJSON = async (
   return { fileHandle };
 };
 
-export const loadFromJSON = async (board: PlaitBoard) => {
+export const openJSONFile = async () => {
   const file = await fileOpen({
     description: 'Drawnix files',
     // ToDo: Be over-permissive until https://bugs.webkit.org/show_bug.cgi?id=34442
     // gets resolved. Else, iOS users cannot open `.drawnix` files.
     // extensions: ["json", "drawnix", "png", "svg"],
   });
-  return loadFromBlob(board, await normalizeFile(file));
+  return file;
 };
 
-export const isValidDrawnixData = (data?: any): data is DrawnixExportedData => {
-  return (
-    data &&
-    data.type === DrawnixExportedType.drawnix &&
-    Array.isArray(data.elements) &&
-    typeof data.viewport === 'object'
-  );
+export const parseJSONFile = async (board: PlaitBoard, file: File) => {
+  const normalizedFile = await normalizeFile(file);
+  const data = await loadFromBlob(board, normalizedFile);
+  return {
+    data,
+    fileName: normalizedFile.name || file.name || '',
+  };
+};
+
+export const loadFromJSON = async (board: PlaitBoard) => {
+  const file = await openJSONFile();
+  return parseJSONFile(board, file);
 };
 
 export const serializeAsJSON = (board: PlaitBoard): string => {
-  const data = {
-    type: DrawnixExportedType.drawnix,
-    version: VERSIONS.drawnix,
-    source: 'web',
-    elements: board.children,
-    viewport: board.viewport,
-    theme: board.theme,
-  };
-
-  return JSON.stringify(data, null, 2);
+  const data = createBoardSnapshot(board, {
+    exportScope: 'board',
+    embeddedIn: 'drawnix',
+  });
+  return serializeBoardSnapshot(data);
 };

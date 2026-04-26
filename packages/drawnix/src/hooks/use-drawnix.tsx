@@ -4,11 +4,13 @@
  */
 import { PlaitBoard, PlaitPointerType } from '@plait/core';
 import { createContext, useContext } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import { MindPointerType } from '@plait/mind';
 import { DrawPointerType } from '@plait/draw';
 import { FreehandShape } from '../plugins/freehand/type';
 import { Editor } from 'slate';
 import { LinkElement } from '@plait/common';
+import type { BoardAssemblyProgress } from '../utils/board-assembly';
 
 export enum DialogType {
   mermaidToDrawnix = 'mermaidToDrawnix',
@@ -52,6 +54,7 @@ export type DrawnixState = {
   isPencilMode: boolean;
   openDialogType: DialogType | null;
   openCleanConfirm: boolean;
+  boardImportProgress: BoardAssemblyProgress;
   linkState?: LinkState | null;
   imageEditTargetId?: string | null;
   imageGenerationTasks: ImageGenerationTaskMap;
@@ -59,12 +62,12 @@ export type DrawnixState = {
 
 export const DrawnixContext = createContext<{
   appState: DrawnixState;
-  setAppState: (appState: DrawnixState) => void;
+  setAppState: Dispatch<SetStateAction<DrawnixState>>;
 } | null>(null);
 
 export const useDrawnix = (): {
   appState: DrawnixState;
-  setAppState: (appState: DrawnixState) => void;
+  setAppState: Dispatch<SetStateAction<DrawnixState>>;
 } => {
   const context = useContext(DrawnixContext);
 

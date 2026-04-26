@@ -50,5 +50,5 @@ export const MIME_TYPES = {
 } as const;
 
 export const VERSIONS = {
-  drawnix: 1,
+  drawnix: 2,
 } as const;

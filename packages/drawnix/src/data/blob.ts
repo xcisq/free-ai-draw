@@ -1,19 +1,21 @@
 import { PlaitBoard } from '@plait/core';
-import { isValidDrawnixData } from './json';
+import {
+  isValidDrawnixData,
+  normalizeDrawnixData,
+} from './snapshot';
 import { IMAGE_MIME_TYPES, MIME_TYPES } from '../constants';
 import { ValueOf } from '../utils/utility-types';
 import { DataURL } from '../types';
 
 export const loadFromBlob = async (board: PlaitBoard, blob: Blob | File) => {
   const contents = await parseFileContents(blob);
-  let data;
   try {
-    data = JSON.parse(contents);
+    const data = JSON.parse(contents);
     if (isValidDrawnixData(data)) {
-      return data;
+      return normalizeDrawnixData(data);
     }
     throw new Error('Error: invalid file');
-  } catch (error: any) {
+  } catch {
     throw new Error('Error: invalid file');
   }
 };

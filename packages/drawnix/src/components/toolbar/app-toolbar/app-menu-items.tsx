@@ -14,7 +14,16 @@ import {
   ThemeColorMode,
   Viewport,
 } from '@plait/core';
-import { loadFromJSON, saveAsJSON } from '../../../data/json';
+import {
+  openJSONFile,
+  parseJSONFile,
+  saveAsJSON,
+} from '../../../data/json';
+import { hasValidViewport } from '../../../data/snapshot';
+import {
+  initialBoardAssemblyProgress,
+  loadBoardElementsWithAssembly,
+} from '../../../utils/board-assembly';
 import MenuItem from '../../menu/menu-item';
 import MenuItemLink from '../../menu/menu-item-link';
 import { saveAsImage, saveAsSvg } from '../../../utils/image';
@@ -48,6 +57,7 @@ SaveToFile.displayName = 'SaveToFile';
 export const OpenFile = () => {
   const board = useBoard();
   const listRender = useListRender();
+  const { setAppState } = useDrawnix();
   const { t } = useI18n();
   const clearAndLoad = (
     value: PlaitElement[],
@@ -64,15 +74,110 @@ export const OpenFile = () => {
       parent: board,
       parentG: PlaitBoard.getElementHost(board),
     });
-    BoardTransforms.fitViewport(board);
+    if (!hasValidViewport(viewport)) {
+      BoardTransforms.fitViewport(board);
+    }
   };
+
+  const setBoardImportProgress = (
+    updater:
+      | typeof initialBoardAssemblyProgress
+      | ((current: typeof initialBoardAssemblyProgress) => typeof initialBoardAssemblyProgress)
+  ) => {
+    setAppState((prev) => ({
+      ...prev,
+      boardImportProgress:
+        typeof updater === 'function'
+          ? updater(prev.boardImportProgress)
+          : updater,
+    }));
+  };
+
+  const clearBoardImportProgress = async () => {
+    const settleDuration =
+      typeof process !== 'undefined' && process.env.NODE_ENV === 'test' ? 0 : 180;
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, settleDuration);
+    });
+    setBoardImportProgress(initialBoardAssemblyProgress);
+  };
+
+  const startPreparingImportProgress = (fileName: string) => {
+    setBoardImportProgress({
+      active: true,
+      phase: 'preparing',
+      fileName,
+      totalBatches: 0,
+      completedBatches: 0,
+      insertedCount: 0,
+    });
+  };
+
+  const waitForNextPaint = async () => {
+    if (
+      typeof window === 'undefined' ||
+      typeof window.requestAnimationFrame !== 'function'
+    ) {
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  };
+
+  const clearAndLoadWithAssembly = async (
+    value: PlaitElement[],
+    fileName: string,
+    viewport?: Viewport,
+    theme?: PlaitTheme
+  ) => {
+    if (theme) {
+      board.theme = theme;
+    }
+    board.viewport = viewport || { zoom: 1 };
+    const parentG = PlaitBoard.getElementHost(board);
+    if (!parentG) {
+      clearAndLoad(value, viewport, theme);
+      return;
+    }
+
+    await loadBoardElementsWithAssembly({
+      board,
+      parentG,
+      listRender,
+      elements: value,
+      fileName,
+      onProgress: (progress) => {
+        setBoardImportProgress(progress);
+      },
+    });
+
+    if (!hasValidViewport(viewport)) {
+      BoardTransforms.fitViewport(board);
+    }
+  };
+
   return (
     <MenuItem
       data-testid="open-button"
       onSelect={() => {
-        loadFromJSON(board).then((data) => {
-          clearAndLoad(data.elements, data.viewport, data.theme);
-        });
+        openJSONFile()
+          .then(async (file) => {
+            const displayName = file.name || t('menu.open');
+            startPreparingImportProgress(displayName);
+            await waitForNextPaint();
+            const { data, fileName } = await parseJSONFile(board, file);
+            await clearAndLoadWithAssembly(
+              data.elements,
+              fileName || displayName,
+              data.viewport,
+              data.theme
+            );
+            await clearBoardImportProgress();
+          })
+          .catch(() => {
+            setBoardImportProgress(initialBoardAssemblyProgress);
+          });
       }}
       icon={OpenFileIcon}
       aria-label={t('menu.open')}
