@@ -769,6 +769,11 @@ export function BoardShell({ onBackToLanding }: BoardShellProps) {
           onChange={handleBoardChange}
           tutorial={tutorial}
           onBackToLanding={onBackToLanding}
+          onDialogTypeChange={(dialogType) => {
+            if (dialogType === 'autodraw') {
+              setManagerOpen(false);
+            }
+          }}
           afterInit={(board) => {
             boardRef.current = board;
           }}
