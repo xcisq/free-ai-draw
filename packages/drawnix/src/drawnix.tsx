@@ -70,6 +70,7 @@ export type DrawnixProps = {
   tutorial?: boolean;
   fontFamilies?: FontFamilyConfigInput[];
   fontRoleFamilies?: FontRoleFamilyConfig;
+  onBackToLanding?: () => void;
 } & React.HTMLAttributes<HTMLDivElement>;
 
 export const Drawnix: React.FC<DrawnixProps> = ({
@@ -85,6 +86,7 @@ export const Drawnix: React.FC<DrawnixProps> = ({
   tutorial = false,
   fontFamilies,
   fontRoleFamilies,
+  onBackToLanding,
 }) => {
   const options: PlaitBoardOptions = {
     readonly: false,
@@ -105,6 +107,7 @@ export const Drawnix: React.FC<DrawnixProps> = ({
       boardImportProgress: initialBoardAssemblyProgress,
       imageEditTargetId: null,
       imageGenerationTasks: {},
+      onBackToLanding: onBackToLanding || null,
     };
   });
 
