@@ -15,6 +15,11 @@ const PX_TO_PT = 72 / PX_PER_INCH;
 const DEFAULT_SLIDE_WIDTH_PX = 960;
 const DEFAULT_SLIDE_HEIGHT_PX = 540;
 const FALLBACK_PADDING_PX = 20;
+const PPTX_SLIDE_WIDTH_IN = 13.333333;
+const PPTX_SLIDE_HEIGHT_IN = 7.5;
+const PPTX_SLIDE_WIDTH_PX = PPTX_SLIDE_WIDTH_IN * PX_PER_INCH;
+const PPTX_SLIDE_HEIGHT_PX = PPTX_SLIDE_HEIGHT_IN * PX_PER_INCH;
+const PPTX_SAFE_MARGIN_PX = 48;
 
 type RectangleLike = {
   x: number;
@@ -51,9 +56,67 @@ type ExportPlacement =
       rect: RectangleLike;
     };
 
+type SlideTransform = {
+  bounds: RectangleLike;
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+};
+
 const pxToInches = (value: number) => value / PX_PER_INCH;
 
 const pxToPoints = (value: number) => Math.max(1, value * PX_TO_PT);
+
+const getSlideTransform = (bounds: RectangleLike): SlideTransform => {
+  const availableWidth = Math.max(
+    1,
+    PPTX_SLIDE_WIDTH_PX - PPTX_SAFE_MARGIN_PX * 2
+  );
+  const availableHeight = Math.max(
+    1,
+    PPTX_SLIDE_HEIGHT_PX - PPTX_SAFE_MARGIN_PX * 2
+  );
+  const scale = Math.min(
+    1,
+    availableWidth / Math.max(1, bounds.width),
+    availableHeight / Math.max(1, bounds.height)
+  );
+  const contentWidth = bounds.width * scale;
+  const contentHeight = bounds.height * scale;
+  return {
+    bounds,
+    scale,
+    offsetX: (PPTX_SLIDE_WIDTH_PX - contentWidth) / 2,
+    offsetY: (PPTX_SLIDE_HEIGHT_PX - contentHeight) / 2,
+  };
+};
+
+const transformX = (value: number, transform: SlideTransform) =>
+  transform.offsetX + (value - transform.bounds.x) * transform.scale;
+
+const transformY = (value: number, transform: SlideTransform) =>
+  transform.offsetY + (value - transform.bounds.y) * transform.scale;
+
+const transformSize = (value: number, transform: SlideTransform) =>
+  value * transform.scale;
+
+const transformRect = (
+  rect: RectangleLike,
+  transform: SlideTransform
+): RectangleLike => ({
+  x: transformX(rect.x, transform),
+  y: transformY(rect.y, transform),
+  width: transformSize(rect.width, transform),
+  height: transformSize(rect.height, transform),
+});
+
+const transformPoint = (
+  point: [number, number],
+  transform: SlideTransform
+): [number, number] => [
+  transformX(point[0], transform),
+  transformY(point[1], transform),
+];
 
 const toNumber = (value: unknown) => {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -146,6 +209,7 @@ const buildLineProps = (
   stroke?: string,
   strokeWidth?: number,
   opacity?: number,
+  scale = 1,
   extras?: Record<string, unknown>
 ) => {
   const color = normalizeHexColor(stroke) || '111827';
@@ -154,7 +218,7 @@ const buildLineProps = (
   );
   return {
     color,
-    width: pxToPoints(strokeWidth ?? 1),
+    width: pxToPoints((strokeWidth ?? 1) * scale),
     ...(transparency !== undefined ? { transparency } : {}),
     ...extras,
   };
@@ -500,31 +564,32 @@ const addNativeText = (
   slide: any,
   element: Record<string, unknown>,
   rect: RectangleLike,
-  bounds: RectangleLike,
+  transform: SlideTransform,
   text: string
 ) => {
   const textStyle = resolveTextStyle(element);
+  const mappedRect = transformRect(rect, transform);
   slide.addText(text, {
-    x: pxToInches(rect.x - bounds.x),
-    y: pxToInches(rect.y - bounds.y),
-    w: pxToInches(rect.width),
-    h: pxToInches(rect.height),
+    x: pxToInches(mappedRect.x),
+    y: pxToInches(mappedRect.y),
+    w: pxToInches(mappedRect.width),
+    h: pxToInches(mappedRect.height),
     margin: 0,
     isTextBox: true,
     fit: 'shrink',
     color: normalizeHexColor(textStyle.color) || '111827',
     fontFace: textStyle.fontFamily,
-    fontSize: pxToPoints(textStyle.fontSize || 16),
+    fontSize: pxToPoints((textStyle.fontSize || 16) * transform.scale),
     bold: textStyle.bold,
     italic: textStyle.italic,
     align: textStyle.align || (element.shape === 'text' ? 'left' : 'center'),
     valign: textStyle.valign || (element.shape === 'text' ? 'top' : 'middle'),
     rotate: toNumber(element.angle) || 0,
     ...(textStyle.lineHeight
-      ? { lineSpacing: pxToPoints(textStyle.lineHeight) }
+      ? { lineSpacing: pxToPoints(textStyle.lineHeight * transform.scale) }
       : {}),
     ...(textStyle.letterSpacing
-      ? { charSpacing: pxToPoints(textStyle.letterSpacing) }
+      ? { charSpacing: pxToPoints(textStyle.letterSpacing * transform.scale) }
       : {}),
   });
 };
@@ -534,19 +599,28 @@ const addFallbackImage = async (
   slide: any,
   element: PlaitElement,
   renderedRect: RectangleLike,
-  bounds: RectangleLike
+  transform: SlideTransform
 ) => {
   const fallbackBlob = await exportBoardToRasterBlob(board, {
     elements: [element],
     fillStyle: 'transparent',
   });
   const data = await readBlobAsDataUrl(fallbackBlob);
+  const mappedRect = transformRect(
+    {
+      x: renderedRect.x - FALLBACK_PADDING_PX,
+      y: renderedRect.y - FALLBACK_PADDING_PX,
+      width: renderedRect.width + FALLBACK_PADDING_PX * 2,
+      height: renderedRect.height + FALLBACK_PADDING_PX * 2,
+    },
+    transform
+  );
   slide.addImage({
     data,
-    x: pxToInches(renderedRect.x - bounds.x - FALLBACK_PADDING_PX),
-    y: pxToInches(renderedRect.y - bounds.y - FALLBACK_PADDING_PX),
-    w: pxToInches(renderedRect.width + FALLBACK_PADDING_PX * 2),
-    h: pxToInches(renderedRect.height + FALLBACK_PADDING_PX * 2),
+    x: pxToInches(mappedRect.x),
+    y: pxToInches(mappedRect.y),
+    w: pxToInches(mappedRect.width),
+    h: pxToInches(mappedRect.height),
   });
 };
 
@@ -554,12 +628,13 @@ const addElementToSlide = async (
   board: PlaitBoard,
   slide: any,
   element: PlaitElement,
-  bounds: RectangleLike
+  transform: SlideTransform
 ) => {
   const rawElement = element as Record<string, unknown>;
   const placement = getExportPlacement(board, element);
   const frameRect =
     placement.mode === 'native-line' ? placement.rect : placement.rect;
+  const mappedFrameRect = transformRect(frameRect, transform);
 
   if (rawElement.type === 'image' && typeof rawElement.url === 'string') {
     const imageData = await applyImageEraseMask(
@@ -568,14 +643,14 @@ const addElementToSlide = async (
     );
     slide.addImage({
       data: imageData,
-      x: pxToInches(frameRect.x - bounds.x),
-      y: pxToInches(frameRect.y - bounds.y),
-      w: pxToInches(frameRect.width),
-      h: pxToInches(frameRect.height),
+      x: pxToInches(mappedFrameRect.x),
+      y: pxToInches(mappedFrameRect.y),
+      w: pxToInches(mappedFrameRect.width),
+      h: pxToInches(mappedFrameRect.height),
       sizing: {
         type: 'contain',
-        w: pxToInches(frameRect.width),
-        h: pxToInches(frameRect.height),
+        w: pxToInches(mappedFrameRect.width),
+        h: pxToInches(mappedFrameRect.height),
       },
       rotate: toNumber(rawElement.angle) || 0,
     });
@@ -590,13 +665,13 @@ const addElementToSlide = async (
         slide,
         element,
         getElementRenderedRectangle(board, element),
-        bounds
+        transform
       );
       return;
     }
     if (rawElement.shape === 'text') {
       if (text) {
-        addNativeText(slide, rawElement, frameRect, bounds, text);
+        addNativeText(slide, rawElement, frameRect, transform, text);
       }
       return;
     }
@@ -608,16 +683,16 @@ const addElementToSlide = async (
         slide,
         element,
         getElementRenderedRectangle(board, element),
-        bounds
+        transform
       );
       return;
     }
 
     slide.addShape(shapeType, {
-      x: pxToInches(frameRect.x - bounds.x),
-      y: pxToInches(frameRect.y - bounds.y),
-      w: pxToInches(frameRect.width),
-      h: pxToInches(frameRect.height),
+      x: pxToInches(mappedFrameRect.x),
+      y: pxToInches(mappedFrameRect.y),
+      w: pxToInches(mappedFrameRect.width),
+      h: pxToInches(mappedFrameRect.height),
       rotate: toNumber(rawElement.angle) || 0,
       fill: buildFillProps(
         rawElement.fill as string,
@@ -626,7 +701,8 @@ const addElementToSlide = async (
       line: buildLineProps(
         rawElement.strokeColor as string,
         toNumber(rawElement.strokeWidth),
-        toNumber(rawElement.opacity)
+        toNumber(rawElement.opacity),
+        transform.scale
       ),
       ...(shapeType === 'roundRect' &&
       typeof rawElement.radius === 'number' &&
@@ -654,7 +730,7 @@ const addElementToSlide = async (
           width: Math.max(1, frameRect.width - 8),
           height: Math.max(1, frameRect.height - 8),
         },
-        bounds,
+        transform,
         text
       );
     }
@@ -668,24 +744,27 @@ const addElementToSlide = async (
         slide,
         element,
         getElementRenderedRectangle(board, element),
-        bounds
+        transform
       );
       return;
     }
     const { start, end } = placement;
+    const mappedStart = transformPoint(start, transform);
+    const mappedEnd = transformPoint(end, transform);
     const strokeStyle =
       (rawElement.strokeStyle as string) || (rawElement.lineStyle as string);
     slide.addShape('line', {
-      x: pxToInches(Math.min(start[0], end[0]) - bounds.x),
-      y: pxToInches(Math.min(start[1], end[1]) - bounds.y),
-      w: pxToInches(Math.max(1, Math.abs(end[0] - start[0]))),
-      h: pxToInches(Math.max(1, Math.abs(end[1] - start[1]))),
-      flipH: start[0] > end[0],
-      flipV: start[1] > end[1],
+      x: pxToInches(Math.min(mappedStart[0], mappedEnd[0])),
+      y: pxToInches(Math.min(mappedStart[1], mappedEnd[1])),
+      w: pxToInches(Math.max(1, Math.abs(mappedEnd[0] - mappedStart[0]))),
+      h: pxToInches(Math.max(1, Math.abs(mappedEnd[1] - mappedStart[1]))),
+      flipH: mappedStart[0] > mappedEnd[0],
+      flipV: mappedStart[1] > mappedEnd[1],
       line: buildLineProps(
         rawElement.strokeColor as string,
         toNumber(rawElement.strokeWidth),
         toNumber(rawElement.opacity),
+        transform.scale,
         {
           dashType:
             strokeStyle === 'dashed'
@@ -716,7 +795,7 @@ const addElementToSlide = async (
     slide,
     element,
     getElementRenderedRectangle(board, element),
-    bounds
+    transform
   );
 };
 
@@ -783,11 +862,12 @@ export const saveAsPptx = async (
 ) => {
   const elements = getExportElements(board);
   const bounds = getSlideBounds(board, elements);
+  const slideTransform = getSlideTransform(bounds);
   const pptx = new pptxgen();
   pptx.defineLayout({
     name: 'DRAWNIX_EXPORT',
-    width: pxToInches(bounds.width),
-    height: pxToInches(bounds.height),
+    width: PPTX_SLIDE_WIDTH_IN,
+    height: PPTX_SLIDE_HEIGHT_IN,
   });
   pptx.layout = 'DRAWNIX_EXPORT';
   const slide = pptx.addSlide();
@@ -797,7 +877,7 @@ export const saveAsPptx = async (
   }
 
   for (const element of elements) {
-    await addElementToSlide(board, slide, element, bounds);
+    await addElementToSlide(board, slide, element, slideTransform);
   }
 
   const blob = await pptx.write({

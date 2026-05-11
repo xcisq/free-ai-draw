@@ -28,6 +28,7 @@ import { useI18n } from '../../i18n';
 import { SvgImportSummary } from '../../svg-import/convert-svg-to-drawnix';
 import { importBundlePackage } from '../../scene-import/import-bundle-package';
 import { scaleTextMetricBag } from './autodraw-text-scale';
+import { focusViewportOnElements } from '../../utils/viewport-fit';
 import { AutodrawActivityPanel } from './autodraw-activity-panel';
 import {
   AutodrawReferenceDirectoryHandle,
@@ -257,8 +258,6 @@ const initialAssemblyProgress: AssemblyProgress = {
 };
 
 const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, '');
-const IMPORT_MAX_VIEWPORT_WIDTH_RATIO = 2.4;
-const IMPORT_MAX_VIEWPORT_HEIGHT_RATIO = 2.2;
 
 const createRealtimeProbeArtifact = (
   jobId: string,
@@ -492,105 +491,6 @@ const scaleTextLeafMetrics = (
     );
   }
   return next;
-};
-
-const scaleImportedElements = (
-  elements: PlaitElement[],
-  boardContainerRect: DOMRect,
-  zoom: number
-) => {
-  if (!elements.length) {
-    return elements;
-  }
-
-  const elementRectangle = getElementRectangle(elements);
-  if (!elementRectangle.width || !elementRectangle.height) {
-    return elements;
-  }
-
-  const maxWidth =
-    (boardContainerRect.width / zoom) * IMPORT_MAX_VIEWPORT_WIDTH_RATIO;
-  const maxHeight =
-    (boardContainerRect.height / zoom) * IMPORT_MAX_VIEWPORT_HEIGHT_RATIO;
-  const scale = Math.min(
-    1,
-    maxWidth / elementRectangle.width,
-    maxHeight / elementRectangle.height
-  );
-  if (scale >= 0.999) {
-    return elements;
-  }
-
-  const anchor: Point = [elementRectangle.x, elementRectangle.y];
-  const scalePoint = ([x, y]: Point): Point => [
-    anchor[0] + (x - anchor[0]) * scale,
-    anchor[1] + (y - anchor[1]) * scale,
-  ];
-  const scaleStyleMetric = (value: unknown) => {
-    if (typeof value === 'number') {
-      return roundScaleValue(value * scale);
-    }
-    if (typeof value === 'string') {
-      const parsed = Number.parseFloat(value);
-      return Number.isFinite(parsed)
-        ? String(roundScaleValue(parsed * scale))
-        : value;
-    }
-    return value;
-  };
-
-  const nextElements = JSON.parse(JSON.stringify(elements)) as PlaitElement[];
-  const visit = (element: PlaitElement) => {
-    const mutableElement = element as unknown as Record<string, unknown> & {
-      points?: Point[];
-      children?: PlaitElement[];
-    };
-    if (Array.isArray(element.points)) {
-      element.points = element.points.map((point) =>
-        scalePoint(point as Point)
-      );
-    }
-    if (typeof mutableElement.strokeWidth === 'number') {
-      mutableElement.strokeWidth = roundScaleValue(
-        (mutableElement.strokeWidth as number) * scale
-      );
-    }
-    if (typeof mutableElement.radius === 'number') {
-      mutableElement.radius = roundScaleValue(
-        (mutableElement.radius as number) * scale
-      );
-    }
-    if (
-      mutableElement.textStyle &&
-      typeof mutableElement.textStyle === 'object'
-    ) {
-      mutableElement.textStyle = scaleTextMetricBag(
-        mutableElement.textStyle,
-        scaleStyleMetric
-      );
-    }
-    if (
-      mutableElement.textProperties &&
-      typeof mutableElement.textProperties === 'object'
-    ) {
-      mutableElement.textProperties = scaleTextMetricBag(
-        mutableElement.textProperties,
-        scaleStyleMetric
-      );
-    }
-    if (mutableElement.text) {
-      mutableElement.text = scaleTextLeafMetrics(
-        mutableElement.text,
-        scaleStyleMetric
-      );
-    }
-    if (Array.isArray(element.children)) {
-      element.children.forEach((child) => visit(child));
-    }
-  };
-
-  nextElements.forEach((element) => visit(element));
-  return nextElements;
 };
 
 const AutodrawDialog = () => {
@@ -1150,9 +1050,12 @@ const AutodrawDialog = () => {
       assetItems.find(
         (asset) =>
           asset.previewable &&
-          ['figure', 'final_svg', 'optimized_template_svg', 'template_svg'].includes(
-            asset.kind
-          )
+          [
+            'figure',
+            'final_svg',
+            'optimized_template_svg',
+            'template_svg',
+          ].includes(asset.kind)
       ) || spotlightAsset
     );
   }, [assetItems, isJobBusy, spotlightAsset]);
@@ -1534,7 +1437,7 @@ const AutodrawDialog = () => {
 
   const insertElementsWithAssembly = async (elements: PlaitElement[]) => {
     if (!elements.length) {
-      return [];
+      return { ids: [], insertedElements: [] as PlaitElement[] };
     }
 
     const reducedMotion =
@@ -1550,12 +1453,16 @@ const AutodrawDialog = () => {
         completedBatches: 1,
         insertedCount: elements.length,
       });
-      return insertedBatch.ids;
+      return {
+        ids: insertedBatch.ids,
+        insertedElements: insertedBatch.insertedElements,
+      };
     }
 
     const batches = buildAssemblyBatches(elements);
     const runId = ++assemblyRunIdRef.current;
     const insertedIds: string[] = [];
+    const insertedElements: PlaitElement[] = [];
 
     setAssemblyProgress({
       active: true,
@@ -1568,10 +1475,11 @@ const AutodrawDialog = () => {
 
     for (let index = 0; index < batches.length; index += 1) {
       if (runId !== assemblyRunIdRef.current) {
-        return insertedIds;
+        return { ids: insertedIds, insertedElements };
       }
       const insertedBatch = insertElementsAtPoint(batches[index], startPoint);
       insertedIds.push(...insertedBatch.ids);
+      insertedElements.push(...insertedBatch.insertedElements);
       playBoardBatchEnterAnimation(insertedBatch.insertedElements, index);
       setAssemblyProgress({
         active: index < batches.length - 1,
@@ -1587,10 +1495,10 @@ const AutodrawDialog = () => {
     }
 
     if (runId !== assemblyRunIdRef.current) {
-      return insertedIds;
+      return { ids: insertedIds, insertedElements };
     }
 
-    return insertedIds;
+    return { ids: insertedIds, insertedElements };
   };
 
   const importBundle = async (
@@ -1686,17 +1594,16 @@ const AutodrawDialog = () => {
         `[scene-import] fallback to svg-import: ${result.fallbackReason}`,
       ]);
     }
-    const { boardContainerRect } = getImportPlacement(result.elements);
-    const normalizedElements = scaleImportedElements(
-      result.elements,
-      boardContainerRect,
-      board.viewport.zoom
-    );
-
+    const normalizedElements = result.elements;
     setPreviewElements(normalizedElements);
     setSummary(result.summary);
-    const insertedElementIds = await insertElementsWithAssembly(
-      normalizedElements
+    const insertResult = await insertElementsWithAssembly(normalizedElements);
+    const insertedElementIds = insertResult.ids;
+    focusViewportOnElements(
+      board,
+      insertResult.insertedElements.length
+        ? insertResult.insertedElements
+        : normalizedElements
     );
     clearSelectedElement(board);
     setLastImportedElementIds(
@@ -3078,8 +2985,7 @@ const AutodrawDialog = () => {
                     disabled={isDirectSvgSourceMode || isJobBusy}
                     aria-pressed={removeBackground}
                     className={classNames('autodraw-mode-switch__button', {
-                      'autodraw-mode-switch__button--active':
-                        removeBackground,
+                      'autodraw-mode-switch__button--active': removeBackground,
                     })}
                   >
                     {t('dialog.autodraw.backgroundRemovalOn')}
@@ -3090,8 +2996,7 @@ const AutodrawDialog = () => {
                     disabled={isDirectSvgSourceMode || isJobBusy}
                     aria-pressed={!removeBackground}
                     className={classNames('autodraw-mode-switch__button', {
-                      'autodraw-mode-switch__button--active':
-                        !removeBackground,
+                      'autodraw-mode-switch__button--active': !removeBackground,
                     })}
                   >
                     {t('dialog.autodraw.backgroundRemovalOff')}
@@ -3101,8 +3006,8 @@ const AutodrawDialog = () => {
                   {isDirectSvgSourceMode
                     ? t('dialog.autodraw.backgroundRemovalHintDirectSvg')
                     : removeBackground
-                      ? t('dialog.autodraw.backgroundRemovalHint')
-                      : t('dialog.autodraw.backgroundRemovalHintSkip')}
+                    ? t('dialog.autodraw.backgroundRemovalHint')
+                    : t('dialog.autodraw.backgroundRemovalHintSkip')}
                 </p>
               </div>
 
@@ -3691,7 +3596,8 @@ const AutodrawDialog = () => {
                             className={classNames(
                               'autodraw-output-canvas__image',
                               {
-                                'autodraw-output-canvas__image--busy': isJobBusy,
+                                'autodraw-output-canvas__image--busy':
+                                  isJobBusy,
                               }
                             )}
                           />

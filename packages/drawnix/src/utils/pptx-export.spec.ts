@@ -14,6 +14,41 @@ const mockAddShape = jest.fn();
 const mockAddText = jest.fn();
 const mockAddImage = jest.fn();
 
+const PX_PER_INCH = 96;
+const PPTX_SLIDE_WIDTH_IN = 13.333333;
+const PPTX_SLIDE_HEIGHT_IN = 7.5;
+const PPTX_SLIDE_WIDTH_PX = PPTX_SLIDE_WIDTH_IN * PX_PER_INCH;
+const PPTX_SLIDE_HEIGHT_PX = PPTX_SLIDE_HEIGHT_IN * PX_PER_INCH;
+const PPTX_SAFE_MARGIN_PX = 48;
+
+const pxToInches = (value: number) => value / PX_PER_INCH;
+
+const expectStandardLayout = () => {
+  expect(mockDefineLayout).toHaveBeenCalledWith({
+    name: 'DRAWNIX_EXPORT',
+    width: PPTX_SLIDE_WIDTH_IN,
+    height: PPTX_SLIDE_HEIGHT_IN,
+  });
+};
+
+const getExportTransform = (bounds: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}) => {
+  const scale = Math.min(
+    1,
+    (PPTX_SLIDE_WIDTH_PX - PPTX_SAFE_MARGIN_PX * 2) / bounds.width,
+    (PPTX_SLIDE_HEIGHT_PX - PPTX_SAFE_MARGIN_PX * 2) / bounds.height
+  );
+  return {
+    scale,
+    x: (PPTX_SLIDE_WIDTH_PX - bounds.width * scale) / 2,
+    y: (PPTX_SLIDE_HEIGHT_PX - bounds.height * scale) / 2,
+  };
+};
+
 jest.mock('@plait/core', () => ({
   getSelectedElements: (...args: unknown[]) => mockGetSelectedElements(...args),
   getRectangleByElements: (...args: unknown[]) =>
@@ -143,17 +178,19 @@ describe('saveAsPptx', () => {
 
     await saveAsPptx(board, 'demo');
 
-    expect(mockDefineLayout).toHaveBeenCalledWith({
-      name: 'DRAWNIX_EXPORT',
-      width: 2,
-      height: 0.5,
+    const transform = getExportTransform({
+      x: 0,
+      y: 0,
+      width: 192,
+      height: 48,
     });
+    expectStandardLayout();
     expect(slide.background).toEqual({ color: 'F7F8FB' });
     expect(mockAddShape).toHaveBeenCalledWith(
       'rect',
       expect.objectContaining({
-        x: 0,
-        y: 0,
+        x: pxToInches(transform.x),
+        y: pxToInches(transform.y),
         w: 1,
         h: 0.5,
       })
@@ -161,8 +198,8 @@ describe('saveAsPptx', () => {
     expect(mockAddText).toHaveBeenCalledWith(
       '标题',
       expect.objectContaining({
-        x: 1,
-        y: 0,
+        x: pxToInches(transform.x + 96),
+        y: pxToInches(transform.y),
         w: 1,
         h: 0.5,
         fontFace: 'Arial',
@@ -215,8 +252,12 @@ describe('saveAsPptx', () => {
     });
     expect(mockAddImage).toHaveBeenCalledWith(
       expect.objectContaining({
-        x: 0,
-        y: 0,
+        x: pxToInches(
+          getExportTransform({ x: -10, y: 0, width: 90, height: 70 }).x
+        ),
+        y: pxToInches(
+          getExportTransform({ x: -10, y: 0, width: 90, height: 70 }).y
+        ),
         w: 90 / 96,
         h: 70 / 96,
       })
@@ -251,16 +292,18 @@ describe('saveAsPptx', () => {
 
     await saveAsPptx(board, 'rotated');
 
-    expect(mockDefineLayout).toHaveBeenCalledWith({
-      name: 'DRAWNIX_EXPORT',
-      width: 180 / 96,
-      height: 120 / 96,
+    const transform = getExportTransform({
+      x: 80,
+      y: 100,
+      width: 180,
+      height: 120,
     });
+    expectStandardLayout();
     expect(mockAddShape).toHaveBeenCalledWith(
       'rect',
       expect.objectContaining({
-        x: 20 / 96,
-        y: 20 / 96,
+        x: pxToInches(transform.x + 20),
+        y: pxToInches(transform.y + 20),
         w: 120 / 96,
         h: 60 / 96,
         rotate: 30,
@@ -308,24 +351,26 @@ describe('saveAsPptx', () => {
 
     await saveAsPptx(board, 'native-image-bounds');
 
-    expect(mockDefineLayout).toHaveBeenCalledWith({
-      name: 'DRAWNIX_EXPORT',
-      width: 255 / 96,
-      height: 95 / 96,
+    const transform = getExportTransform({
+      x: 100,
+      y: 85,
+      width: 255,
+      height: 95,
     });
+    expectStandardLayout();
     expect(mockAddShape).toHaveBeenCalledWith(
       'rect',
       expect.objectContaining({
-        x: 0,
-        y: 15 / 96,
+        x: pxToInches(transform.x),
+        y: pxToInches(transform.y + 15),
         w: 120 / 96,
         h: 80 / 96,
       })
     );
     expect(mockAddImage).toHaveBeenCalledWith(
       expect.objectContaining({
-        x: 200 / 96,
-        y: 15 / 96,
+        x: pxToInches(transform.x + 200),
+        y: pxToInches(transform.y + 15),
         w: 40 / 96,
         h: 40 / 96,
         sizing: {
@@ -379,10 +424,63 @@ describe('saveAsPptx', () => {
     expect(mockAddText).not.toHaveBeenCalled();
     expect(mockAddImage).toHaveBeenCalledWith(
       expect.objectContaining({
-        x: 0,
-        y: 0,
+        x: pxToInches(
+          getExportTransform({ x: 20, y: 40, width: 180, height: 80 }).x
+        ),
+        y: pxToInches(
+          getExportTransform({ x: 20, y: 40, width: 180, height: 80 }).y
+        ),
         w: 180 / 96,
         h: 80 / 96,
+      })
+    );
+  });
+
+  it('scales oversized board content into a standard widescreen pptx slide', async () => {
+    const oversizedRectangle = {
+      id: 'large-1',
+      type: 'geometry',
+      shape: 'rectangle',
+      points: [
+        [0, 0],
+        [4000, 2000],
+      ],
+      fill: '#FFFFFF',
+      strokeColor: '#111111',
+      strokeWidth: 4,
+      text: '',
+    };
+    const board = {
+      children: [oversizedRectangle],
+    } as any;
+
+    mockGetRectangleByElements.mockImplementation(() => ({
+      x: 0,
+      y: 0,
+      width: 4000,
+      height: 2000,
+    }));
+
+    await saveAsPptx(board, 'oversized');
+
+    const transform = getExportTransform({
+      x: 0,
+      y: 0,
+      width: 4000,
+      height: 2000,
+    });
+    expect(transform.scale).toBeLessThan(1);
+    expectStandardLayout();
+    expect(mockAddShape).toHaveBeenCalledWith(
+      'rect',
+      expect.objectContaining({
+        x: pxToInches(transform.x),
+        y: pxToInches(transform.y),
+        w: pxToInches(4000 * transform.scale),
+        h: pxToInches(2000 * transform.scale),
+        line: expect.objectContaining({
+          width: 1,
+        }),
       })
     );
   });
@@ -422,8 +520,12 @@ describe('saveAsPptx', () => {
     expect(mockAddImage).toHaveBeenCalledWith(
       expect.objectContaining({
         data: 'data:image/png;base64,masked',
-        x: 0,
-        y: 0,
+        x: pxToInches(
+          getExportTransform({ x: 0, y: 0, width: 96, height: 96 }).x
+        ),
+        y: pxToInches(
+          getExportTransform({ x: 0, y: 0, width: 96, height: 96 }).y
+        ),
         w: 1,
         h: 1,
       })

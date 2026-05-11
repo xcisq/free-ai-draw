@@ -24,6 +24,7 @@ const mockClearStoredReferenceDirectory = jest.fn(async () => undefined);
 const mockInsertFragment = jest.fn();
 const mockClearSelectedElement = jest.fn();
 const mockSetAppState = jest.fn();
+const mockUpdateViewport = jest.fn();
 const mockBoardContainer = {
   getBoundingClientRect: () => ({
     width: 1200,
@@ -188,6 +189,9 @@ jest.mock('@plait-board/react-board', () => ({
 }));
 
 jest.mock('@plait/core', () => ({
+  BoardTransforms: {
+    updateViewport: (...args: unknown[]) => mockUpdateViewport(...args),
+  },
   clearSelectedElement: (board: unknown) => mockClearSelectedElement(board),
   getViewportOrigination: () => [0, 0],
   PlaitBoard: {
@@ -309,6 +313,7 @@ describe('AutodrawDialog import semantics', () => {
     mockInsertFragment.mockReset();
     mockClearSelectedElement.mockReset();
     mockSetAppState.mockReset();
+    mockUpdateViewport.mockReset();
     importBundlePackageMock.mockReset();
     clipboardWriteText.mockReset();
     mockFetch.mockReset();
@@ -1149,7 +1154,8 @@ describe('AutodrawDialog import semantics', () => {
                 path: 'figure.png',
                 kind: 'figure',
                 size_bytes: 320,
-                download_url: '/api/jobs/job-running-preview/artifacts/figure.png',
+                download_url:
+                  '/api/jobs/job-running-preview/artifacts/figure.png',
               },
               {
                 name: 'icon_AF01_nobg.png',
