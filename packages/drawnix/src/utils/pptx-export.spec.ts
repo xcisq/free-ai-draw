@@ -5,6 +5,7 @@ const mockGetRectangleByElements = jest.fn();
 const mockFileSave = jest.fn();
 const mockExportBoardToRasterBlob = jest.fn();
 const mockGetBackgroundColor = jest.fn();
+const mockApplyImageEraseMask = jest.fn();
 
 const mockAddSlide = jest.fn();
 const mockDefineLayout = jest.fn();
@@ -14,8 +15,7 @@ const mockAddText = jest.fn();
 const mockAddImage = jest.fn();
 
 jest.mock('@plait/core', () => ({
-  getSelectedElements: (...args: unknown[]) =>
-    mockGetSelectedElements(...args),
+  getSelectedElements: (...args: unknown[]) => mockGetSelectedElements(...args),
   getRectangleByElements: (...args: unknown[]) =>
     mockGetRectangleByElements(...args),
 }));
@@ -31,6 +31,10 @@ jest.mock('./common', () => ({
 
 jest.mock('./color', () => ({
   getBackgroundColor: (...args: unknown[]) => mockGetBackgroundColor(...args),
+}));
+
+jest.mock('./image-erase', () => ({
+  applyImageEraseMask: (...args: unknown[]) => mockApplyImageEraseMask(...args),
 }));
 
 jest.mock('pptxgenjs', () => {
@@ -56,6 +60,7 @@ describe('saveAsPptx', () => {
     mockFileSave.mockReset();
     mockExportBoardToRasterBlob.mockReset();
     mockGetBackgroundColor.mockReset();
+    mockApplyImageEraseMask.mockReset();
     mockAddSlide.mockReset();
     mockDefineLayout.mockReset();
     mockWrite.mockReset();
@@ -72,6 +77,9 @@ describe('saveAsPptx', () => {
     mockFileSave.mockResolvedValue({ fileHandle: null });
     mockGetSelectedElements.mockReturnValue([]);
     mockGetBackgroundColor.mockReturnValue('#F7F8FB');
+    mockApplyImageEraseMask.mockImplementation((sourceUrl) =>
+      Promise.resolve(sourceUrl)
+    );
     mockExportBoardToRasterBlob.mockResolvedValue(
       new Blob(['png'], { type: 'image/png' })
     );
@@ -215,7 +223,7 @@ describe('saveAsPptx', () => {
     );
   });
 
-  it('uses the raw element frame for rotated geometry placement while keeping rendered bounds for slide size', async () => {
+  it('uses rendered bounds as slide origin while placing rotated geometry by its raw frame', async () => {
     const rotated = {
       id: 'rotated-1',
       type: 'geometry',
@@ -245,14 +253,14 @@ describe('saveAsPptx', () => {
 
     expect(mockDefineLayout).toHaveBeenCalledWith({
       name: 'DRAWNIX_EXPORT',
-      width: 120 / 96,
-      height: 60 / 96,
+      width: 180 / 96,
+      height: 120 / 96,
     });
     expect(mockAddShape).toHaveBeenCalledWith(
       'rect',
       expect.objectContaining({
-        x: 0,
-        y: 0,
+        x: 20 / 96,
+        y: 20 / 96,
         w: 120 / 96,
         h: 60 / 96,
         rotate: 30,
@@ -260,7 +268,7 @@ describe('saveAsPptx', () => {
     );
   });
 
-  it('does not let a rotated native image enlarge slide bounds and shift unrelated elements', async () => {
+  it('preserves visual relative positions when native images have rotated rendered bounds', async () => {
     const rectangle = {
       id: 'shape-1',
       type: 'geometry',
@@ -295,21 +303,21 @@ describe('saveAsPptx', () => {
       if (elements.length === 1 && elements[0].id === 'pin-1') {
         return { x: 285, y: 85, width: 70, height: 70 };
       }
-      return { x: 90, y: 90, width: 265, height: 90 };
+      return { x: 100, y: 85, width: 255, height: 95 };
     });
 
     await saveAsPptx(board, 'native-image-bounds');
 
     expect(mockDefineLayout).toHaveBeenCalledWith({
       name: 'DRAWNIX_EXPORT',
-      width: 240 / 96,
-      height: 80 / 96,
+      width: 255 / 96,
+      height: 95 / 96,
     });
     expect(mockAddShape).toHaveBeenCalledWith(
       'rect',
       expect.objectContaining({
         x: 0,
-        y: 0,
+        y: 15 / 96,
         w: 120 / 96,
         h: 80 / 96,
       })
@@ -317,7 +325,7 @@ describe('saveAsPptx', () => {
     expect(mockAddImage).toHaveBeenCalledWith(
       expect.objectContaining({
         x: 200 / 96,
-        y: 0,
+        y: 15 / 96,
         w: 40 / 96,
         h: 40 / 96,
         sizing: {
@@ -326,6 +334,98 @@ describe('saveAsPptx', () => {
           h: 40 / 96,
         },
         rotate: 35,
+      })
+    );
+  });
+
+  it('rasterizes text-bearing geometry as one image to avoid PPT text metric drift', async () => {
+    const labeledRectangle = {
+      id: 'label-1',
+      type: 'geometry',
+      shape: 'rectangle',
+      points: [
+        [40, 60],
+        [180, 100],
+      ],
+      fill: '#FFFFFF',
+      strokeColor: '#111111',
+      strokeWidth: 1,
+      text: {
+        type: 'paragraph',
+        children: [{ text: 'Prompt\nOptimization' }],
+      },
+      textProperties: {
+        'font-size': '12',
+      },
+    };
+    const board = {
+      children: [labeledRectangle],
+    } as any;
+
+    mockGetRectangleByElements.mockImplementation((_board, elements) => {
+      if (elements.length === 1 && elements[0].id === 'label-1') {
+        return { x: 40, y: 60, width: 140, height: 40 };
+      }
+      return { x: 40, y: 60, width: 140, height: 40 };
+    });
+
+    await saveAsPptx(board, 'text-shape');
+
+    expect(mockExportBoardToRasterBlob).toHaveBeenCalledWith(board, {
+      elements: [labeledRectangle],
+      fillStyle: 'transparent',
+    });
+    expect(mockAddShape).not.toHaveBeenCalled();
+    expect(mockAddText).not.toHaveBeenCalled();
+    expect(mockAddImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        x: 0,
+        y: 0,
+        w: 180 / 96,
+        h: 80 / 96,
+      })
+    );
+  });
+
+  it('exports erased images with the composited erase mask result', async () => {
+    const erasedImage = {
+      id: 'image-1',
+      type: 'image',
+      url: 'data:image/png;base64,original',
+      points: [
+        [0, 0],
+        [96, 96],
+      ],
+      eraseMask: {
+        version: 1,
+        strokes: [{ points: [[0.5, 0.5]], radius: 0.1 }],
+      },
+    };
+    const board = {
+      children: [erasedImage],
+    } as any;
+
+    mockApplyImageEraseMask.mockResolvedValue('data:image/png;base64,masked');
+    mockGetRectangleByElements.mockImplementation(() => ({
+      x: 0,
+      y: 0,
+      width: 96,
+      height: 96,
+    }));
+
+    await saveAsPptx(board, 'erased-image');
+
+    expect(mockApplyImageEraseMask).toHaveBeenCalledWith(
+      'data:image/png;base64,original',
+      erasedImage.eraseMask
+    );
+    expect(mockAddImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: 'data:image/png;base64,masked',
+        x: 0,
+        y: 0,
+        w: 1,
+        h: 1,
       })
     );
   });

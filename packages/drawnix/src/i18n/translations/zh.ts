@@ -242,7 +242,8 @@ const zhTranslations: Translations = {
   'dialog.autodraw.clearHistory': '清空历史',
   'dialog.autodraw.deleteHistoryEntry': '删除这条',
   'dialog.autodraw.deleteHistoryPrompt': '确认删除这条历史记录？',
-  'dialog.autodraw.deleteHistoryHint': '只会移除本地历史，不会删除后端任务或画板内容。',
+  'dialog.autodraw.deleteHistoryHint':
+    '只会移除本地历史，不会删除后端任务或画板内容。',
   'dialog.autodraw.importMonitor': '导入监视器',
   'dialog.autodraw.returnWorkbench': '展开工作台',
   'dialog.autodraw.importWatchingHint':
@@ -318,15 +319,17 @@ const zhTranslations: Translations = {
   // Icon library
   'iconLibrary.upload': '上传素材',
   'iconLibrary.uploading': '上传中...',
-  'iconLibrary.empty': '上传 SVG、PNG、JPG 或 WebP 素材，建立自己的常用库。',
+  'iconLibrary.empty':
+    '上传 SVG、PNG、JPG、WebP 或 Drawnix 素材，建立自己的常用库。',
   'iconLibrary.hint':
-    '双击素材可插入到画板；如果当前已选中节点，则会直接替换为该素材。',
+    '双击图片素材可插入或替换节点；Drawnix 素材会作为片段插入画板。',
   'iconLibrary.remove': '删除素材',
   'assetLibrary.search': '搜索素材...',
   'assetLibrary.filter': '筛选素材',
   'assetLibrary.filter.all': '全部',
   'assetLibrary.filter.image': '图片',
   'assetLibrary.filter.svg': 'SVG',
+  'assetLibrary.filter.drawnix': 'Drawnix',
   'assetLibrary.filter.favorite': '收藏',
   'assetLibrary.sort': '排序',
   'assetLibrary.sort.recent': '最近使用',
@@ -337,8 +340,13 @@ const zhTranslations: Translations = {
   'assetLibrary.dropHint': '拖拽文件到此处上传',
   'assetLibrary.emptyAction': '上传素材',
   'assetLibrary.noResults': '没有匹配的素材',
-  'assetLibrary.unsupported': '没有可用素材，请上传 SVG、PNG、JPG 或 WebP。',
+  'assetLibrary.unsupported':
+    '没有可用素材，请上传 SVG、PNG、JPG、WebP 或 .drawnix。',
   'assetLibrary.uploadFailed': '上传失败，请检查文件格式和大小。',
+  'assetLibrary.saveSelection': '保存选区',
+  'assetLibrary.savingSelection': '保存中...',
+  'assetLibrary.saveSelectionFailed': '保存失败，请先选中画板元素。',
+  'assetLibrary.insertFailed': '插入失败，请检查素材内容。',
   'assetLibrary.type': '类型',
   'assetLibrary.source': '来源',
   'assetLibrary.source.local': '本地上传',
@@ -346,6 +354,7 @@ const zhTranslations: Translations = {
   'assetLibrary.source.built-in': '内置',
   'assetLibrary.createdAt': '创建时间',
   'assetLibrary.size': '文件大小',
+  'assetLibrary.elements': '元素数',
   'assetLibrary.insert': '插入',
   'assetLibrary.setSubject': '设为主体',
   'assetLibrary.subjectSet': '已设为主体',
@@ -415,7 +424,8 @@ const zhTranslations: Translations = {
   'dialog.imageEdit.description':
     '基于当前选中的图片提交 AI 改图任务，成功后会直接替换画布里的原图。',
   'dialog.imageEdit.prompt': '编辑提示词',
-  'dialog.imageEdit.promptPlaceholder': '例如：把背景改成浅色科技感风格，并增强主体边缘细节',
+  'dialog.imageEdit.promptPlaceholder':
+    '例如：把背景改成浅色科技感风格，并增强主体边缘细节',
   'dialog.imageEdit.sourceImage': '当前图片',
   'dialog.imageEdit.backendUrl': '后端地址',
   'dialog.imageEdit.provider': 'Provider',
@@ -427,7 +437,8 @@ const zhTranslations: Translations = {
     '适合白底或杂色底图。开启后会在生图完成后再做一次抠图处理。',
   'dialog.imageEdit.generate': '开始编辑',
   'dialog.imageEdit.close': '关闭',
-  'dialog.imageEdit.targetMissing': '没有找到可编辑的图片，请重新选中目标图片后再试。',
+  'dialog.imageEdit.targetMissing':
+    '没有找到可编辑的图片，请重新选中目标图片后再试。',
   'dialog.imageEdit.overlayLabel': '正在编辑',
   'dialog.imageEdit.status.idle': '待开始',
   'dialog.imageEdit.status.submitting': '提交中',
@@ -436,7 +447,8 @@ const zhTranslations: Translations = {
   'dialog.imageEdit.status.failed': '失败',
   'dialog.imageEdit.error.noPrompt': '请先输入图片编辑提示词',
   'dialog.imageEdit.error.noTarget': '当前没有可编辑的目标图片',
-  'dialog.imageEdit.error.exportFailed': '当前图片无法读取，请先重新导入图片后再试',
+  'dialog.imageEdit.error.exportFailed':
+    '当前图片无法读取，请先重新导入图片后再试',
   'dialog.imageEdit.error.submitFailed': '图片编辑任务提交失败',
   'dialog.imageEdit.error.jobFailed': '图片编辑任务执行失败',
   'dialog.imageEdit.error.noResult': '任务完成了，但没有返回可替换的图片结果',

@@ -305,6 +305,7 @@ export interface Translations {
   'assetLibrary.filter.all': string;
   'assetLibrary.filter.image': string;
   'assetLibrary.filter.svg': string;
+  'assetLibrary.filter.drawnix': string;
   'assetLibrary.filter.favorite': string;
   'assetLibrary.sort': string;
   'assetLibrary.sort.recent': string;
@@ -317,6 +318,10 @@ export interface Translations {
   'assetLibrary.noResults': string;
   'assetLibrary.unsupported': string;
   'assetLibrary.uploadFailed': string;
+  'assetLibrary.saveSelection': string;
+  'assetLibrary.savingSelection': string;
+  'assetLibrary.saveSelectionFailed': string;
+  'assetLibrary.insertFailed': string;
   'assetLibrary.type': string;
   'assetLibrary.source': string;
   'assetLibrary.source.local': string;
@@ -324,6 +329,7 @@ export interface Translations {
   'assetLibrary.source.built-in': string;
   'assetLibrary.createdAt': string;
   'assetLibrary.size': string;
+  'assetLibrary.elements': string;
   'assetLibrary.insert': string;
   'assetLibrary.setSubject': string;
   'assetLibrary.subjectSet': string;

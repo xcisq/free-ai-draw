@@ -158,7 +158,7 @@ const enTranslations: Translations = {
   'dialog.autodraw.referenceImage': 'Reference Style Image',
   'dialog.autodraw.sourceFigure': 'Source Figure',
   'dialog.autodraw.sourceFigureHint':
-    'Supported: png, jpg, jpeg, webp. The upload is normalized into this job\'s `figure.png` and then follows the route you choose below.',
+    "Supported: png, jpg, jpeg, webp. The upload is normalized into this job's `figure.png` and then follows the route you choose below.",
   'dialog.autodraw.sourceRunMode': 'Upload Route',
   'dialog.autodraw.sourceRunSegmented': 'Full Parsing',
   'dialog.autodraw.sourceRunDirectSvg': 'Direct SVG Rebuild',
@@ -287,8 +287,7 @@ const enTranslations: Translations = {
   'dialog.autodraw.status.cancelled': 'Terminated',
   'dialog.autodraw.status.failed': 'Failed',
   'dialog.autodraw.error.noMethodText': 'Please enter method text first',
-  'dialog.autodraw.error.noSourceFigure':
-    'Please upload a source figure first',
+  'dialog.autodraw.error.noSourceFigure': 'Please upload a source figure first',
   'dialog.autodraw.error.submitFailed': 'Failed to submit job',
   'dialog.autodraw.error.cancelFailed': 'Failed to terminate job',
   'dialog.autodraw.error.jobFailed': 'Job failed',
@@ -326,15 +325,17 @@ const enTranslations: Translations = {
   // Icon library
   'iconLibrary.upload': 'Upload Assets',
   'iconLibrary.uploading': 'Uploading...',
-  'iconLibrary.empty': 'Upload SVG, PNG, JPG, or WebP assets to build your library.',
+  'iconLibrary.empty':
+    'Upload SVG, PNG, JPG, WebP, or Drawnix assets to build your library.',
   'iconLibrary.hint':
-    'Double-click an asset to insert it onto the board. If a node is selected, it will be replaced directly.',
+    'Double-click image assets to insert or replace nodes. Drawnix assets are inserted as board fragments.',
   'iconLibrary.remove': 'Remove asset',
   'assetLibrary.search': 'Search assets...',
   'assetLibrary.filter': 'Filter assets',
   'assetLibrary.filter.all': 'All',
   'assetLibrary.filter.image': 'Images',
   'assetLibrary.filter.svg': 'SVG',
+  'assetLibrary.filter.drawnix': 'Drawnix',
   'assetLibrary.filter.favorite': 'Favorites',
   'assetLibrary.sort': 'Sort',
   'assetLibrary.sort.recent': 'Recent',
@@ -345,8 +346,13 @@ const enTranslations: Translations = {
   'assetLibrary.dropHint': 'Drop files here to upload',
   'assetLibrary.emptyAction': 'Upload assets',
   'assetLibrary.noResults': 'No matching assets',
-  'assetLibrary.unsupported': 'Upload SVG, PNG, JPG, or WebP assets.',
+  'assetLibrary.unsupported': 'Upload SVG, PNG, JPG, WebP, or .drawnix assets.',
   'assetLibrary.uploadFailed': 'Upload failed. Check file type and size.',
+  'assetLibrary.saveSelection': 'Save Selection',
+  'assetLibrary.savingSelection': 'Saving...',
+  'assetLibrary.saveSelectionFailed':
+    'Save failed. Select board elements first.',
+  'assetLibrary.insertFailed': 'Insert failed. Check asset contents.',
   'assetLibrary.type': 'Type',
   'assetLibrary.source': 'Source',
   'assetLibrary.source.local': 'Local upload',
@@ -354,6 +360,7 @@ const enTranslations: Translations = {
   'assetLibrary.source.built-in': 'Built-in',
   'assetLibrary.createdAt': 'Created',
   'assetLibrary.size': 'File size',
+  'assetLibrary.elements': 'Elements',
   'assetLibrary.insert': 'Insert',
   'assetLibrary.setSubject': 'Set as subject',
   'assetLibrary.subjectSet': 'Subject set',
@@ -445,7 +452,8 @@ const enTranslations: Translations = {
   'dialog.imageEdit.status.succeeded': 'Succeeded',
   'dialog.imageEdit.status.failed': 'Failed',
   'dialog.imageEdit.error.noPrompt': 'Please enter an image edit prompt first',
-  'dialog.imageEdit.error.noTarget': 'There is no editable target image right now',
+  'dialog.imageEdit.error.noTarget':
+    'There is no editable target image right now',
   'dialog.imageEdit.error.exportFailed':
     'The current image could not be read. Please re-import it and try again.',
   'dialog.imageEdit.error.submitFailed': 'Failed to submit the image edit job',
