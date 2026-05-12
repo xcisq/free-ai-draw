@@ -1700,7 +1700,7 @@ describe('importPptxPackage', () => {
     expect(text.textProperties.opacity).toBe('0.5');
   });
 
-  it('preserves multi-run text colors as a visual text fragment', async () => {
+  it('imports multi-run text as native editable text instead of an image fragment', async () => {
     const file = buildPptxFile(
       `<?xml version="1.0" encoding="UTF-8"?>
       <p:sld
@@ -1719,8 +1719,13 @@ describe('importPptxPackage', () => {
                   <a:t>Red</a:t>
                 </a:r>
                 <a:r>
-                  <a:rPr sz="1800" b="1"><a:solidFill><a:srgbClr val="00B050"/></a:solidFill><a:latin typeface="Aptos"/></a:rPr>
+                  <a:rPr sz="1800" b="1"><a:solidFill><a:srgbClr val="00B050"/></a:solidFill><a:latin typeface="Aptos Narrow"/></a:rPr>
                   <a:t> Green</a:t>
+                </a:r>
+                <a:br/>
+                <a:r>
+                  <a:rPr sz="1800"><a:solidFill><a:srgbClr val="0070C0"/></a:solidFill><a:latin typeface="Aptos"/></a:rPr>
+                  <a:t>Blue line</a:t>
                 </a:r>
               </a:p>
             </p:txBody>
@@ -1730,29 +1735,21 @@ describe('importPptxPackage', () => {
     );
 
     const result = await importPptxPackage(file);
-    const fragment = result.elements.find(
-      (element: any) => element.sceneImportMetadata?.text === 'Red Green'
+    const text = result.elements.find(
+      (element: any) => element.text === 'Red Green\nBlue line'
     ) as any;
 
-    expect(fragment.type).toBe('image');
-    expect(fragment.sceneImportMetadata.hasTspan).toBe(true);
-    expect(fragment.sceneImportMetadata.runs).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          text: 'Red',
-          style: expect.objectContaining({ fill: '#C00000' }),
-        }),
-        expect.objectContaining({
-          text: ' Green',
-          style: expect.objectContaining({
-            fill: '#00B050',
-            fontWeight: 'bold',
-          }),
-        }),
-      ])
-    );
-    expect(fragment.url).toContain(encodeURIComponent('fill="#C00000"'));
-    expect(fragment.url).toContain(encodeURIComponent('fill="#00B050"'));
+    expect(text.type).toBe('geometry');
+    expect(text.shape).toBe('text');
+    expect(text.textStyle.fontFamily).toContain('Aptos');
+    expect(text.textStyle.fontFamily).toContain('Aptos Narrow');
+    expect(text.textStyle.color).toBe('#C00000');
+    expect(text.points[0]).toEqual([0, 0]);
+    expect(text.points[1][0]).toBe(200);
+    expect(text.points[1][1]).toBeGreaterThan(50);
+    expect(
+      result.elements.some((element: any) => element.sceneImportMetadata)
+    ).toBe(false);
   });
 
   it('inherits text color from paragraph default run properties', async () => {

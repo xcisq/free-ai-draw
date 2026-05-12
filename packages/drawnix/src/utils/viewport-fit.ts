@@ -21,6 +21,13 @@ const DEFAULT_MIN_ZOOM = 0.25;
 const DEFAULT_MAX_ZOOM = 1.2;
 const DEFAULT_DURATION = 320;
 
+export const IMPORT_VIEWPORT_FOCUS_OPTIONS: ViewportFocusOptions = {
+  padding: DEFAULT_PADDING,
+  minZoom: DEFAULT_MIN_ZOOM,
+  maxZoom: DEFAULT_MAX_ZOOM,
+  duration: DEFAULT_DURATION,
+};
+
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 

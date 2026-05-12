@@ -28,7 +28,11 @@ import { useI18n } from '../../i18n';
 import { SvgImportSummary } from '../../svg-import/convert-svg-to-drawnix';
 import { importBundlePackage } from '../../scene-import/import-bundle-package';
 import { scaleTextMetricBag } from './autodraw-text-scale';
-import { focusViewportOnElements } from '../../utils/viewport-fit';
+import {
+  focusViewportOnElements,
+  focusViewportOnRectangle,
+  IMPORT_VIEWPORT_FOCUS_OPTIONS,
+} from '../../utils/viewport-fit';
 import { AutodrawActivityPanel } from './autodraw-activity-panel';
 import {
   AutodrawReferenceDirectoryHandle,
@@ -1344,6 +1348,16 @@ const AutodrawDialog = () => {
     };
   };
 
+  const getPlacedImportRectangle = (elements: PlaitElement[]) => {
+    const { sourceRectangle, startPoint } = getImportPlacement(elements);
+    return {
+      x: startPoint[0],
+      y: startPoint[1],
+      width: sourceRectangle.width,
+      height: sourceRectangle.height,
+    };
+  };
+
   const insertElementsAtPoint = (
     elements: PlaitElement[],
     startPoint: Point
@@ -1437,7 +1451,11 @@ const AutodrawDialog = () => {
 
   const insertElementsWithAssembly = async (elements: PlaitElement[]) => {
     if (!elements.length) {
-      return { ids: [], insertedElements: [] as PlaitElement[] };
+      return {
+        ids: [],
+        insertedElements: [] as PlaitElement[],
+        importRectangle: null,
+      };
     }
 
     const reducedMotion =
@@ -1445,6 +1463,11 @@ const AutodrawDialog = () => {
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const { startPoint } = getImportPlacement(elements);
+    const importRectangle = getPlacedImportRectangle(elements);
+    focusViewportOnRectangle(board, importRectangle, {
+      ...IMPORT_VIEWPORT_FOCUS_OPTIONS,
+      duration: 0,
+    });
     if (reducedMotion || elements.length <= 1) {
       const insertedBatch = insertElementsAtPoint(elements, startPoint);
       setAssemblyProgress({
@@ -1456,6 +1479,7 @@ const AutodrawDialog = () => {
       return {
         ids: insertedBatch.ids,
         insertedElements: insertedBatch.insertedElements,
+        importRectangle,
       };
     }
 
@@ -1475,7 +1499,7 @@ const AutodrawDialog = () => {
 
     for (let index = 0; index < batches.length; index += 1) {
       if (runId !== assemblyRunIdRef.current) {
-        return { ids: insertedIds, insertedElements };
+        return { ids: insertedIds, insertedElements, importRectangle };
       }
       const insertedBatch = insertElementsAtPoint(batches[index], startPoint);
       insertedIds.push(...insertedBatch.ids);
@@ -1495,10 +1519,10 @@ const AutodrawDialog = () => {
     }
 
     if (runId !== assemblyRunIdRef.current) {
-      return { ids: insertedIds, insertedElements };
+      return { ids: insertedIds, insertedElements, importRectangle };
     }
 
-    return { ids: insertedIds, insertedElements };
+    return { ids: insertedIds, insertedElements, importRectangle };
   };
 
   const importBundle = async (
@@ -1599,12 +1623,20 @@ const AutodrawDialog = () => {
     setSummary(result.summary);
     const insertResult = await insertElementsWithAssembly(normalizedElements);
     const insertedElementIds = insertResult.ids;
-    focusViewportOnElements(
-      board,
-      insertResult.insertedElements.length
-        ? insertResult.insertedElements
-        : normalizedElements
-    );
+    const viewportFocusTargets = insertResult.insertedElements.length
+      ? insertResult.insertedElements
+      : normalizedElements;
+    if (insertResult.importRectangle) {
+      focusViewportOnRectangle(board, insertResult.importRectangle, {
+        ...IMPORT_VIEWPORT_FOCUS_OPTIONS,
+        duration: 120,
+      });
+    } else {
+      focusViewportOnElements(board, viewportFocusTargets, {
+        ...IMPORT_VIEWPORT_FOCUS_OPTIONS,
+        duration: 120,
+      });
+    }
     clearSelectedElement(board);
     setLastImportedElementIds(
       insertedElementIds.length

@@ -1376,6 +1376,25 @@ const hasMeaningfulRunStyleDifferences = (runs: ParsedTextRun[]) => {
   );
 };
 
+const collectTextFontFamilies = (
+  primaryFontFamily: string,
+  runs: ParsedTextRun[]
+) => {
+  const families = [
+    primaryFontFamily,
+    ...runs.map((run) => run.style.fontFamily),
+  ].filter(Boolean);
+  const seen = new Set<string>();
+  return families.filter((family) => {
+    const key = family.toLowerCase();
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+};
+
 const parseParagraphAlign = (
   textBody: Element,
   inheritedParagraphSources: Element[] = []
@@ -1637,7 +1656,8 @@ const parseTextBody = (
     themeColors,
     inheritedTextStyle.runSources
   );
-  const shouldUseTextFragment = hasMeaningfulRunStyleDifferences(richTextRuns);
+  const hasRichRunStyleDifferences =
+    hasMeaningfulRunStyleDifferences(richTextRuns);
   const lineHeight = parseParagraphLineHeight(
     textBody,
     runStyle.fontSize,
@@ -1709,17 +1729,12 @@ const parseTextBody = (
       lineHeight,
       letterSpacing,
     },
-    editing: shouldUseTextFragment
-      ? {
-          mode: 'svg-fragment-text',
-        }
-      : undefined,
     metadata: {
       textRole: slideIndex === 0 && fontSize >= 28 ? 'title' : 'plain',
-      hasTspan: shouldUseTextFragment,
-      fontFamilies: [runStyle.fontFamily],
+      hasTspan: hasRichRunStyleDifferences,
+      fontFamilies: collectTextFontFamilies(runStyle.fontFamily, richTextRuns),
     },
-    runs: shouldUseTextFragment
+    runs: hasRichRunStyleDifferences
       ? richTextRuns.map((run) => ({
           text: run.text,
           style: {
